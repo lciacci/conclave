@@ -86,7 +86,7 @@ Budget cap: **$100/mo — confirmed 2026-07-02.** All thresholds below parameter
 | Tiered alerts | AWS Budgets | 50% / 80% / 100% of cap |
 | Anomaly detection | AWS Cost Anomaly Detection | default sensitivity |
 | Hard stop | Lambda terminates tagged instances | 100% of cap |
-| Idle stop | CloudWatch metric on inference activity → Lambda stops instance | N min idle (tune in v2; start 30) |
+| Idle stop | CloudWatch alarm (GPUUtilization < 5% for 30 min) → Lambda stops instance | built in v0.5; metric tuned against real inference activity in v2 |
 | Spot | Use where interruption tolerable (most exploratory work) | — |
 | Tagging | `project=conclave` on every resource; monthly review | — |
 
@@ -95,11 +95,17 @@ Controls first, compute second.
 
 ## Phases
 
+- **v0.5 — cost layer, zero GPU spend.** AWS Budgets tiered alerts, hard-stop Lambda,
+  idle-stop Lambda (crude GPUUtilization metric), `project=conclave` tagging convention.
+  Kill-switch and idle-stop tested against a t3.micro before any GPU instance exists.
+  Rationale: manual stop discipline fails exactly once — one forgotten weekend on g6e.xlarge
+  ≈ $90 ≈ the whole monthly cap. Hard-stop alone fires only after budget is burned.
 - **v1 — single model, working endpoint.** g6e.xlarge, one 70B AWQ model on vLLM, Tailscale
-  connected, manual start/stop, budget alerts + hard-stop live. Done = curl from local Mac
+  connected, manual start/stop with idle-stop as safety net. Done = curl from local Mac
   through Tailscale returns tokens.
 - **v2 — gateway + fleet.** LiteLLM in front; add 2–3 specialized models (code, reasoning,
-  small/fast); idle-stop automation; per-model cost accounting via LiteLLM.
+  small/fast); tune idle-stop metric against real inference activity (LiteLLM request counts);
+  per-model cost accounting via LiteLLM.
 - **v3 — ensemble + judge.** Parallel fan-out, judge selection/synthesis, judge evals separate
   from specialist evals. The pedagogically interesting phase.
 - **v4 (maybe) — MCP front-end.** Unpauses project #5: MCP server as the structured interface
