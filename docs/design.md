@@ -60,6 +60,16 @@ Locked before this doc; reasoning preserved:
 OpenAI-compatible proxy in front of all backends. Everything local speaks one API regardless of
 what's serving behind it. Also the natural seam for per-model token/cost accounting (purpose #3).
 
+### Platform — Terraform, us-east-1, dedicated AWS account
+
+- **Terraform** for all infra: free teardown/rebuild, tracked state, and the IaC vocabulary the
+  platform story expects. Bash+CLI rejected — no state, no clean destroy.
+- **us-east-1**: g6e available, deepest spot pools, marginally cheapest. Latency irrelevant —
+  inference rides Tailscale, +40 ms is nothing.
+- **Fresh AWS account, dedicated to this project** (decided 2026-07-02, no prior account
+  existed): blast-radius isolation, bill is the project's bill — no tag-filtering needed to
+  answer "what does conclave cost."
+
 ## Judge architecture (v3 — the thesis)
 
 Fan out a query to N models in parallel; a judge model selects the best response or synthesizes.
