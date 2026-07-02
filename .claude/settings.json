@@ -1,0 +1,113 @@
+{
+  "statusLine": {
+    "type": "command",
+    "command": "sh -c 'if [ -x .claude/scripts/mnemos-statusline.sh ]; then exec .claude/scripts/mnemos-statusline.sh; elif [ -x \"$HOME/.claude/templates/mnemos-statusline.sh\" ]; then exec \"$HOME/.claude/templates/mnemos-statusline.sh\"; fi'",
+    "padding": 0
+  },
+  "permissions": {
+    "allow": [
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git branch *)",
+      "Bash(gh pr *)",
+      "Bash(gh issue *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(wc *)",
+      "Bash(mnemos *)",
+      "Bash(python -m mnemos *)",
+      "Bash(python3 scripts/gate/emit.py *)"
+    ],
+    "_stack_allow_note": "Add your stack's build/test/run commands to allow[], e.g. Bash(./gradlew *) / Bash(npm test *) / Bash(pytest *). Remove this key.",
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(git push --force *)",
+      "Bash(git reset --hard *)",
+      "Write(.env)",
+      "Write(.env.*)",
+      "Edit(.env)",
+      "Edit(.env.*)"
+    ]
+  },
+  "hooks": {
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x \".claude/scripts/mnemos-pre-compact.sh\" ]; then exec \".claude/scripts/mnemos-pre-compact.sh\"; elif [ -x \"$HOME/.claude/templates/mnemos-pre-compact.sh\" ]; then exec \"$HOME/.claude/templates/mnemos-pre-compact.sh\"; fi; exit 0",
+            "timeout": 8,
+            "statusMessage": "Writing emergency checkpoint + compaction priorities..."
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x \".claude/scripts/mnemos-post-compact-inject.sh\" ]; then exec \".claude/scripts/mnemos-post-compact-inject.sh\"; elif [ -x \"$HOME/.claude/templates/mnemos-post-compact-inject.sh\" ]; then exec \"$HOME/.claude/templates/mnemos-post-compact-inject.sh\"; fi; exit 0",
+            "timeout": 2,
+            "statusMessage": "Checking for post-compaction restore..."
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x \".claude/scripts/mnemos-pre-edit.sh\" ]; then exec \".claude/scripts/mnemos-pre-edit.sh\"; elif [ -x \"$HOME/.claude/templates/mnemos-pre-edit.sh\" ]; then exec \"$HOME/.claude/templates/mnemos-pre-edit.sh\"; fi; exit 0",
+            "timeout": 5,
+            "statusMessage": "Checking fatigue + intent context..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x \".claude/scripts/mnemos-post-tool.sh\" ]; then exec \".claude/scripts/mnemos-post-tool.sh\"; elif [ -x \"$HOME/.claude/templates/mnemos-post-tool.sh\" ]; then exec \"$HOME/.claude/templates/mnemos-post-tool.sh\"; fi; exit 0",
+            "timeout": 1,
+            "statusMessage": "Logging tool outcome..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x \".claude/scripts/mnemos-stop-checkpoint.sh\" ]; then exec \".claude/scripts/mnemos-stop-checkpoint.sh\"; elif [ -x \"$HOME/.claude/templates/mnemos-stop-checkpoint.sh\" ]; then exec \"$HOME/.claude/templates/mnemos-stop-checkpoint.sh\"; fi; exit 0",
+            "timeout": 5,
+            "statusMessage": "Writing session checkpoint..."
+          },
+          {
+            "type": "command",
+            "command": "if [ -x \".claude/scripts/mnemos-stop-ingest.sh\" ]; then exec \".claude/scripts/mnemos-stop-ingest.sh\"; elif [ -x \"$HOME/.claude/templates/mnemos-stop-ingest.sh\" ]; then exec \"$HOME/.claude/templates/mnemos-stop-ingest.sh\"; fi; exit 0",
+            "timeout": 10,
+            "statusMessage": "Ingesting Claude transcript + scoring haze..."
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x \".claude/scripts/mnemos-session-start.sh\" ]; then exec \".claude/scripts/mnemos-session-start.sh\"; elif [ -x \"$HOME/.claude/templates/mnemos-session-start.sh\" ]; then exec \"$HOME/.claude/templates/mnemos-session-start.sh\"; fi; exit 0",
+            "timeout": 5,
+            "statusMessage": "Loading session checkpoint + project context..."
+          }
+        ]
+      }
+    ]
+  }
+}

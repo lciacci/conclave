@@ -1,0 +1,12 @@
+# Tessera security exception log
+# Used when a security-critical rule needs to be overridden with named-owner approval.
+# Checked in by default — exceptions need to be visible.
+
+exceptions: []
+
+# Example entry:
+# - rule: "credentials-no-plaintext-scan"
+#   reason: "Local-only dev tool, no PHI risk, owner-approved fallback to .env"
+#   owner: "lorenzo.ciacci"
+#   approved_at: "2026-06-19T17:00:00Z"
+#   expires_at: "2026-12-19T17:00:00Z"
