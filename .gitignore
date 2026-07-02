@@ -1,0 +1,28 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors / IDE
+.vscode/settings.json
+.idea/
+
+# Tessera runtime
+.tessera/logs/*
+!.tessera/logs/README.md
+.tessera/config.yml
+.mnemos/
+.icpg/
+.claude/.tdd-iteration-count
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python (tooling)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# --- add your stack below (build artifacts, deps, lockfiles you don't track) ---

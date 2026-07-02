@@ -1,0 +1,21 @@
+# Tessera project configuration
+# This file declares the project's profile and active extensions.
+# Checked in by default for reproducibility, team coordination, and audit trail.
+# Generated/updated by `tess profile` commands; avoid editing by hand.
+
+profile: standard
+
+# Hook distribution — how this project gets its mnemos hook scripts (ADR-0004).
+#   global — no local copies; hooks resolve from ~/.claude/templates (single source, zero drift)
+#   frozen — pinned local copies in .claude/scripts (churn-immune; for ship-critical projects)
+#   source — the framework repo only; local copies ARE the source install.sh ships
+# Default global. Flip with `tessera-hooks freeze|thaw`; inspect with `tessera-hooks status`.
+hook_distro: global
+
+# Profile activation history (audited per-profile; standard profile changes are not logged)
+profile_history: []
+
+# Extension overrides (explicit add/remove vs profile defaults)
+# Leave empty unless deviating from the profile bundle.
+extensions_added: []
+extensions_removed: []
