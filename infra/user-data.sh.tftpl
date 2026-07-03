@@ -1,0 +1,32 @@
+#!/bin/bash
+# First-boot setup: tailscale join, EFS mount, vLLM serve.
+# cloud-init runs this once; tailscaled state + fstab + docker restart policy
+# survive stop/start cycles.
+set -euxo pipefail
+exec > /var/log/conclave-init.log 2>&1
+
+# --- tailscale ---
+curl -fsSL https://tailscale.com/install.sh | sh
+command -v aws || apt-get install -y awscli
+TS_KEY=$(aws ssm get-parameter --name "${ts_key_param}" --with-decryption \
+  --region "${region}" --query Parameter.Value --output text)
+tailscale up --authkey "$TS_KEY" --hostname conclave-gpu
+unset TS_KEY
+
+# --- EFS model cache ---
+apt-get install -y nfs-common
+mkdir -p /mnt/efs
+echo "${efs_dns}:/ /mnt/efs nfs4 defaults,_netdev 0 0" >> /etc/fstab
+mount -a
+mkdir -p /mnt/efs/models
+
+# --- vLLM ---
+# ponytail: 0.92 gpu-mem-util + 16k context is the safe 70B-AWQ-on-48GB
+# starting point; tune after first tokens flow.
+docker run -d --restart unless-stopped --name vllm --gpus all \
+  -v /mnt/efs/models:/models -p 8000:8000 \
+  vllm/vllm-openai:latest \
+  --model "${model_id}" \
+  --download-dir /models \
+  --max-model-len 16384 \
+  --gpu-memory-utilization 0.92
