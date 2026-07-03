@@ -133,3 +133,25 @@ Controls first, compute second.
 2. **Spot vs on-demand for v1** — spot saves ~50–70% but interruption mid-session annoys.
    Suggest on-demand for v1 (short manual sessions), spot from v2 automation onward.
 3. **Ensemble-phase instance** — g5.12xlarge vs g6e.12xlarge. Price-compare when v3 starts.
+
+## Launch-day risks (v1 first boot)
+
+Known failure modes, ranked by likelihood. Debug access is Session Manager
+(`aws ssm start-session`), no SSH — read `docker logs vllm` and
+`/var/log/conclave-init.log`.
+
+1. **DLAMI driver ↔ vLLM CUDA mismatch** — most common. Container CUDA newer than
+   host driver → vLLM won't start. Fix: pin the vLLM image tag to the DLAMI's driver.
+2. **AWQ ↔ L40S kernel support** — some AWQ configs need a specific vLLM version or
+   `--quantization awq_marlin`.
+3. **KV-cache OOM at `--max-model-len 16384`** — 72B AWQ + KV cache on 48 GB may OOM.
+   Drop to 8192 if so.
+4. **Idle-stop false-negative** — vLLM idle CPU may sit above 5%, so the CPU-proxy
+   alarm never fires. Watch the first real GPU session; bump threshold or move to a
+   GPU/request metric earlier than v2 if needed.
+5. **Tailscale key expiry** — key is non-ephemeral, but disable expiry on the
+   `conclave-gpu` node in the Tailscale console after first join, or a later reboot
+   can't rejoin.
+
+Model for v1: **Qwen2.5-72B-Instruct-AWQ** (ungated — no HF token friction on first
+boot). Launch on-demand, not spot, for the first session.
