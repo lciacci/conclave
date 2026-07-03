@@ -95,8 +95,8 @@ Budget cap: **$100/mo — confirmed 2026-07-02.** All thresholds below parameter
 |---|---|---|
 | Tiered alerts | AWS Budgets | 50% / 80% / 100% of cap |
 | Anomaly detection | AWS Cost Anomaly Detection | default sensitivity |
-| Hard stop | Lambda terminates tagged instances | 100% of cap |
-| Idle stop | CloudWatch alarm (GPUUtilization < 5% for 30 min) → Lambda stops instance | built in v0.5; metric tuned against real inference activity in v2 |
+| Hard stop | SNS → Lambda **stops** tagged instances (not terminate — stopping ends GPU billing, keeps instance recoverable, residual EBS ~$8/mo) | 100% of cap |
+| Idle stop | CloudWatch alarm (CPUUtilization < 5% for 30 min) → native EC2 stop action, no Lambda | built in v0.5; GPU/request metric tuned in v2 (native CloudWatch has no GPU metric — needs CW agent/DCGM) |
 | Spot | Use where interruption tolerable (most exploratory work) | — |
 | Tagging | `project=conclave` on every resource; monthly review | — |
 
@@ -105,14 +105,19 @@ Controls first, compute second.
 
 ## Phases
 
-- **v0.5 — cost layer, zero GPU spend.** AWS Budgets tiered alerts, hard-stop Lambda,
-  idle-stop Lambda (crude GPUUtilization metric), `project=conclave` tagging convention.
-  Kill-switch and idle-stop tested against a t3.micro before any GPU instance exists.
-  Rationale: manual stop discipline fails exactly once — one forgotten weekend on g6e.xlarge
-  ≈ $90 ≈ the whole monthly cap. Hard-stop alone fires only after budget is burned.
-- **v1 — single model, working endpoint.** g6e.xlarge, one 70B AWQ model on vLLM, Tailscale
-  connected, manual start/stop with idle-stop as safety net. Done = curl from local Mac
-  through Tailscale returns tokens.
+- **v0.5 — cost layer, zero GPU spend. ✅ DONE (2026-07-03).** AWS Budgets tiered alerts,
+  hard-stop Lambda (SNS-triggered, stops tagged instances), idle-stop CloudWatch alarm (CPU
+  proxy, native EC2 stop action), `project=conclave` tagging convention. Both kill switches
+  **verified end-to-end** against a throwaway t4g.micro: hard-stop Lambda stopped the tagged
+  instance on invoke; idle-stop alarm fired after 30 min sub-5% CPU and stopped it. Total test
+  cost ~$0.02. Rationale: manual stop discipline fails exactly once — one forgotten weekend on
+  g6e.xlarge ≈ $90 ≈ the whole monthly cap. Hard-stop alone fires only after budget is burned.
+- **v1 — single model, working endpoint. ⏳ quota-gated.** g6e.xlarge, one 70B AWQ model on
+  vLLM, Tailscale connected, manual start/stop with idle-stop as safety net. Done = curl from
+  local Mac through Tailscale returns tokens. Terraform written and gated behind `enable_gpu`;
+  the GPU *instance* + its alarm are gated, but the surrounding EFS cache, security groups, and
+  IAM role are already applied (all $0 while empty). Blocked on G-instance vCPU quota approval
+  (requested 2026-07-03, both On-Demand + Spot PENDING).
 - **v2 — gateway + fleet.** LiteLLM in front; add 2–3 specialized models (code, reasoning,
   small/fast); tune idle-stop metric against real inference activity (LiteLLM request counts);
   per-model cost accounting via LiteLLM.
