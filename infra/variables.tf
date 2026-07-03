@@ -29,3 +29,27 @@ variable "idle_minutes" {
   type    = number
   default = 30
 }
+
+# GPU instance is gated: quota approval pending, and every apply that creates
+# it starts billing. Flip with -var enable_gpu=true once quota lands.
+variable "enable_gpu" {
+  type    = bool
+  default = false
+}
+
+variable "gpu_instance_type" {
+  type    = string
+  default = "g6e.xlarge"
+}
+
+# Ungated on HF (no token needed). Llama 3.3 70B AWQ is the alternative but
+# is gated — decide at launch per design doc.
+variable "model_id" {
+  type    = string
+  default = "Qwen/Qwen2.5-72B-Instruct-AWQ"
+}
+
+variable "tailscale_key_param" {
+  type    = string
+  default = "/conclave/tailscale-authkey"
+}
