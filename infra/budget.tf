@@ -10,7 +10,7 @@ resource "aws_budgets_budget" "monthly" {
   time_unit    = "MONTHLY"
 
   dynamic "notification" {
-    for_each = [50, 80, 100]
+    for_each = [50, 80]
     content {
       comparison_operator        = "GREATER_THAN"
       threshold                  = notification.value
@@ -20,37 +20,19 @@ resource "aws_budgets_budget" "monthly" {
     }
   }
 
-  # 100% actual → SNS → hard-stop lambda
+  # 100% actual → email + SNS → hard-stop lambda. One block: Budgets keys
+  # notifications on (type, operator, threshold) — two blocks at 100% collide.
   notification {
-    comparison_operator       = "GREATER_THAN"
-    threshold                 = 100
-    threshold_type            = "PERCENTAGE"
-    notification_type         = "ACTUAL"
-    subscriber_sns_topic_arns = [aws_sns_topic.hardstop.arn]
+    comparison_operator        = "GREATER_THAN"
+    threshold                  = 100
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "ACTUAL"
+    subscriber_email_addresses = [var.alert_email]
+    subscriber_sns_topic_arns  = [aws_sns_topic.hardstop.arn]
   }
 }
 
-resource "aws_ce_anomaly_monitor" "services" {
-  name              = "conclave-anomaly"
-  monitor_type      = "DIMENSIONAL"
-  monitor_dimension = "SERVICE"
-}
-
-resource "aws_ce_anomaly_subscription" "email" {
-  name             = "conclave-anomaly-email"
-  frequency        = "DAILY"
-  monitor_arn_list = [aws_ce_anomaly_monitor.services.arn]
-
-  subscriber {
-    type    = "EMAIL"
-    address = var.alert_email
-  }
-
-  threshold_expression {
-    dimension {
-      key           = "ANOMALY_TOTAL_IMPACT_ABSOLUTE"
-      match_options = ["GREATER_THAN_OR_EQUAL"]
-      values        = ["10"]
-    }
-  }
-}
+# Anomaly detection: intentionally absent. New accounts ship with an
+# auto-created Default-Services-Monitor + daily email subscription to the
+# account address, and the account limit is 1 dimensional monitor. Ours would
+# have been a duplicate that can't even be created.
