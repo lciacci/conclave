@@ -1,0 +1,29 @@
+# LiteLLM gateway — v2 DRAFT, not wired yet.
+# One OpenAI-compatible API in front of every vLLM backend + the seam for
+# per-model cost accounting. v1 hits vLLM directly on :8000; this lands when
+# v2 adds the 2nd/3rd model. Backends are addressed by their Tailscale
+# hostname (user-data sets `--hostname conclave-gpu`).
+
+model_list:
+  # v1 model, already served by vLLM on the GPU box.
+  - model_name: qwen-72b
+    litellm_params:
+      model: openai/Qwen/Qwen2.5-72B-Instruct-AWQ
+      api_base: http://conclave-gpu:8000/v1
+      api_key: "none"          # vLLM has no auth; Tailscale ACL is the boundary
+
+  # v2 additions (specialists) — uncomment as each backend comes up.
+  # - model_name: llama-70b
+  #   litellm_params:
+  #     model: openai/meta-llama/Llama-3.3-70B-Instruct-AWQ   # needs HF token wired
+  #     api_base: http://conclave-gpu:8000/v1
+  #     api_key: "none"
+
+litellm_settings:
+  # Per-model cost accounting — the reason LiteLLM sits here at all (v2 goal).
+  # Self-hosted weights = $0 API cost; track GPU-hours/tokens instead once the
+  # spend model is decided. Placeholder until v2.
+  drop_params: true
+
+# ponytail: no router/fallback/rate-limit config yet — single backend, single
+# user. Add when v2 has multiple models actually competing for the GPU.
