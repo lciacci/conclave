@@ -7,6 +7,19 @@ data "aws_ssm_parameter" "dlami" {
   name = "/aws/service/deeplearning/ami/x86_64/base-oss-nvidia-driver-gpu-ubuntu-22.04/latest/ami-id"
 }
 
+# Subnet in the chosen AZ (var.gpu_az) — spot capacity is per-AZ, so we don't
+# pin the arbitrary ids[0] which landed in the dry us-east-1d.
+data "aws_subnets" "gpu_az" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
+  }
+  filter {
+    name   = "availability-zone"
+    values = [var.gpu_az]
+  }
+}
+
 resource "aws_security_group" "gpu" {
   name   = "conclave-gpu"
   vpc_id = data.aws_vpc.default.id
@@ -61,13 +74,23 @@ resource "aws_instance" "gpu" {
 
   ami                    = data.aws_ssm_parameter.dlami.value
   instance_type          = var.gpu_instance_type
-  subnet_id              = data.aws_subnets.default.ids[0]
+  subnet_id              = data.aws_subnets.gpu_az.ids[0]
   vpc_security_group_ids = [aws_security_group.gpu.id]
   iam_instance_profile   = aws_iam_instance_profile.gpu.name
 
   root_block_device {
     volume_size = 100
     volume_type = "gp3"
+  }
+
+  # ponytail: spot with default (terminate) interruption behavior — on reclaim,
+  # re-apply to relaunch; EFS keeps the weights so it's cheap. Stop-not-terminate
+  # would need a launch template; add only if reclaims get annoying.
+  dynamic "instance_market_options" {
+    for_each = var.use_spot ? [1] : []
+    content {
+      market_type = "spot"
+    }
   }
 
   user_data = templatefile("${path.module}/user-data.sh.tftpl", {

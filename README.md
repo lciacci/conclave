@@ -79,7 +79,7 @@ what turns "two similar components" into an exploration of a design pattern.
 | Phase | State | Scope |
 |---|---|---|
 | **v0.5** | ✅ done | Cost layer — budget, hard-stop, idle-stop, tagging. Zero GPU spend. |
-| **v1** | ⏳ quota-gated | Single 70B model on vLLM, Tailscale-reachable endpoint. |
+| **v1** | ⏳ capacity-blocked | Qwen 2.5 72B AWQ on vLLM, Tailscale-reachable endpoint. All preconditions green; g6e.xlarge spot capacity-starved in us-east-1 (2026-07-06). Retry when capacity returns or on-demand quota lands. |
 | **v2** | planned | LiteLLM gateway, 2–3 specialized models, per-model cost accounting. |
 | **v3** | planned | Ensemble fan-out + judge selection/synthesis. |
 | **v4** | maybe | MCP server as the structured front-end to the platform. |

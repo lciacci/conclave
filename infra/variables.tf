@@ -42,6 +42,22 @@ variable "gpu_instance_type" {
   default = "g6e.xlarge"
 }
 
+# v1 launches on spot (only G quota approved as of 2026-07-06). Flip to false
+# with -var once On-Demand G quota lands — no code change.
+variable "use_spot" {
+  type    = bool
+  default = true
+}
+
+# Which AZ the GPU lands in. Spot capacity is per-AZ and volatile; us-east-1d
+# was dry for g6e.xlarge on 2026-07-06. Flip with -var gpu_az=us-east-1c if the
+# default AZ returns InsufficientInstanceCapacity. EFS has a mount target in
+# every default subnet, so any AZ works for the model cache.
+variable "gpu_az" {
+  type    = string
+  default = "us-east-1b"
+}
+
 # Ungated on HF (no token needed). Llama 3.3 70B AWQ is the alternative but
 # is gated — decide at launch per design doc.
 variable "model_id" {
