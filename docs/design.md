@@ -112,12 +112,28 @@ Controls first, compute second.
   instance on invoke; idle-stop alarm fired after 30 min sub-5% CPU and stopped it. Total test
   cost ~$0.02. Rationale: manual stop discipline fails exactly once — one forgotten weekend on
   g6e.xlarge ≈ $90 ≈ the whole monthly cap. Hard-stop alone fires only after budget is burned.
-- **v1 — single model, working endpoint. ⏳ quota-gated.** g6e.xlarge, one 70B AWQ model on
-  vLLM, Tailscale connected, manual start/stop with idle-stop as safety net. Done = curl from
-  local Mac through Tailscale returns tokens. Terraform written and gated behind `enable_gpu`;
-  the GPU *instance* + its alarm are gated, but the surrounding EFS cache, security groups, and
-  IAM role are already applied (all $0 while empty). Blocked on G-instance vCPU quota approval
-  (requested 2026-07-03, both On-Demand + Spot PENDING).
+- **v1 — single model, working endpoint. ⏳ blocked: spot capacity.** g6e.xlarge spot, Qwen
+  2.5 72B AWQ on vLLM, Tailscale connected, manual start/stop with idle-stop as safety net.
+  Done = curl from local Mac through Tailscale returns tokens. Terraform written and gated behind
+  `enable_gpu`; the GPU *instance* + its alarm are gated, the surrounding EFS cache, security
+  groups, and IAM role are already applied (all $0 while empty).
+
+  **Launch attempt 2026-07-06 — everything green except capacity:**
+  - Spot G/VT quota approved (8 vCPU). On-Demand G/VT still pending (0 vCPU) — can't fall back.
+  - Tailscale: Mac on tailnet (`100.120.231.43`); real reusable+ephemeral authkey stored in SSM
+    `/conclave/tailscale-authkey` (v2, replaced the `PASTE-HERE` placeholder). Untagged for v1.
+  - Model: Qwen 2.5 72B AWQ, ungated — no HF token needed (Llama 3.3 70B is HF-gated; deferred).
+  - Infra changes made + working: `use_spot` var, spot `instance_market_options` in gpu.tf,
+    `gpu_az` var (default `us-east-1b`) + AZ-filtered subnet data source (was pinned to `ids[0]`
+    = us-east-1d, which was spot-dry). EFS has a mount target in every AZ, so any AZ is fine.
+  - **Blocker:** `InsufficientInstanceCapacity` for g6e.xlarge spot. First hit in us-east-1d;
+    after AZ-hop to 1b, still failed. Spot placement scores 1–3/10 across all us-east-1 AZs =
+    region-wide scarcity, not a config bug. Both applies killed cleanly, zero spend, state clean.
+  - **To resume:** re-check `aws ec2 get-spot-placement-scores --instance-types g6e.xlarge
+    --target-capacity 1 --region-names us-east-1 --single-availability-zone`; when an AZ scores
+    high, set `-var gpu_az=<that AZ>` and `terraform apply -var enable_gpu=true` (profile
+    `yeti-conclave`). OR launch on-demand once its quota lands (`-var use_spot=false`). Off-peak
+    hours tend to have better spot capacity. Uncommitted working-tree changes hold all the above.
 - **v2 — gateway + fleet.** LiteLLM in front; add 2–3 specialized models (code, reasoning,
   small/fast); tune idle-stop metric against real inference activity (LiteLLM request counts);
   per-model cost accounting via LiteLLM.
@@ -128,10 +144,28 @@ Controls first, compute second.
 
 ## Open questions
 
-1. **v1 model choice** — Llama 3.3 70B AWQ vs Qwen 2.5 72B AWQ. Decide at launch; check
-   current weights landscape then, not now.
-2. **Spot vs on-demand for v1** — spot saves ~50–70% but interruption mid-session annoys.
-   Suggest on-demand for v1 (short manual sessions), spot from v2 automation onward.
+1. **v1 model choice — RESOLVED 2026-07-06: Qwen 2.5 72B AWQ (`Qwen/Qwen2.5-72B-Instruct-AWQ`).**
+   First picked Llama 3.3 70B AWQ on "fewest first-boot surprises," then the infra reality
+   inverted that: user-data passes no `HF_TOKEN`, so only *ungated* HF repos download. Llama
+   3.3 70B is HF-gated (token + Meta license); Qwen 2.5 72B AWQ is ungated, Apache 2.0, and was
+   already the wired default. So on *this* infra Qwen is the safer first boot, and it's equally
+   70B-class dense — proves the same single-GPU serving thesis. Swap to Llama in v1.1/v2 once an
+   HF token is wired into SSM + user-data (gated models need it eventually anyway).
+   Weights-landscape check at decision time:
+   - Design's original binary still holds for *70B-class dense* — Qwen3 put its gains into MoE
+     (235B-A22B, too big) and smaller dense (tops out at **32B**); there is no Qwen3 72B. Llama 4
+     is also MoE (needs MoE-aware serving, awkward on one 48 GB). So the 72B-dense slot is still
+     Qwen 2.5 72B, and 70B-dense is still Llama 3.3 70B.
+   - **Finding to exploit later (v2/v3):** best model-per-GPU may not be 70B-class at all.
+     Qwen3 32B / Qwen3.6-27B dense reportedly match last-gen 70B in thinking mode, fit at FP8
+     (~14 GB) / FP16 (~28 GB) with large KV headroom, and run faster. When the platform stands
+     up for real, pick by best-fit (capability ÷ VRAM ÷ latency), not by param count. Revisit the
+     fleet composition in v2 with this in mind.
+2. **Spot vs on-demand for v1 — RESOLVED 2026-07-06: spot.** Spot G/VT quota approved (8 vCPU,
+   CASE_CLOSED); On-Demand G/VT still pending (0 vCPU, CASE_OPENED 2026-07-03). Original doc
+   preferred on-demand ("interruption annoys"), but v1's done-criteria is trivial + restartable
+   (curl returns tokens) and EFS holds the weights, so a mid-session reclaim loses nothing. Switch
+   v1 (and the default) to on-demand once its quota approves; spot remains the v2+ default anyway.
 3. **Ensemble-phase instance** — g5.12xlarge vs g6e.12xlarge. Price-compare when v3 starts.
 
 ## Launch-day risks (v1 first boot)
