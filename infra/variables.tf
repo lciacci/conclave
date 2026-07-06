@@ -69,3 +69,10 @@ variable "tailscale_key_param" {
   type    = string
   default = "/conclave/tailscale-authkey"
 }
+
+# HF token for gated model downloads (e.g. Llama 3.3 70B). Empty/placeholder
+# for ungated models like Qwen 2.5 72B AWQ — user-data skips -e HF_TOKEN then.
+variable "hf_token_param" {
+  type    = string
+  default = "/conclave/hf-token"
+}

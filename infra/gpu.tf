@@ -57,9 +57,12 @@ resource "aws_iam_role_policy" "read_ts_key" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect   = "Allow"
-      Action   = ["ssm:GetParameter"]
-      Resource = "arn:aws:ssm:${var.region}:*:parameter${var.tailscale_key_param}"
+      Effect = "Allow"
+      Action = ["ssm:GetParameter"]
+      Resource = [
+        "arn:aws:ssm:${var.region}:*:parameter${var.tailscale_key_param}",
+        "arn:aws:ssm:${var.region}:*:parameter${var.hf_token_param}",
+      ]
     }]
   })
 }
@@ -94,10 +97,11 @@ resource "aws_instance" "gpu" {
   }
 
   user_data = templatefile("${path.module}/user-data.sh.tftpl", {
-    efs_dns      = "${aws_efs_file_system.models.id}.efs.${var.region}.amazonaws.com"
-    model_id     = var.model_id
-    ts_key_param = var.tailscale_key_param
-    region       = var.region
+    efs_dns        = "${aws_efs_file_system.models.id}.efs.${var.region}.amazonaws.com"
+    model_id       = var.model_id
+    ts_key_param   = var.tailscale_key_param
+    hf_token_param = var.hf_token_param
+    region         = var.region
   })
 
   tags = { Name = "conclave-gpu" }

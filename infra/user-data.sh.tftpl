@@ -8,10 +8,12 @@ exec > /var/log/conclave-init.log 2>&1
 # --- tailscale ---
 curl -fsSL https://tailscale.com/install.sh | sh
 command -v aws || apt-get install -y awscli
+set +x  # don't leak secrets into the boot log
 TS_KEY=$(aws ssm get-parameter --name "${ts_key_param}" --with-decryption \
   --region "${region}" --query Parameter.Value --output text)
 tailscale up --authkey "$TS_KEY" --hostname conclave-gpu
 unset TS_KEY
+set -x
 
 # --- EFS model cache ---
 apt-get install -y nfs-common
@@ -20,11 +22,22 @@ echo "${efs_dns}:/ /mnt/efs nfs4 defaults,_netdev 0 0" >> /etc/fstab
 mount -a
 mkdir -p /mnt/efs/models
 
+# --- HF token (only gated models need it; empty for ungated Qwen) ---
+set +x
+HF_TOKEN=$(aws ssm get-parameter --name "${hf_token_param}" --with-decryption \
+  --region "${region}" --query Parameter.Value --output text 2>/dev/null || true)
+HF_ENV=""
+if [ -n "$HF_TOKEN" ] && [ "$HF_TOKEN" != "PASTE-HERE" ]; then
+  HF_ENV="-e HF_TOKEN=$HF_TOKEN"
+fi
+set -x
+
 # --- vLLM ---
 # ponytail: 0.92 gpu-mem-util + 16k context is the safe 70B-AWQ-on-48GB
 # starting point; tune after first tokens flow.
 docker run -d --restart unless-stopped --name vllm --gpus all \
   -v /mnt/efs/models:/models -p 8000:8000 \
+  $HF_ENV \
   vllm/vllm-openai:latest \
   --model "${model_id}" \
   --download-dir /models \
