@@ -46,6 +46,9 @@ jq -c '.[]' /etc/conclave-models.json | while read -r m; do
   port=$(echo "$m" | jq -r .port)
   util=$(echo "$m" | jq -r .mem_util)
   maxlen=$(echo "$m" | jq -r .max_len)
+  dtype=$(echo "$m" | jq -r .dtype)
+  dtype_arg=""
+  [ -n "$dtype" ] && [ "$dtype" != "null" ] && dtype_arg="--dtype $dtype"
   docker run -d --restart unless-stopped --name "vllm-$name" --gpus all \
     -v /mnt/efs/models:/models -p "$port":8000 \
     $HF_ENV \
@@ -55,6 +58,7 @@ jq -c '.[]' /etc/conclave-models.json | while read -r m; do
     --download-dir /models \
     --max-model-len "$maxlen" \
     --gpu-memory-utilization "$util" \
+    $dtype_arg \
     --enforce-eager
 done
 
