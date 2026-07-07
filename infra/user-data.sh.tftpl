@@ -33,13 +33,17 @@ fi
 set -x
 
 # --- vLLM ---
-# ponytail: 0.92 gpu-mem-util + 16k context is the safe 70B-AWQ-on-48GB
-# starting point; tune after first tokens flow.
+# 72B-AWQ (~41.6 GiB weights) barely fits the 48 GB L40S. Tuned 2026-07-07 after
+# first boot: 0.92 util + 16k ctx left only 0.1 GiB for KV cache (needs 5.0) and
+# crash-looped. enforce-eager frees CUDA-graph memory for KV (and skips ~2min
+# capture); 0.95 util + 8k ctx leaves enough KV headroom. Raise ctx only if KV
+# budget allows — this card is near its ceiling for 72B.
 docker run -d --restart unless-stopped --name vllm --gpus all \
   -v /mnt/efs/models:/models -p 8000:8000 \
   $HF_ENV \
   vllm/vllm-openai:latest \
   --model "${model_id}" \
   --download-dir /models \
-  --max-model-len 16384 \
-  --gpu-memory-utilization 0.92
+  --max-model-len 8192 \
+  --gpu-memory-utilization 0.95 \
+  --enforce-eager
