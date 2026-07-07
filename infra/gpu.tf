@@ -86,6 +86,12 @@ resource "aws_instance" "gpu" {
     volume_type = "gp3"
   }
 
+  # Fail fast on InsufficientInstanceCapacity instead of the provider's long
+  # default retry (which hung ~20 min on 2026-07-07). Lets us sweep AZs quickly.
+  timeouts {
+    create = "3m"
+  }
+
   # ponytail: spot with default (terminate) interruption behavior — on reclaim,
   # re-apply to relaunch; EFS keeps the weights so it's cheap. Stop-not-terminate
   # would need a launch template; add only if reclaims get annoying.

@@ -112,28 +112,34 @@ Controls first, compute second.
   instance on invoke; idle-stop alarm fired after 30 min sub-5% CPU and stopped it. Total test
   cost ~$0.02. Rationale: manual stop discipline fails exactly once — one forgotten weekend on
   g6e.xlarge ≈ $90 ≈ the whole monthly cap. Hard-stop alone fires only after budget is burned.
-- **v1 — single model, working endpoint. ⏳ blocked: spot capacity.** g6e.xlarge spot, Qwen
-  2.5 72B AWQ on vLLM, Tailscale connected, manual start/stop with idle-stop as safety net.
-  Done = curl from local Mac through Tailscale returns tokens. Terraform written and gated behind
-  `enable_gpu`; the GPU *instance* + its alarm are gated, the surrounding EFS cache, security
-  groups, and IAM role are already applied (all $0 while empty).
+- **v1 — single model, working endpoint. ✅ DONE + verified 2026-07-07.** g6e.xlarge on-demand,
+  Qwen 2.5 72B AWQ on vLLM, Tailscale-reachable, manual start/stop with idle-stop as safety net.
+  Verified: curl from local Mac → Tailscale → vLLM → tokens ("conclave v1 online" verbatim; 17×23
+  → 391). Instance torn down after verification (`enable_gpu=false`) to stop spend; EFS keeps the
+  weights + the whole stack is `-var enable_gpu=true` away from relaunch. ~1 h on-demand runtime.
 
-  **Launch attempt 2026-07-06 — everything green except capacity:**
-  - Spot G/VT quota approved (8 vCPU). On-Demand G/VT still pending (0 vCPU) — can't fall back.
-  - Tailscale: Mac on tailnet (`100.120.231.43`); real reusable+ephemeral authkey stored in SSM
-    `/conclave/tailscale-authkey` (v2, replaced the `PASTE-HERE` placeholder). Untagged for v1.
-  - Model: Qwen 2.5 72B AWQ, ungated — no HF token needed (Llama 3.3 70B is HF-gated; deferred).
-  - Infra changes made + working: `use_spot` var, spot `instance_market_options` in gpu.tf,
-    `gpu_az` var (default `us-east-1b`) + AZ-filtered subnet data source (was pinned to `ids[0]`
-    = us-east-1d, which was spot-dry). EFS has a mount target in every AZ, so any AZ is fine.
-  - **Blocker:** `InsufficientInstanceCapacity` for g6e.xlarge spot. First hit in us-east-1d;
-    after AZ-hop to 1b, still failed. Spot placement scores 1–3/10 across all us-east-1 AZs =
-    region-wide scarcity, not a config bug. Both applies killed cleanly, zero spend, state clean.
-  - **To resume:** re-check `aws ec2 get-spot-placement-scores --instance-types g6e.xlarge
-    --target-capacity 1 --region-names us-east-1 --single-availability-zone`; when an AZ scores
-    high, set `-var gpu_az=<that AZ>` and `terraform apply -var enable_gpu=true` (profile
-    `yeti-conclave`). OR launch on-demand once its quota lands (`-var use_spot=false`). Off-peak
-    hours tend to have better spot capacity. Uncommitted working-tree changes hold all the above.
+  **How it actually went (the useful part):**
+  - **Capacity, not quota, was the wall.** Spot G quota approved 2026-07-06 but g6e.xlarge *spot*
+    was capacity-starved region-wide (placement scores 1–3/10 every us-east-1 AZ) — repeated
+    `InsufficientInstanceCapacity`. Quota = permission ceiling; capacity = physical GPUs free.
+    Separate things. On-demand has priority over spot for scarce capacity.
+  - **On-demand quota granted overnight** → switched to on-demand (`use_spot=false`). Even then,
+    a single pinned AZ (1b) hung ~20 min (provider retries `InsufficientInstanceCapacity` for the
+    whole create timeout). Fix: `timeouts { create = "3m" }` (fail fast) + an **AZ sweep**
+    (1a→1c→1d→1f). 1a dry, **1c had capacity** → launched.
+  - **vLLM crash-looped on first serve — KV starvation, not OOM-on-capture.** 72B AWQ (~41.6 GiB
+    weights) at `0.92` util + `16384` ctx left only 0.1 GiB for KV (needs 5.0) → `_check_enough_
+    kv_cache_memory` ValueError → docker `--restart` → reload 38 GiB from EFS (~6 min) → repeat.
+    Fix: `--enforce-eager` (frees CUDA-graph memory for KV, skips ~2 min capture) + `0.95` util +
+    `8192` ctx. Persisted in user-data. This card is near its ceiling for 72B; raise ctx only if
+    KV budget allows.
+  - **EFS cold-load is slow:** 38.74 GiB over NFS4 at ~35 s/shard (model > 27 GiB RAM, so no
+    prefetch) ≈ 6 min load every cold start. Acceptable for v1; revisit if cold starts hurt.
+  - **Gotchas:** SSM shell doc is `AWS-RunShellScript` (not `-Command`); user-data output goes to
+    `/var/log/conclave-init.log` (not console — read via SSM); HF empty-safe wiring worked
+    (unauthenticated ungated Qwen pull, no token).
+  - Tailscale: Mac on tailnet; GPU joined as `conclave-gpu`; reusable+ephemeral authkey in SSM
+    `/conclave/tailscale-authkey`. Untagged for v1.
 - **v2 — gateway + fleet.** LiteLLM in front; add 2–3 specialized models (code, reasoning,
   small/fast); tune idle-stop metric against real inference activity (LiteLLM request counts);
   per-model cost accounting via LiteLLM.
