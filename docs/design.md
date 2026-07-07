@@ -140,9 +140,39 @@ Controls first, compute second.
     (unauthenticated ungated Qwen pull, no token).
   - Tailscale: Mac on tailnet; GPU joined as `conclave-gpu`; reusable+ephemeral authkey in SSM
     `/conclave/tailscale-authkey`. Untagged for v1.
-- **v2 — gateway + fleet.** LiteLLM in front; add 2–3 specialized models (code, reasoning,
-  small/fast); tune idle-stop metric against real inference activity (LiteLLM request counts);
-  per-model cost accounting via LiteLLM.
+- **v2 — gateway + fleet. 🔨 in progress.** LiteLLM in front; 3 specialists co-resident on one
+  L40S; tune idle-stop metric against real inference activity (LiteLLM request counts); per-model
+  cost accounting via LiteLLM.
+
+  **Topology — RESOLVED 2026-07-07: single L40S, 3 small co-resident specialists.** Chose #1 of
+  three options (single-GPU co-resident / multi-GPU g6e.12xlarge / multi-instance). Rationale:
+  the gateway + judge + ensemble thesis is *fully* exercised on one GPU — LiteLLM routing, per-
+  model cost accounting, and the judge (which just calls endpoints) all transfer unchanged to
+  multi-GPU later. Multi is scale/cost, layered on in v3 without rework. **The one thing single-
+  GPU does NOT teach: realistic parallel-ensemble latency** — co-resident models contend for the
+  same SMs, so fan-out partly serializes on compute. Latency realism is deferred to v3 (one
+  multi-instance run to measure honestly). Other single-GPU trade-offs accepted for v2: quality
+  ceiling (~32B members, no 70B), KV/context squeeze, no failure isolation.
+
+  **Model set — RESOLVED 2026-07-07 (lineage-decorrelated, roles):**
+  - Code — **Qwen2.5-Coder-32B AWQ** (~19 GB) · Qwen lineage
+  - Reasoning — **DeepSeek-R1-Distill-Llama-8B AWQ** (~5 GB) · Llama lineage
+  - General — **Gemma-2-9B AWQ** (~6 GB) · Google lineage
+  Why these: the judge feeds on *decorrelated* failure modes, so lineage spread matters more than
+  raw scores. First-draft set was secretly Qwen-heavy — R1-Distill-**Qwen** + Qwen-Coder = 2/3
+  Qwen. Fixed by moving the reasoning member to the **Llama**-backbone R1 distill (DeepSeek
+  distilled R1 into both Qwen and Llama backbones) and the general member to **Gemma** (Google).
+  Result: Qwen / Llama / Google — three distinct lineages, exactly one Qwen, spent in the code
+  slot where Qwen2.5-Coder-32B is the best open model that fits. Rejected zero-Qwen (DeepSeek-
+  Coder-V2-16B for code) — it decorrelates fully but is a weaker coder; keeping Qwen in its
+  strongest role is the better trade. Gemma caveat: non-OSI license (Google Gemma Terms, fine for
+  private lab) and may be HF-gated (token wired). **2026 landscape note:** the current top open
+  coders (GLM-5.2, DeepSeek-V4, Kimi K2.7, Qwen3.6) are all ~1T MoE — none fit one 48 GB card, so
+  co-resident v2 lives in 7–32B dense.
+
+  **Build challenge:** partition one 48 GB GPU across 3 vLLM processes — each gets a
+  `gpu-memory-utilization` fraction summing under ~0.9, KV cache carved from each slice. This is
+  the new technical meat of v2 (and where the co-resident-latency caveat physically lives).
 - **v3 — ensemble + judge.** Parallel fan-out, judge selection/synthesis, judge evals separate
   from specialist evals. The pedagogically interesting phase.
 - **v4 (maybe) — MCP front-end.** Unpauses project #5: MCP server as the structured interface
