@@ -1,5 +1,5 @@
 #!/bin/bash
-# First-boot setup: tailscale join, EFS mount, vLLM serve.
+# First-boot setup: tailscale join, EFS mount, one vLLM per model, LiteLLM front.
 # cloud-init runs this once; tailscaled state + fstab + docker restart policy
 # survive stop/start cycles.
 set -euxo pipefail
@@ -32,18 +32,50 @@ if [ -n "$HF_TOKEN" ] && [ "$HF_TOKEN" != "PASTE-HERE" ]; then
 fi
 set -x
 
-# --- vLLM ---
-# 72B-AWQ (~41.6 GiB weights) barely fits the 48 GB L40S. Tuned 2026-07-07 after
-# first boot: 0.92 util + 16k ctx left only 0.1 GiB for KV cache (needs 5.0) and
-# crash-looped. enforce-eager frees CUDA-graph memory for KV (and skips ~2min
-# capture); 0.95 util + 8k ctx leaves enough KV headroom. Raise ctx only if KV
-# budget allows — this card is near its ceiling for 72B.
-docker run -d --restart unless-stopped --name vllm --gpus all \
-  -v /mnt/efs/models:/models -p 8000:8000 \
-  $HF_ENV \
-  vllm/vllm-openai:latest \
-  --model "${model_id}" \
-  --download-dir /models \
-  --max-model-len 8192 \
-  --gpu-memory-utilization 0.95 \
-  --enforce-eager
+# --- vLLM fleet (one container per model, co-resident on the L40S) ---
+# --enforce-eager on every model: frees CUDA-graph memory for KV and avoids the
+# capture spike (learned v1) — doubly important with 3 processes sharing 48 GB.
+# Each gets mem_util as a fraction of TOTAL GPU mem; the sum stays under ~0.9
+# (see the models var). Model set is JSON from Terraform.
+apt-get install -y jq
+echo '${models_json}' > /etc/conclave-models.json
+
+jq -c '.[]' /etc/conclave-models.json | while read -r m; do
+  name=$(echo "$m" | jq -r .name)
+  repo=$(echo "$m" | jq -r .repo)
+  port=$(echo "$m" | jq -r .port)
+  util=$(echo "$m" | jq -r .mem_util)
+  maxlen=$(echo "$m" | jq -r .max_len)
+  docker run -d --restart unless-stopped --name "vllm-$name" --gpus all \
+    -v /mnt/efs/models:/models -p "$port":8000 \
+    $HF_ENV \
+    vllm/vllm-openai:latest \
+    --model "$repo" \
+    --served-model-name "$name" \
+    --download-dir /models \
+    --max-model-len "$maxlen" \
+    --gpu-memory-utilization "$util" \
+    --enforce-eager
+done
+
+# --- LiteLLM gateway (one OpenAI-compatible API in front of all backends) ---
+# Generated from the same model list = single source of truth. --network host so
+# it reaches the vLLM containers on localhost:<port>. Reachable at :4000 over
+# Tailscale; per-model cost accounting + routing live here (v2 goal).
+{
+  echo "model_list:"
+  jq -c '.[]' /etc/conclave-models.json | while read -r m; do
+    name=$(echo "$m" | jq -r .name)
+    port=$(echo "$m" | jq -r .port)
+    echo "  - model_name: $name"
+    echo "    litellm_params:"
+    echo "      model: openai/$name"
+    echo "      api_base: http://localhost:$port/v1"
+    echo "      api_key: none"
+  done
+} > /etc/litellm-config.yaml
+
+docker run -d --restart unless-stopped --name litellm --network host \
+  -v /etc/litellm-config.yaml:/app/config.yaml \
+  ghcr.io/berriai/litellm:main-latest \
+  --config /app/config.yaml --port 4000

@@ -1,29 +1,35 @@
-# LiteLLM gateway — v2 DRAFT, not wired yet.
-# One OpenAI-compatible API in front of every vLLM backend + the seam for
-# per-model cost accounting. v1 hits vLLM directly on :8000; this lands when
-# v2 adds the 2nd/3rd model. Backends are addressed by their Tailscale
-# hostname (user-data sets `--hostname conclave-gpu`).
+# LiteLLM gateway — v2 REFERENCE. The live config is generated on the instance
+# by user-data from the Terraform `models` var (single source of truth), so this
+# file documents the shape; edit infra/variables.tf `models` to change the fleet.
+#
+# One OpenAI-compatible API in front of the co-resident vLLM backends + the seam
+# for per-model cost accounting. Reachable at <tailscale-ip>:4000. Backends are
+# on localhost:<port> (LiteLLM runs --network host on the same box).
 
 model_list:
-  # v1 model, already served by vLLM on the GPU box.
-  - model_name: qwen-72b
+  # code specialist — Qwen lineage
+  - model_name: coder
     litellm_params:
-      model: openai/Qwen/Qwen2.5-72B-Instruct-AWQ
-      api_base: http://conclave-gpu:8000/v1
+      model: openai/coder
+      api_base: http://localhost:8001/v1
       api_key: "none"          # vLLM has no auth; Tailscale ACL is the boundary
-
-  # v2 additions (specialists) — uncomment as each backend comes up.
-  # - model_name: llama-70b
-  #   litellm_params:
-  #     model: openai/meta-llama/Llama-3.3-70B-Instruct-AWQ   # needs HF token wired
-  #     api_base: http://conclave-gpu:8000/v1
-  #     api_key: "none"
+  # reasoning specialist — Llama lineage (DeepSeek R1 distill)
+  - model_name: reasoning
+    litellm_params:
+      model: openai/reasoning
+      api_base: http://localhost:8002/v1
+      api_key: "none"
+  # general — Google lineage (Gemma, HF-gated → token in SSM)
+  - model_name: general
+    litellm_params:
+      model: openai/general
+      api_base: http://localhost:8003/v1
+      api_key: "none"
 
 litellm_settings:
-  # Per-model cost accounting — the reason LiteLLM sits here at all (v2 goal).
-  # Self-hosted weights = $0 API cost; track GPU-hours/tokens instead once the
-  # spend model is decided. Placeholder until v2.
+  # Per-model cost accounting (v2 goal). Self-hosted weights = $0 API cost; the
+  # signal to track is GPU-hours/tokens per model. Wire spend logging in v2.
   drop_params: true
 
-# ponytail: no router/fallback/rate-limit config yet — single backend, single
-# user. Add when v2 has multiple models actually competing for the GPU.
+# ponytail: no router/fallback/rate-limit yet — single box, single user. The
+# ensemble fan-out + judge that consume these three model_names arrive in v3.

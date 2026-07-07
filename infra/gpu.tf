@@ -104,7 +104,7 @@ resource "aws_instance" "gpu" {
 
   user_data = templatefile("${path.module}/user-data.sh.tftpl", {
     efs_dns        = "${aws_efs_file_system.models.id}.efs.${var.region}.amazonaws.com"
-    model_id       = var.model_id
+    models_json    = jsonencode(var.models)
     ts_key_param   = var.tailscale_key_param
     hf_token_param = var.hf_token_param
     region         = var.region
