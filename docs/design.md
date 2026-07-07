@@ -154,7 +154,8 @@ Controls first, compute second.
   multi-instance run to measure honestly). Other single-GPU trade-offs accepted for v2: quality
   ceiling (~32B members, no 70B), KV/context squeeze, no failure isolation.
 
-  **Model set — RESOLVED 2026-07-07 (lineage-decorrelated, roles):**
+  **Model set — RESOLVED 2026-07-07 (lineage-decorrelated, roles). ⚠️ revised at first boot ↓
+  (coder → 14B; reasoning member still open).**
   - Code — **Qwen2.5-Coder-32B AWQ** (~19 GB) · Qwen lineage
   - Reasoning — **DeepSeek-R1-Distill-Llama-8B AWQ** (~5 GB) · Llama lineage
   - General — **Gemma-2-9B AWQ** (~6 GB) · Google lineage
@@ -173,6 +174,29 @@ Controls first, compute second.
   **Build challenge:** partition one 48 GB GPU across 3 vLLM processes — each gets a
   `gpu-memory-utilization` fraction summing under ~0.9, KV cache carved from each slice. This is
   the new technical meat of v2 (and where the co-resident-latency caveat physically lives).
+
+  **First boot 2026-07-07 — architecture PROVEN, reasoning member BLOCKED.** Launched on-demand
+  us-east-1c. What works, verified end-to-end (curl → LiteLLM :4000 over Tailscale → routed
+  backend → tokens):
+  - **LiteLLM gateway + routing** by model name to 3 co-resident vLLM containers on one L40S. ✅
+  - **coder** (clean) and **general** (clean) both serve correct output.
+  What we learned the hard way (all fixed except the last):
+  - **32B coder doesn't fit 3-way.** 32B-Coder + Gemma alone filled 42/44 GiB — the 3rd model
+    OOM'd. Dropped coder to **Qwen2.5-Coder-14B AWQ**; all three then fit (per-process CUDA
+    context overhead is real, ~2 GB × 3). This is the documented quality-ceiling trade made real;
+    the 32B returns in v3 on its own GPU.
+  - **RedHatAI w4a16** reasoning quant → vLLM rejects its sparsity config. **jakiAJK AWQ** → AWQ
+    kernel wants fp16 but weights are bf16 (`--dtype float16` fixes load).
+  - **Reasoning member unresolved — vLLM-0.24 detokenizer bug.** R1-Distill-Llama-8B leaks BPE
+    byte markers (`Ġ`=space, `Ċ`=newline) into output. Reproduced across **two independent
+    quants** (jakiAJK AWQ + NeuralMagic w8a8) and a tokenizer override — so it's the Llama-distill
+    family × vLLM, not the quant. coder (Qwen) + general (Gemma) decode clean, confirming it's
+    model-specific. **Open decision (see Open Questions):** switch reasoning to R1-Distill-**Qwen**
+    -7B (works, but reintroduces a 2nd Qwen — dents the decorrelation), try a newer vLLM image, or
+    a different reasoning model. Box torn down after this to stop spend (~2 h ≈ $4); EFS keeps all
+    downloaded weights; relaunch = `enable_gpu=true use_spot=false gpu_az=us-east-1c`.
+  - **Still TODO for v2:** per-model cost accounting (LiteLLM spend logging — placeholder only),
+    idle-stop tuned to LiteLLM request counts (still CPU-based).
 - **v3 — ensemble + judge.** Parallel fan-out, judge selection/synthesis, judge evals separate
   from specialist evals. The pedagogically interesting phase.
 - **v4 (maybe) — MCP front-end.** Unpauses project #5: MCP server as the structured interface
@@ -203,6 +227,14 @@ Controls first, compute second.
    (curl returns tokens) and EFS holds the weights, so a mid-session reclaim loses nothing. Switch
    v1 (and the default) to on-demand once its quota approves; spot remains the v2+ default anyway.
 3. **Ensemble-phase instance** — g5.12xlarge vs g6e.12xlarge. Price-compare when v3 starts.
+4. **v2 reasoning member — OPEN (blocked 2026-07-07).** R1-Distill-Llama-8B leaks BPE byte
+   markers (`Ġ`/`Ċ`) in output under vLLM 0.24 — reproduced across jakiAJK AWQ + NeuralMagic w8a8,
+   so it's the Llama-distill × vLLM, not the quant (coder/general decode clean). Options: (a)
+   switch to **DeepSeek-R1-Distill-Qwen-7B** — reputable clean quants, Qwen tokenizer decodes fine
+   (coder proves it), but reintroduces a 2nd Qwen member (dents the deliberate lineage
+   decorrelation); (b) try a **newer vLLM image** — the detokenizer bug may be fixed upstream,
+   keeps the Llama distill; (c) a **different Llama-lineage reasoning model**. Lean (b) first (cheap
+   to test, preserves decorrelation); fall back to (a). Decide before next v2 launch.
 
 ## Launch-day risks (v1 first boot)
 

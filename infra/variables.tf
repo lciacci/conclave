@@ -69,11 +69,22 @@ variable "models" {
     port     = number
     mem_util = number
     max_len  = number
+    dtype    = string # "" = model default; "float16" forces fp16 (AWQ kernels)
   }))
   default = [
-    { name = "coder", repo = "Qwen/Qwen2.5-Coder-32B-Instruct-AWQ", port = 8001, mem_util = 0.45, max_len = 8192 },
-    { name = "reasoning", repo = "RedHatAI/DeepSeek-R1-Distill-Llama-8B-quantized.w4a16", port = 8002, mem_util = 0.15, max_len = 8192 },
-    { name = "general", repo = "hugging-quants/gemma-2-9b-it-AWQ-INT4", port = 8003, mem_util = 0.18, max_len = 8192 },
+    # 14B not 32B: a 32B coder + 2 small models can't co-reside on one 48 GB L40S
+    # (2026-07-07 — 32B+Gemma alone filled 42/44 GiB, no room for the 3rd). 14B
+    # leaves headroom for all three. The 32B returns in v3 on its own GPU.
+    { name = "coder", repo = "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ", port = 8001, mem_util = 0.28, max_len = 8192, dtype = "" },
+    # ⚠️ REASONING MEMBER UNRESOLVED — pending model decision (see design.md).
+    # R1-Distill-Llama-8B has a vLLM-0.24 detokenizer bug: BPE byte markers
+    # (Ġ/Ċ) leak into output. Reproduced across TWO independent quants (jakiAJK
+    # AWQ + NeuralMagic w8a8) → it's the Llama-distill family + vLLM, not the
+    # quant. coder (Qwen) + general (Gemma) decode clean. w8a8 loads cleanest
+    # (no sparsity/dtype issues); util 0.26 for KV headroom. Output still garbled
+    # until the model choice is settled (likely R1-Distill-Qwen-7B, or newer vLLM).
+    { name = "reasoning", repo = "neuralmagic/DeepSeek-R1-Distill-Llama-8B-quantized.w8a8", port = 8002, mem_util = 0.26, max_len = 8192, dtype = "" },
+    { name = "general", repo = "hugging-quants/gemma-2-9b-it-AWQ-INT4", port = 8003, mem_util = 0.18, max_len = 8192, dtype = "" },
   ]
 }
 
