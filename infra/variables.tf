@@ -58,11 +58,23 @@ variable "gpu_az" {
   default = "us-east-1b"
 }
 
-# Ungated on HF (no token needed). Llama 3.3 70B AWQ is the alternative but
-# is gated — decide at launch per design doc.
-variable "model_id" {
-  type    = string
-  default = "Qwen/Qwen2.5-72B-Instruct-AWQ"
+# Model fleet, co-resident on one L40S. Each vLLM process gets mem_util (fraction
+# of TOTAL 48 GB); the sum must stay under ~0.9 to leave system + CUDA headroom.
+# v1 was a single 72B; v2 is 3 lineage-decorrelated specialists (see design.md).
+# Gemma is HF-gated → needs a real token in the hf_token_param SSM param.
+variable "models" {
+  type = list(object({
+    name     = string
+    repo     = string
+    port     = number
+    mem_util = number
+    max_len  = number
+  }))
+  default = [
+    { name = "coder", repo = "Qwen/Qwen2.5-Coder-32B-Instruct-AWQ", port = 8001, mem_util = 0.45, max_len = 8192 },
+    { name = "reasoning", repo = "RedHatAI/DeepSeek-R1-Distill-Llama-8B-quantized.w4a16", port = 8002, mem_util = 0.15, max_len = 8192 },
+    { name = "general", repo = "hugging-quants/gemma-2-9b-it-AWQ-INT4", port = 8003, mem_util = 0.18, max_len = 8192 },
+  ]
 }
 
 variable "tailscale_key_param" {
