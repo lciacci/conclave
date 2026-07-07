@@ -195,8 +195,16 @@ Controls first, compute second.
     -7B (works, but reintroduces a 2nd Qwen — dents the decorrelation), try a newer vLLM image, or
     a different reasoning model. Box torn down after this to stop spend (~2 h ≈ $4); EFS keeps all
     downloaded weights; relaunch = `enable_gpu=true use_spot=false gpu_az=us-east-1c`.
-  - **Still TODO for v2:** per-model cost accounting (LiteLLM spend logging — placeholder only),
-    idle-stop tuned to LiteLLM request counts (still CPU-based).
+  - **Offline prep since (2026-07-07, $0, pending launch verification):**
+    - Reasoning → **R1-Distill-Qwen-7B FP8** (see Open Q #4 — the "newer vLLM" fix was a dead
+      end: 0.24 is already newest).
+    - **Per-model cost accounting** wired: `cost_in`/`cost_out` per model → LiteLLM
+      `input/output_cost_per_token` + `success_callback: [logging]` (GPU-amortization
+      placeholders; calibrate against measured throughput).
+    - **Idle-stop on GPU util** (real inference signal): user-data publishes `Conclave/GPUUtil`
+      each minute; primary alarm watches it (notBreaching), CPU alarm kept as backstop. IAM gains
+      scoped `cloudwatch:PutMetricData`.
+    - Next launch verifies all three in one boot.
 - **v3 — ensemble + judge.** Parallel fan-out, judge selection/synthesis, judge evals separate
   from specialist evals. The pedagogically interesting phase.
 - **v4 (maybe) — MCP front-end.** Unpauses project #5: MCP server as the structured interface
@@ -227,14 +235,14 @@ Controls first, compute second.
    (curl returns tokens) and EFS holds the weights, so a mid-session reclaim loses nothing. Switch
    v1 (and the default) to on-demand once its quota approves; spot remains the v2+ default anyway.
 3. **Ensemble-phase instance** — g5.12xlarge vs g6e.12xlarge. Price-compare when v3 starts.
-4. **v2 reasoning member — OPEN (blocked 2026-07-07).** R1-Distill-Llama-8B leaks BPE byte
-   markers (`Ġ`/`Ċ`) in output under vLLM 0.24 — reproduced across jakiAJK AWQ + NeuralMagic w8a8,
-   so it's the Llama-distill × vLLM, not the quant (coder/general decode clean). Options: (a)
-   switch to **DeepSeek-R1-Distill-Qwen-7B** — reputable clean quants, Qwen tokenizer decodes fine
-   (coder proves it), but reintroduces a 2nd Qwen member (dents the deliberate lineage
-   decorrelation); (b) try a **newer vLLM image** — the detokenizer bug may be fixed upstream,
-   keeps the Llama distill; (c) a **different Llama-lineage reasoning model**. Lean (b) first (cheap
-   to test, preserves decorrelation); fall back to (a). Decide before next v2 launch.
+4. **v2 reasoning member — RESOLVED 2026-07-07: R1-Distill-Qwen-7B (FP8) for v2.** The Llama
+   distill leaks BPE byte markers (`Ġ`/`Ċ`) under vLLM 0.24's V1 detokenizer — reproduced across
+   jakiAJK AWQ + NeuralMagic w8a8, so it's the Llama-distill × vLLM, not the quant (coder/general
+   decode clean). The preferred fix (bump vLLM) was a **dead end — 0.24 is already the newest
+   release**. So v2 uses `RedHatAI/DeepSeek-R1-Distill-Qwen-7B-FP8-dynamic` (Qwen tokenizer decodes
+   clean, FP8 native on the L40S, ~8 GB). Trade accepted: a 2nd Qwen member dents lineage
+   decorrelation for v2. **v3 experiment to restore a Llama-lineage reasoner:** try the V0 engine
+   (`VLLM_USE_V1=0`) — the bug is V1-detokenizer-specific — or a future vLLM release.
 
 ## Launch-day risks (v1 first boot)
 

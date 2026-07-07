@@ -71,15 +71,42 @@ done
   jq -c '.[]' /etc/conclave-models.json | while read -r m; do
     name=$(echo "$m" | jq -r .name)
     port=$(echo "$m" | jq -r .port)
+    cin=$(echo "$m" | jq -r .cost_in)
+    cout=$(echo "$m" | jq -r .cost_out)
     echo "  - model_name: $name"
     echo "    litellm_params:"
     echo "      model: openai/$name"
     echo "      api_base: http://localhost:$port/v1"
     echo "      api_key: none"
+    # Per-model cost attribution (GPU-amortization placeholders; see models var).
+    echo "      input_cost_per_token: $cin"
+    echo "      output_cost_per_token: $cout"
   done
+  # Log each call's per-model spend so cost accounting is visible in the litellm
+  # container logs (docker logs litellm). Full persistence would add a Postgres
+  # backend; v2 is single-user, stdout logging is enough to learn the pattern.
+  echo "litellm_settings:"
+  echo "  success_callback: [\"logging\"]"
+  echo "  drop_params: true"
 } > /etc/litellm-config.yaml
 
 docker run -d --restart unless-stopped --name litellm --network host \
   -v /etc/litellm-config.yaml:/app/config.yaml \
   ghcr.io/berriai/litellm:main-latest \
   --config /app/config.yaml --port 4000
+
+# --- idle-stop signal: publish GPU utilization to CloudWatch every minute ---
+# The native CPU idle-stop misses that inference work is on the GPU, not the CPU
+# (a box with 3 models loaded but no requests sits at low CPU AND low GPU; a box
+# mid-generation is low CPU but high GPU). Publishing GPU util lets the alarm
+# stop the box only when NO inference has run for the window. Quoted heredoc so
+# $(...) / $VAR stay literal in the script; only $${region} is templated in.
+cat > /usr/local/bin/pub-gpu-util.sh <<'PUBEOF'
+#!/bin/bash
+IID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+U=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits | head -1)
+aws cloudwatch put-metric-data --namespace Conclave --metric-name GPUUtil \
+  --dimensions InstanceId="$IID" --value "$U" --region ${region}
+PUBEOF
+chmod +x /usr/local/bin/pub-gpu-util.sh
+echo "* * * * * root /usr/local/bin/pub-gpu-util.sh" > /etc/cron.d/conclave-gpu-util

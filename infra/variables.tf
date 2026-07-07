@@ -70,21 +70,27 @@ variable "models" {
     mem_util = number
     max_len  = number
     dtype    = string # "" = model default; "float16" forces fp16 (AWQ kernels)
+    # Per-model $/token for LiteLLM cost attribution. Self-hosted has no API
+    # cost — the real basis is GPU-hours; these are amortization PLACEHOLDERS
+    # (scaled by model size) so per-model spend is visible. Calibrate once we
+    # measure throughput: $/token ≈ (GPU $/hr) / (tokens/hr) apportioned by use.
+    cost_in  = number
+    cost_out = number
   }))
   default = [
     # 14B not 32B: a 32B coder + 2 small models can't co-reside on one 48 GB L40S
     # (2026-07-07 — 32B+Gemma alone filled 42/44 GiB, no room for the 3rd). 14B
     # leaves headroom for all three. The 32B returns in v3 on its own GPU.
-    { name = "coder", repo = "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ", port = 8001, mem_util = 0.28, max_len = 8192, dtype = "" },
-    # ⚠️ REASONING MEMBER UNRESOLVED — pending model decision (see design.md).
-    # R1-Distill-Llama-8B has a vLLM-0.24 detokenizer bug: BPE byte markers
-    # (Ġ/Ċ) leak into output. Reproduced across TWO independent quants (jakiAJK
-    # AWQ + NeuralMagic w8a8) → it's the Llama-distill family + vLLM, not the
-    # quant. coder (Qwen) + general (Gemma) decode clean. w8a8 loads cleanest
-    # (no sparsity/dtype issues); util 0.26 for KV headroom. Output still garbled
-    # until the model choice is settled (likely R1-Distill-Qwen-7B, or newer vLLM).
-    { name = "reasoning", repo = "neuralmagic/DeepSeek-R1-Distill-Llama-8B-quantized.w8a8", port = 8002, mem_util = 0.26, max_len = 8192, dtype = "" },
-    { name = "general", repo = "hugging-quants/gemma-2-9b-it-AWQ-INT4", port = 8003, mem_util = 0.18, max_len = 8192, dtype = "" },
+    { name = "coder", repo = "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ", port = 8001, mem_util = 0.28, max_len = 8192, dtype = "", cost_in = 0.00000040, cost_out = 0.00000040 },
+    # R1-Distill-QWEN-7B (not Llama): the Llama distill leaks BPE byte markers
+    # (Ġ/Ċ) under vLLM 0.24's V1 detokenizer — reproduced across 2 quants, and
+    # 0.24 is already the newest vLLM (no image bump available). The Qwen tokenizer
+    # decodes clean (coder proves it). Trade: a 2nd Qwen member dents the lineage
+    # decorrelation — acceptable for v2; restoring a Llama-lineage reasoner (V0
+    # engine VLLM_USE_V1=0, or a future vLLM) is a v3 experiment. FP8-dynamic:
+    # reputable RedHat quant, native on the L40S (Ada), ~8 GB, no AWQ-dtype hassle.
+    { name = "reasoning", repo = "RedHatAI/DeepSeek-R1-Distill-Qwen-7B-FP8-dynamic", port = 8002, mem_util = 0.20, max_len = 8192, dtype = "", cost_in = 0.00000020, cost_out = 0.00000020 },
+    { name = "general", repo = "hugging-quants/gemma-2-9b-it-AWQ-INT4", port = 8003, mem_util = 0.18, max_len = 8192, dtype = "", cost_in = 0.00000030, cost_out = 0.00000030 },
   ]
 }
 
