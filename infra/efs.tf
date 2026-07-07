@@ -16,6 +16,16 @@ resource "aws_efs_file_system" "models" {
   creation_token = "conclave-models"
   # ponytail: bursting throughput — model reads are sequential and infrequent
   # (cold start only). Elastic throughput if cold loads ever hurt.
+
+  # Dormancy hedge: weights untouched for 30d drop to IA (~20x cheaper); any
+  # read pulls them back to Standard (AFTER_1_ACCESS) so active-build throughput
+  # and cost are unaffected. Only earns savings during genuine multi-week idle.
+  lifecycle_policy {
+    transition_to_ia = "AFTER_30_DAYS"
+  }
+  lifecycle_policy {
+    transition_to_primary_storage_class = "AFTER_1_ACCESS"
+  }
 }
 
 resource "aws_security_group" "efs" {
