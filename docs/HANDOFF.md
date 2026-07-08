@@ -35,33 +35,33 @@ Next (in order):
 3. **Judge eval** — same ensemble with `judge=gemma` vs a frontier `judge_url`/`judge_model`;
    compare selection quality. Then decide multi-GPU box (g5.12xlarge vs g6e.12xlarge).
 
-### ⚠️ Idle-stop is dev-hostile — SUSPEND IT during interactive work
-The GPU idle-stop alarm stops the box after **30 min of GPUUtil < 5%** (`infra/gpu.tf`,
-`idle_minutes=30`). During interactive dev — boot debugging, restart-roulette watching, sparse
-test requests — the 5-min-averaged util sits under 5% even though you're actively working, so the
-alarm reaps the box mid-session (it did exactly this 2026-07-08, killing the baseline). The alarm
-is doing its job (reaping forgotten boxes); it's just blind to interactive use. **Right after boot,
-suspend the actions:**
-`aws cloudwatch disable-alarm-actions --alarm-names conclave-idle-stop-gpu conclave-idle-stop-gpu-cpu-backstop --profile yeti-conclave`
-and re-enable (`enable-alarm-actions`) or just tear down when done. Keeps the safety net's intent
-without the reap-during-dev trap. (Candidate v3 fix: a `dev_mode` var that widens `idle_minutes` or
-skips the alarm, vs. a heartbeat sentinel metric — decide next chunk.)
+### Idle-stop was dev-hostile — FIXED in Chunk 1 (`dev_mode`), verify in Chunk 2
+The GPU idle-stop alarm stops the box after 30 min of GPUUtil < 5%. During interactive dev — boot
+debugging, restart-roulette watching, sparse requests — util sits under 5% even while you're
+working, so it reaped the box mid-baseline 2026-07-08. **Fix (committed, unverified until a boot):**
+`dev_mode` tfvar (`infra/variables.tf` + `gpu.tf`) widens the window to 90 min when true; default
+30 min stays for unattended boots. Boot dev with `-var dev_mode=true`. Escape hatch if a session
+still runs long: `aws cloudwatch disable-alarm-actions --alarm-names conclave-idle-stop-gpu
+conclave-idle-stop-gpu-cpu-backstop --profile yeti-conclave`.
 
-### Co-residency restart-roulette still happens at util 0.86
-Even with the committed 0.86 utils, coder + reasoning still lose the KV race on a cold boot
-(`Available KV cache memory: -12.1 GiB` — vLLM's util is a per-process *ceiling* on TOTAL GPU mem,
-so a late starter sees the others' weights against its budget). They self-recover after 1-3 docker
-restarts (general wins first, they retry into the freed window) — both boots converged this way in
-~3-5 min. Deterministic fix deferred to a v3 chunk: **stagger the container starts in user-data**
-(start general → wait for `Application startup complete` → coder → reasoning) instead of racing all
-three at once. Until then: poll `docker logs vllm-<m> | grep "Application startup complete"` and be
-patient; err-count in logs is cumulative across restarts, not a permanent-failure signal.
+### Co-residency KV race — FIXED in Chunk 1 (cumulative utils + sequential start), verify in Chunk 2
+Both v2 boots hit `Available KV cache memory: -12.1 GiB`: vLLM's `mem_util` is a per-process
+*ceiling on TOTAL GPU mem*, not a private slice, so racing all 3 at boot means a late starter's
+ceiling falls below what the others already hold → negative KV → crash-loop (self-recovered only
+via restart-roulette). **Fix (committed, unverified until a boot):** (1) `models` var reordered to
+start sequence general→coder→reasoning with CUMULATIVE ceilings 0.25/0.55/0.82 (each ≈ everything
+resident once it loads); (2) user-data now starts one model at a time, waiting for each
+`Application startup complete` before the next, so each profiles against true residency. **Chunk 2
+must confirm this boots clean with zero restarts** — if a model still KV-starves, nudge its (and
+later) ceilings up; the values are an estimate. If it regresses, the old restart-roulette (crash
+until the race resolves, ~3-5 min) is the fallback behaviour.
 
 ## v2 boot playbook (reuse for any GPU boot)
 
 1. Re-auth: `aws sso login --profile yeti-conclave` (token expires between sessions).
-2. Launch: from `infra/` —
-   `terraform apply -var enable_gpu=true -var use_spot=false -var gpu_az=us-east-1c`
+2. Launch: from `infra/` — **add `-var dev_mode=true` for any interactive boot** (widens idle-stop
+   to 90m so debugging doesn't get reaped; see below) —
+   `terraform apply -var enable_gpu=true -var dev_mode=true -var use_spot=false -var gpu_az=us-east-1c`
    (on-demand; us-east-1c had capacity 3 launches running. If `InsufficientInstanceCapacity`,
    sweep AZs: `-var gpu_az=us-east-1a` / `1d` / `1f`.) Instance create took ~10 min last boot.
 3. Babysit the boot via SSM (no SSH). **SSM doc is `AWS-RunShellScript`** (not `-Command`).

@@ -35,8 +35,12 @@ set -x
 # --- vLLM fleet (one container per model, co-resident on the L40S) ---
 # --enforce-eager on every model: frees CUDA-graph memory for KV and avoids the
 # capture spike (learned v1) — doubly important with 3 processes sharing 48 GB.
-# Each gets mem_util as a fraction of TOTAL GPU mem; the sum stays under ~0.9
-# (see the models var). Model set is JSON from Terraform.
+# STARTED ONE AT A TIME, in models-var order, waiting for each to finish loading
+# before the next: mem_util is a per-process CEILING on TOTAL GPU mem, so each
+# model must profile against the true amount its predecessors already hold. The
+# utils rise cumulatively (see the models var); starting them in parallel makes
+# those ceilings meaningless and a late model KV-starves (`-12.1 GiB`). Model set
+# is JSON from Terraform.
 apt-get install -y jq
 echo '${models_json}' > /etc/conclave-models.json
 
@@ -60,6 +64,18 @@ jq -c '.[]' /etc/conclave-models.json | while read -r m; do
     --gpu-memory-utilization "$util" \
     $dtype_arg \
     --enforce-eager
+
+  # Wait for this model to finish loading before starting the next, so the next
+  # one's ceiling profiles against real residency. Bounded (~8 min) so a single
+  # stuck model can't hang the whole boot — unless-stopped lets it keep retrying
+  # while later models come up. `if`-form keeps the failing grep clear of set -e.
+  echo "waiting for vllm-$name to load..."
+  for _ in $(seq 1 96); do
+    if docker logs "vllm-$name" 2>&1 | grep -q "Application startup complete"; then
+      echo "vllm-$name ready"; break
+    fi
+    sleep 5
+  done
 done
 
 # --- LiteLLM gateway (one OpenAI-compatible API in front of all backends) ---
