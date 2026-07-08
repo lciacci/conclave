@@ -35,9 +35,14 @@ class EnsembleConfig:
         return self.judge_url or self.gateway_url
 
 
-def http_call(base_url: str, model: str, messages: list[dict], timeout: float) -> str:
-    """One OpenAI-compatible chat completion. Returns the message content."""
-    body = json.dumps({"model": model, "messages": messages}).encode()
+def http_call(base_url: str, model: str, messages: list[dict], timeout: float,
+              response_format: dict | None = None) -> str:
+    """One OpenAI-compatible chat completion. Returns the message content.
+    `response_format={"type": "json_object"}` asks vLLM for guided-JSON output."""
+    payload = {"model": model, "messages": messages}
+    if response_format:
+        payload["response_format"] = response_format
+    body = json.dumps(payload).encode()
     req = urllib.request.Request(
         f"{base_url}/v1/chat/completions",
         data=body,
@@ -97,32 +102,23 @@ def _judge_messages(query: str, candidates: list[dict], mode: str) -> list[dict]
 def run_judge(query: str, candidates: list[dict], cfg: EnsembleConfig, call=http_call) -> dict:
     msgs = _judge_messages(query, candidates, cfg.mode)
     t0 = time.monotonic()
-    raw = call(cfg.resolved_judge_url(), cfg.judge_model, msgs, cfg.timeout)
+    # response_format json_object: vLLM guided decoding returns a pure JSON string,
+    # so json.loads parses the whole thing correctly — including braces inside the
+    # `answer` field (e.g. code from the coder model). No fragile substring slicing.
+    raw = call(cfg.resolved_judge_url(), cfg.judge_model, msgs, cfg.timeout,
+               response_format={"type": "json_object"})
     latency = round(time.monotonic() - t0, 3)
     try:
-        parsed = json.loads(_extract_json(raw))
+        parsed = json.loads(raw)
         answer = parsed.get("answer") or raw
         rationale = parsed.get("rationale", "")
         chosen = parsed.get("chosen", -1)
-    except (ValueError, KeyError):
-        # Judge didn't return clean JSON — fall back to its raw text as the answer.
-        # ponytail: lenient parse, not a schema-enforced tool call. Tighten to a
-        # forced JSON tool if the fallback fires often in practice.
+    except (ValueError, AttributeError):
+        # Backend ignored json_object (older vLLM / non-guided judge) — degrade to
+        # the raw text as the answer rather than crash.
         answer, rationale, chosen = raw, "unparsed judge output", -1
     return {"answer": answer, "rationale": rationale, "chosen": chosen,
             "model": cfg.judge_model, "latency_s": latency}
-
-
-def _extract_json(text: str) -> str:
-    """Grab the first {...} span — judges often wrap JSON in prose/fences."""
-    start, depth = text.find("{"), 0
-    if start < 0:
-        raise ValueError("no JSON object in judge output")
-    for i in range(start, len(text)):
-        depth += (text[i] == "{") - (text[i] == "}")
-        if depth == 0:
-            return text[start:i + 1]
-    raise ValueError("unbalanced JSON in judge output")
 
 
 def ensemble(query: str, cfg: EnsembleConfig, call=http_call) -> dict:
@@ -155,10 +151,18 @@ def demo() -> None:
         # so route by message shape: judge messages carry the system prompt.
     }
 
-    def fake_call(base_url, model, messages, timeout):
+    # Judge answer deliberately contains braces (a dict literal) — proves json.loads
+    # over guided-JSON output survives braces-in-strings, the bug the old slicer had.
+    judge_json = json.dumps({
+        "chosen": 1,
+        "rationale": "most precise",
+        "answer": "Use sorted(xs); for keys pass sorted(xs, key=lambda d: d['k']).",
+    })
+
+    def fake_call(base_url, model, messages, timeout, response_format=None):
         if messages and messages[0]["role"] == "system":  # judge turn
-            return ('Here you go: {"chosen": 1, "rationale": "most precise", '
-                    '"answer": "Use sorted(xs) — returns a new sorted list, no mutation."}')
+            assert response_format == {"type": "json_object"}, "judge asks for JSON mode"
+            return judge_json
         return canned[model]
 
     cfg = EnsembleConfig()
@@ -168,7 +172,8 @@ def demo() -> None:
     assert len(res["metadata"]["candidates"]) == 3, "all candidates recorded"
     assert all("latency_s" in c for c in res["metadata"]["candidates"]), "per-model timing"
     assert res["metadata"]["judge"]["chosen"] == 1, "judge JSON parsed"
-    assert "sorted(xs)" in res["choices"][0]["message"]["content"], "judged answer surfaced"
+    content = res["choices"][0]["message"]["content"]
+    assert "sorted(xs)" in content and "d['k']" in content, "braces-in-answer survived parse"
     assert res["metadata"]["wall_s"] >= 0
     print("ok — ensemble pipeline + judge parse verified offline")
 
