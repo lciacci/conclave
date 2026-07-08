@@ -22,12 +22,40 @@ GPU). It exposes `ensemble(query, cfg, call)` — fan-out → judge → OpenAI-s
 per-model latency + judge rationale in `metadata`.
 
 Next (in order):
-1. **Live smoke test** — boot v2 (playbook below), set `EnsembleConfig.gateway_url` to the
-   `<tailscale-ip>:4000`, run a real ensemble, confirm fan-out + Gemma judge work end-to-end.
-2. **Contention baseline** — capture per-model vs wall latency for co-resident fan-out; that % is
-   the deliverable that justifies multi-GPU.
+1. **Live smoke test — ✅ DONE 2026-07-08.** Ran a real ensemble through the gateway from the local
+   client. Fan-out served all 3 (coder 1.8s / reasoning 11.4s / general 2.9s); Gemma judge selected
+   + rationalized; OpenAI-shaped result returned. Two bugs found + fixed live (commit `76db079`):
+   Gemma-2 has NO system role (400s) → judge instruction folded into the user turn; and `run_judge`
+   now degrades to a candidate instead of crashing when the judge call errors.
+2. **Contention baseline — REAPED, redo next boot.** The idle-stop alarm stopped the box mid-run
+   (see landmine below), so the numbers are garbage (uniform 75 s = requests hitting a dying box).
+   One clean smoke datapoint stands: sequential fan-out wall ≈ Σ per-model ≈ 16 s vs slowest-model
+   ≈ 11 s, i.e. co-residency adds ~40% over ideal-parallel — but redo properly with the alarm
+   suspended. Script: `scratchpad/baseline.py` (points at the gateway, prints seq/ideal/tax).
 3. **Judge eval** — same ensemble with `judge=gemma` vs a frontier `judge_url`/`judge_model`;
    compare selection quality. Then decide multi-GPU box (g5.12xlarge vs g6e.12xlarge).
+
+### ⚠️ Idle-stop is dev-hostile — SUSPEND IT during interactive work
+The GPU idle-stop alarm stops the box after **30 min of GPUUtil < 5%** (`infra/gpu.tf`,
+`idle_minutes=30`). During interactive dev — boot debugging, restart-roulette watching, sparse
+test requests — the 5-min-averaged util sits under 5% even though you're actively working, so the
+alarm reaps the box mid-session (it did exactly this 2026-07-08, killing the baseline). The alarm
+is doing its job (reaping forgotten boxes); it's just blind to interactive use. **Right after boot,
+suspend the actions:**
+`aws cloudwatch disable-alarm-actions --alarm-names conclave-idle-stop-gpu conclave-idle-stop-gpu-cpu-backstop --profile yeti-conclave`
+and re-enable (`enable-alarm-actions`) or just tear down when done. Keeps the safety net's intent
+without the reap-during-dev trap. (Candidate v3 fix: a `dev_mode` var that widens `idle_minutes` or
+skips the alarm, vs. a heartbeat sentinel metric — decide next chunk.)
+
+### Co-residency restart-roulette still happens at util 0.86
+Even with the committed 0.86 utils, coder + reasoning still lose the KV race on a cold boot
+(`Available KV cache memory: -12.1 GiB` — vLLM's util is a per-process *ceiling* on TOTAL GPU mem,
+so a late starter sees the others' weights against its budget). They self-recover after 1-3 docker
+restarts (general wins first, they retry into the freed window) — both boots converged this way in
+~3-5 min. Deterministic fix deferred to a v3 chunk: **stagger the container starts in user-data**
+(start general → wait for `Application startup complete` → coder → reasoning) instead of racing all
+three at once. Until then: poll `docker logs vllm-<m> | grep "Application startup complete"` and be
+patient; err-count in logs is cumulative across restarts, not a permanent-failure signal.
 
 ## v2 boot playbook (reuse for any GPU boot)
 
