@@ -11,29 +11,40 @@ Last updated: 2026-07-08 (end of session). Read this + `design.md` to resume col
   LiteLLM gateway — reasoning had NO byte-marker leak (Qwen distill fix holds). Per-model cost
   accounting prints (`response_cost` matched configured $/token exactly). GPUUtil idle-stop metric
   flowed. Torn down, $0 spend. One landmine hit + fixed (see below), fixes committed.
+- **v3 (ensemble + judge):** 🔨 **in progress.** Design locked; orchestrator built +
+  live-smoke-verified 2026-07-08; Chunk 1 infra fixes merged. Next = Chunk 2 baseline boot (below).
 
 ## The ONE next action
 
-**v3 in progress.** Four design decisions locked 2026-07-08 (see `design.md` § "v3 locked
-decisions"): client-side orchestrator · pluggable judge, default in-fleet Gemma · OpenAI-compatible
-`model=ensemble` + debug metadata · single-GPU contention baseline first, multi-GPU follow-on.
-Orchestrator scaffolded + verified offline: `python3 orchestrator/ensemble.py` (canned call fn, no
-GPU). It exposes `ensemble(query, cfg, call)` — fan-out → judge → OpenAI-shaped result with
-per-model latency + judge rationale in `metadata`.
+**Chunk 2 — contention baseline (a paid boot, ~45min, ~$2-3).** One boot does double duty: it
+**validates Chunk 1** (does the fleet boot clean, zero restarts, no dev_mode reap?) and **captures
+the baseline** (real seq-vs-ideal-parallel latency — the number that justifies multi-GPU).
+Steps: boot with `-var dev_mode=true` (playbook below), set the gateway, run
+`CONCLAVE_GW=<ts-ip>:4000 python3 orchestrator/harness.py --baseline`, then tear down. If a model
+still KV-starves, live-tune its ceiling in `variables.tf` (utils are an estimate) and persist.
 
-Next (in order):
-1. **Live smoke test — ✅ DONE 2026-07-08.** Ran a real ensemble through the gateway from the local
-   client. Fan-out served all 3 (coder 1.8s / reasoning 11.4s / general 2.9s); Gemma judge selected
-   + rationalized; OpenAI-shaped result returned. Two bugs found + fixed live (commit `76db079`):
-   Gemma-2 has NO system role (400s) → judge instruction folded into the user turn; and `run_judge`
-   now degrades to a candidate instead of crashing when the judge call errors.
-2. **Contention baseline — REAPED, redo next boot.** The idle-stop alarm stopped the box mid-run
-   (see landmine below), so the numbers are garbage (uniform 75 s = requests hitting a dying box).
-   One clean smoke datapoint stands: sequential fan-out wall ≈ Σ per-model ≈ 16 s vs slowest-model
-   ≈ 11 s, i.e. co-residency adds ~40% over ideal-parallel — but redo properly with the alarm
-   suspended. Script: `scratchpad/baseline.py` (points at the gateway, prints seq/ideal/tax).
-3. **Judge eval** — same ensemble with `judge=gemma` vs a frontier `judge_url`/`judge_model`;
-   compare selection quality. Then decide multi-GPU box (g5.12xlarge vs g6e.12xlarge).
+**v3 status.** Four design decisions locked (see `design.md` § "v3 locked decisions"): client-side
+orchestrator · pluggable judge, default in-fleet Gemma · OpenAI-compatible `model=ensemble` + debug
+metadata · single-GPU baseline first, multi-GPU follow-on. Orchestrator (`orchestrator/ensemble.py`)
+built + **live-smoke-verified** 2026-07-08; live harness in `orchestrator/harness.py`
+(`--baseline` for the contention run, default = smoke; gateway via argv or `$CONCLAVE_GW`).
+
+### The v3 chunk plan (breakdown + time scope)
+- **Chunk 1 — pre-boot infra fixes. ✅ DONE + merged (PR #4, `c8919c7`).** `dev_mode` idle-stop +
+  cumulative-util/sequential-start KV fix. Both unverified until Chunk 2's boot.
+- **Chunk 2 — contention baseline. ← NEXT.** Boot · ~45min · ~$2-3. Validates Chunk 1 + captures
+  the baseline. Rough prior datapoint (from the reaped run's one clean smoke): co-residency ≈ +40%
+  over ideal-parallel — replace with a real measurement.
+- **Chunk 3 — judge eval (the thesis payload).** ~2h harness build (no boot) + ~45min boot ·
+  ~$2-3 + tiny frontier API. Build a labeled query set (~15-20 Qs across coder/reasoning/general
+  strengths) + a scorer; run `judge=gemma` vs a frontier `judge_url`/`judge_model`; compare
+  selection/synthesis quality. Output: "does a small self-hosted judge hold up vs frontier."
+- **Chunk 4 — multi-GPU.** ~3-4h build + ~1h measure · ~4× hourly (~$8-15/measure). Only once
+  Chunk 2 justifies it. Pick box (g5.12xlarge vs g6e.12xlarge), per-GPU placement
+  (`CUDA_VISIBLE_DEVICES`/device pinning), measure the parallel delta, unlock 32B coder +
+  Llama-reasoner restoration.
+
+Total remaining v3 ≈ 2-3 focused sessions. Pad boot chunks 1.5× — every boot has surprised us.
 
 ### Idle-stop was dev-hostile — FIXED in Chunk 1 (`dev_mode`), verify in Chunk 2
 The GPU idle-stop alarm stops the box after 30 min of GPUUtil < 5%. During interactive dev — boot
