@@ -90,7 +90,13 @@ done
   echo "  drop_params: true"
 } > /etc/litellm-config.yaml
 
+# LITELLM_LOG=DEBUG: the only level that emits per-request `response_cost` to
+# stdout — the `success_callback: ["logging"]` above registers the per-token
+# costs but never prints them (verified 2026-07-08). Noisy (dumps request params
+# per call) but v2 is single-user and learning the cost pattern is the goal;
+# `docker logs litellm | grep response_cost` extracts the signal.
 docker run -d --restart unless-stopped --name litellm --network host \
+  -e LITELLM_LOG=DEBUG \
   -v /etc/litellm-config.yaml:/app/config.yaml \
   ghcr.io/berriai/litellm:main-latest \
   --config /app/config.yaml --port 4000
