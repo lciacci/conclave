@@ -72,6 +72,9 @@ def fan_out(query: str, cfg: EnsembleConfig, call=http_call) -> list[dict]:
     return out
 
 
+# Folded into the user turn, not a system message: Gemma-2 (the default judge)
+# has no system role in its chat template and 400s on one. A user-embedded
+# instruction works across every model in the fleet.
 _JUDGE_SYS = (
     "You are a judge over answers from several specialist models to the same "
     "query. You do not see which model produced which answer beyond a label. "
@@ -91,22 +94,31 @@ def _judge_messages(query: str, candidates: list[dict], mode: str) -> list[dict]
         else "Select the single best answer verbatim."
     )
     user = (
+        f"{_JUDGE_SYS}\n\n"
         f"Query:\n{query}\n\n" + "\n\n".join(blocks) + "\n\n"
         f"{task}\n"
         'Respond ONLY with JSON: {"chosen": <answer-index or -1 if synthesized>, '
         '"rationale": "<one sentence>", "answer": "<final answer text>"}'
     )
-    return [{"role": "system", "content": _JUDGE_SYS}, {"role": "user", "content": user}]
+    return [{"role": "user", "content": user}]
 
 
 def run_judge(query: str, candidates: list[dict], cfg: EnsembleConfig, call=http_call) -> dict:
     msgs = _judge_messages(query, candidates, cfg.mode)
     t0 = time.monotonic()
-    # response_format json_object: vLLM guided decoding returns a pure JSON string,
-    # so json.loads parses the whole thing correctly — including braces inside the
-    # `answer` field (e.g. code from the coder model). No fragile substring slicing.
-    raw = call(cfg.resolved_judge_url(), cfg.judge_model, msgs, cfg.timeout,
-               response_format={"type": "json_object"})
+    try:
+        # response_format json_object: vLLM guided decoding returns a pure JSON
+        # string, so json.loads parses the whole thing correctly — including braces
+        # inside the `answer` field (e.g. code). No fragile substring slicing.
+        raw = call(cfg.resolved_judge_url(), cfg.judge_model, msgs, cfg.timeout,
+                   response_format={"type": "json_object"})
+    except Exception as e:
+        # Judge unreachable / rejected the request — degrade to the first valid
+        # candidate rather than sink the whole ensemble (fan-out does the same).
+        latency = round(time.monotonic() - t0, 3)
+        fallback = next((c["content"] for c in candidates if c["content"]), None)
+        return {"answer": fallback, "rationale": f"judge failed: {type(e).__name__}: {e}",
+                "chosen": -1, "model": cfg.judge_model, "latency_s": latency}
     latency = round(time.monotonic() - t0, 3)
     try:
         parsed = json.loads(raw)
@@ -160,7 +172,9 @@ def demo() -> None:
     })
 
     def fake_call(base_url, model, messages, timeout, response_format=None):
-        if messages and messages[0]["role"] == "system":  # judge turn
+        # Judge turn is the one carrying the JSON instruction (no system role —
+        # folded into the user message so Gemma accepts it).
+        if "Respond ONLY with JSON" in messages[-1]["content"]:
             assert response_format == {"type": "json_object"}, "judge asks for JSON mode"
             return judge_json
         return canned[model]
