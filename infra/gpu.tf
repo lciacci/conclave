@@ -135,13 +135,13 @@ resource "aws_cloudwatch_metric_alarm" "gpu_idle_stop" {
   count = var.enable_gpu ? 1 : 0
 
   alarm_name          = "conclave-idle-stop-gpu"
-  alarm_description   = "Stop the GPU instance after ${var.idle_minutes}m of GPU idle"
+  alarm_description   = "Stop the GPU instance after ${var.dev_mode ? 90 : var.idle_minutes}m of GPU idle"
   namespace           = "Conclave"
   metric_name         = "GPUUtil"
   dimensions          = { InstanceId = aws_instance.gpu[0].id }
   statistic           = "Average"
   period              = 300
-  evaluation_periods  = var.idle_minutes / 5
+  evaluation_periods  = (var.dev_mode ? 90 : var.idle_minutes) / 5
   threshold           = 5
   comparison_operator = "LessThanThreshold"
   treat_missing_data  = "notBreaching"
@@ -155,13 +155,13 @@ resource "aws_cloudwatch_metric_alarm" "gpu_idle_stop_cpu_backstop" {
   count = var.enable_gpu ? 1 : 0
 
   alarm_name          = "conclave-idle-stop-gpu-cpu-backstop"
-  alarm_description   = "Backstop: stop the GPU instance after ${var.idle_minutes}m of CPU idle"
+  alarm_description   = "Backstop: stop the GPU instance after ${var.dev_mode ? 90 : var.idle_minutes}m of CPU idle"
   namespace           = "AWS/EC2"
   metric_name         = "CPUUtilization"
   dimensions          = { InstanceId = aws_instance.gpu[0].id }
   statistic           = "Average"
   period              = 300
-  evaluation_periods  = var.idle_minutes / 5
+  evaluation_periods  = (var.dev_mode ? 90 : var.idle_minutes) / 5
   threshold           = 5
   comparison_operator = "LessThanThreshold"
   alarm_actions       = ["arn:aws:automate:${var.region}:ec2:stop"]

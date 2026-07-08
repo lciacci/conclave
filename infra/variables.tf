@@ -30,6 +30,16 @@ variable "idle_minutes" {
   default = 30
 }
 
+# dev_mode widens the idle-stop window to 90m. The 30m default reaped the box
+# mid-session 2026-07-08 during an inference-free stretch (boot debugging +
+# co-residency restart-roulette look "idle" to a GPU-util alarm). 90m still
+# reaps a genuinely-forgotten box, but survives a gnarly interactive boot.
+# Boot dev work with -var dev_mode=true; leave false for unattended/normal boots.
+variable "dev_mode" {
+  type    = bool
+  default = false
+}
+
 # GPU instance is gated: quota approval pending, and every apply that creates
 # it starts billing. Flip with -var enable_gpu=true once quota lands.
 variable "enable_gpu" {
@@ -77,18 +87,32 @@ variable "models" {
     cost_in  = number
     cost_out = number
   }))
+  #
+  # ARRAY ORDER = START ORDER, and mem_util is CUMULATIVE (2026-07-08, v3 Chunk 1).
+  # vLLM's gpu_memory_utilization is a per-process CEILING on TOTAL GPU mem, not a
+  # private slice — so with models co-resident, a later starter whose ceiling is
+  # below the memory the earlier ones already hold computes NEGATIVE KV and dies
+  # (`Available KV cache memory: -12.1 GiB`, reproduced both v2 boots). Additive
+  # fractions summing to <1 are therefore WRONG here. Fix: start the models one at
+  # a time (user-data waits for each "Application startup complete" before the
+  # next) with ceilings that RISE to cover cumulative residency — each model's
+  # util ≈ (everything resident once it loads) / 48 GB. Order small→large so early
+  # ceilings stay low and leave room:
+  #   general   ~5.5 GB wt + KV  -> ~10 GB cumulative -> 0.25
+  #   coder     +9   GB wt + KV  -> ~24 GB cumulative -> 0.55
+  #   reasoning +8   GB wt + KV  -> ~37 GB cumulative -> 0.82 (takes the remainder)
+  # HYPOTHESIS pending the Chunk 2 boot — if a model still OOMs/KV-starves, nudge
+  # its (and later) ceilings up; if one wastes headroom, down. The old additive
+  # 0.24/0.26/0.36 "worked" only via restart-roulette (crash-loop until the race
+  # happened to resolve); this is the deterministic replacement.
   default = [
+    # general (Gemma-2-9b INT4) starts first: smallest footprint, and it's the
+    # default judge (decorrelated from the two Qwen candidates).
+    { name = "general", repo = "hugging-quants/gemma-2-9b-it-AWQ-INT4", port = 8003, mem_util = 0.25, max_len = 8192, dtype = "", cost_in = 0.00000030, cost_out = 0.00000030 },
     # 14B not 32B: a 32B coder + 2 small models can't co-reside on one 48 GB L40S
     # (2026-07-07 — 32B+Gemma alone filled 42/44 GiB, no room for the 3rd). 14B
     # leaves headroom for all three. The 32B returns in v3 on its own GPU.
-    # Utils bumped 0.66 -> 0.86 sum (2026-07-08): at 0.28/0.20/0.18 every model
-    # died on load with `_check_enough_kv_cache_memory` (No available memory for
-    # cache blocks) — each slice ~= its own weights, ~0 left for KV, while 34% of
-    # the 48 GB sat unused. Co-resident vLLM accounts each util as a fraction of
-    # TOTAL GPU mem, so late-starting members see others' weights against their
-    # budget; the coder lost the KV race twice before winning. 0.36/0.26/0.24
-    # (~39 GiB, ~5 GiB margin) boots all three clean and verified v2 end-to-end.
-    { name = "coder", repo = "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ", port = 8001, mem_util = 0.36, max_len = 8192, dtype = "", cost_in = 0.00000040, cost_out = 0.00000040 },
+    { name = "coder", repo = "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ", port = 8001, mem_util = 0.55, max_len = 8192, dtype = "", cost_in = 0.00000040, cost_out = 0.00000040 },
     # R1-Distill-QWEN-7B (not Llama): the Llama distill leaks BPE byte markers
     # (Ġ/Ċ) under vLLM 0.24's V1 detokenizer — reproduced across 2 quants, and
     # 0.24 is already the newest vLLM (no image bump available). The Qwen tokenizer
@@ -96,8 +120,8 @@ variable "models" {
     # decorrelation — acceptable for v2; restoring a Llama-lineage reasoner (V0
     # engine VLLM_USE_V1=0, or a future vLLM) is a v3 experiment. FP8-dynamic:
     # reputable RedHat quant, native on the L40S (Ada), ~8 GB, no AWQ-dtype hassle.
-    { name = "reasoning", repo = "RedHatAI/DeepSeek-R1-Distill-Qwen-7B-FP8-dynamic", port = 8002, mem_util = 0.26, max_len = 8192, dtype = "", cost_in = 0.00000020, cost_out = 0.00000020 },
-    { name = "general", repo = "hugging-quants/gemma-2-9b-it-AWQ-INT4", port = 8003, mem_util = 0.24, max_len = 8192, dtype = "", cost_in = 0.00000030, cost_out = 0.00000030 },
+    # Starts last with the top ceiling (0.82) so it takes whatever KV remains.
+    { name = "reasoning", repo = "RedHatAI/DeepSeek-R1-Distill-Qwen-7B-FP8-dynamic", port = 8002, mem_util = 0.82, max_len = 8192, dtype = "", cost_in = 0.00000020, cost_out = 0.00000020 },
   ]
 }
 
