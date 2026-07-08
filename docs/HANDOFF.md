@@ -14,13 +14,20 @@ Last updated: 2026-07-08 (end of session). Read this + `design.md` to resume col
 
 ## The ONE next action
 
-Start **v3 — the thesis: ensemble fan-out + the judge** (meta-reasoner selecting/synthesizing
-across the 3 parallel responses). Design decisions to make first (surface as numbered choices):
-where the orchestrator + judge run (on-box vs. a small client), judge model (one of the 3, or a
-4th), fan-out API shape, and how to measure realistic parallel-ensemble latency (co-resident
-models contend for SMs — deferred from v2). Also the natural home for the 32B coder on its own GPU
-(multi-instance) and restoring a Llama-lineage reasoner (V0 engine `VLLM_USE_V1=0`). See
-`design.md` v3 + open questions. No paid boot needed until there's something to run.
+**v3 in progress.** Four design decisions locked 2026-07-08 (see `design.md` § "v3 locked
+decisions"): client-side orchestrator · pluggable judge, default in-fleet Gemma · OpenAI-compatible
+`model=ensemble` + debug metadata · single-GPU contention baseline first, multi-GPU follow-on.
+Orchestrator scaffolded + verified offline: `python3 orchestrator/ensemble.py` (canned call fn, no
+GPU). It exposes `ensemble(query, cfg, call)` — fan-out → judge → OpenAI-shaped result with
+per-model latency + judge rationale in `metadata`.
+
+Next (in order):
+1. **Live smoke test** — boot v2 (playbook below), set `EnsembleConfig.gateway_url` to the
+   `<tailscale-ip>:4000`, run a real ensemble, confirm fan-out + Gemma judge work end-to-end.
+2. **Contention baseline** — capture per-model vs wall latency for co-resident fan-out; that % is
+   the deliverable that justifies multi-GPU.
+3. **Judge eval** — same ensemble with `judge=gemma` vs a frontier `judge_url`/`judge_model`;
+   compare selection quality. Then decide multi-GPU box (g5.12xlarge vs g6e.12xlarge).
 
 ## v2 boot playbook (reuse for any GPU boot)
 

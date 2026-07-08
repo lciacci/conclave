@@ -86,6 +86,49 @@ handling ties — share learnings, not code.
 Naming the family is what turns two similar-looking components into a design-pattern
 exploration. This framing feeds project #10 and the job-search narrative.
 
+### v3 locked decisions (2026-07-08)
+
+Four decisions, resolved before writing code. All keep the expensive GPU out of the dev loop and
+the frontier out of the critical path.
+
+1. **Orchestrator placement — client-side.** The orchestrator (fan-out → collect → judge →
+   return) is new code regardless; LiteLLM has no native fan-out. It runs on the local machine
+   (or any Tailscale client), calling the gateway. Rationale: iterate judge logic with the GPU box
+   *down* against recorded/cached candidate responses — pay for the GPU only when running a real
+   ensemble. The Tailscale hop adds a known-constant latency, subtractable from measurements.
+   *Deferred:* hosting the orchestrator so it runs "from any device" without a local process — a
+   later problem, and the API shape (decision 3) already makes any client a first-class caller.
+
+2. **Judge model — pluggable, default in-fleet (Gemma-9b).** No co-resident 4th model fits (fleet
+   is at 0.86 util). So the judge target is a *config value* (model name + base_url), not
+   hardcoded. Default is the in-fleet **general/Gemma-9b** — chosen over the in-fleet reasoning-7B
+   because Gemma's lineage is decorrelated from the two Qwen candidates (coder + reasoning), so it
+   is less likely to share their blind spots. Toggling the judge to an external frontier model is
+   a one-line config change. This *is* the "eval the meta-reasoner separately" experiment: run the
+   identical ensemble with `judge=gemma` vs `judge=frontier` and compare selection quality. The
+   frontier judge is a **baseline to beat**, never the default — the standing goal is no reliance
+   on frontier offerings in the critical path.
+
+3. **Fan-out API — OpenAI-compatible virtual model + debug metadata.** Expose a virtual
+   `model=ensemble` on the gateway; a normal `/v1/chat/completions` call returns the judged answer.
+   The N candidate responses + judge rationale ride in a response-metadata field for eval/debug.
+   Note: "OpenAI-compatible" is a *wire format* (the `/v1/chat/completions` schema), not a
+   dependency on OpenAI — the whole stack already speaks it (vLLM serves it, LiteLLM routes it) and
+   calls zero OpenAI servers. Choosing it means any OpenAI-SDK client, MCP server (v4), or curl can
+   drive the *self-hosted* gateway; it increases independence. Beats a bespoke endpoint on
+   drop-in compatibility + reuse of existing per-model cost accounting.
+
+4. **Latency realism — single-GPU contention baseline first, multi-GPU as a measured follow-on.**
+   The orchestrator/judge/API/eval harness are identical on 1 GPU or 4, so build them on the cheap
+   box; going multi-GPU then changes *only* topology (Terraform), not app code — de-risking the
+   expensive phase. First fan out to the 3 co-resident models and quantify the SM-contention
+   serialization penalty ("co-resident fan-out costs ~X% vs ideal parallel") — that number is both
+   a deliverable and the evidence that *justifies* multi-GPU. Then move to g6e.12xlarge (4× L40S,
+   one model per GPU) to measure the delta, and unlock the 32B coder + a dedicated judge GPU +
+   Llama-reasoner restoration. Rejected going straight to multi-GPU: ~4× hourly cost with no
+   baseline to compare against, and it forces debugging new judge code + new multi-GPU surprises
+   (per-GPU device pinning, `CUDA_VISIBLE_DEVICES`, placement) at the same time.
+
 ## Cost controls
 
 Budget cap: **$100/mo — confirmed 2026-07-02.** All thresholds below parameterize off it.
@@ -234,7 +277,11 @@ Controls first, compute second.
    preferred on-demand ("interruption annoys"), but v1's done-criteria is trivial + restartable
    (curl returns tokens) and EFS holds the weights, so a mid-session reclaim loses nothing. Switch
    v1 (and the default) to on-demand once its quota approves; spot remains the v2+ default anyway.
-3. **Ensemble-phase instance** — g5.12xlarge vs g6e.12xlarge. Price-compare when v3 starts.
+3. **Ensemble-phase instance — SEQUENCING RESOLVED 2026-07-08 (see v3 locked decisions).** v3
+   starts on the existing single g6e.xlarge to build the orchestrator/judge/API/eval + capture the
+   co-resident SM-contention baseline; multi-GPU is a measured follow-on. *Still open:* the
+   multi-GPU box itself — g5.12xlarge vs g6e.12xlarge (4× L40S) — price/perf-compare when the
+   single-GPU baseline is in hand.
 4. **v2 reasoning member — RESOLVED 2026-07-07: R1-Distill-Qwen-7B (FP8) for v2.** The Llama
    distill leaks BPE byte markers (`Ġ`/`Ċ`) under vLLM 0.24's V1 detokenizer — reproduced across
    jakiAJK AWQ + NeuralMagic w8a8, so it's the Llama-distill × vLLM, not the quant (coder/general
