@@ -123,7 +123,12 @@ the frontier out of the critical path.
    box; going multi-GPU then changes *only* topology (Terraform), not app code — de-risking the
    expensive phase. First fan out to the 3 co-resident models and quantify the SM-contention
    serialization penalty ("co-resident fan-out costs ~X% vs ideal parallel") — that number is both
-   a deliverable and the evidence that *justifies* multi-GPU. Then move to g6e.12xlarge (4× L40S,
+   a deliverable and the evidence that *justifies* multi-GPU. **Defined precisely (2026-07-09):**
+   a solo pass (`fan_out`, one model at a time) gives `max_solo`, the ideal-parallel lower bound; a
+   concurrent pass (`fan_out_parallel`) gives `parallel_wall`; the tax is
+   `(parallel_wall - max_solo) / max_solo`. ~0% ⇒ the GPU timeshares fine and multi-GPU is NOT
+   justified; ~+100% ⇒ co-residents serialize and it is. Comparing `sum(solo)` to `max(solo)` — as
+   the first harness did — measures arithmetic, not hardware, and cannot falsify either branch. Then move to g6e.12xlarge (4× L40S,
    one model per GPU) to measure the delta, and unlock the 32B coder + a dedicated judge GPU +
    Llama-reasoner restoration. Rejected going straight to multi-GPU: ~4× hourly cost with no
    baseline to compare against, and it forces debugging new judge code + new multi-GPU surprises
@@ -165,11 +170,22 @@ Controls first, compute second.
   - **Capacity, not quota, was the wall.** Spot G quota approved 2026-07-06 but g6e.xlarge *spot*
     was capacity-starved region-wide (placement scores 1–3/10 every us-east-1 AZ) — repeated
     `InsufficientInstanceCapacity`. Quota = permission ceiling; capacity = physical GPUs free.
-    Separate things. On-demand has priority over spot for scarce capacity.
+    Separate things. On-demand has priority over spot for scarce capacity. Recurred 2026-07-09:
+    g6e.xlarge on-demand dry in *all* of us-east-1a/b/c/d (AWS's "try 1b/1c/1d" error text is
+    generic boilerplate, not a live capacity read — all three were dry). The G+VT quota is 8 vCPU
+    for on-demand **and** spot, so `g6e.2xlarge` (8 vCPU, same single L40S 48 GB, `mem_util`
+    values unchanged) is the only fallback size; `g6e.4xlarge` would fail `VcpuLimitExceeded`.
   - **On-demand quota granted overnight** → switched to on-demand (`use_spot=false`). Even then,
     a single pinned AZ (1b) hung ~20 min (provider retries `InsufficientInstanceCapacity` for the
-    whole create timeout). Fix: `timeouts { create = "3m" }` (fail fast) + an **AZ sweep**
-    (1a→1c→1d→1f). 1a dry, **1c had capacity** → launched.
+    whole create timeout). We *thought* the fix was `timeouts { create = "3m" }` (fail fast) + an
+    **AZ sweep** (1a→1c→1d→1f). 1a dry, **1c had capacity** → launched.
+    **That fix does not work — verified 2026-07-09, it hung 26 min with `create = "3m"` set.**
+    EC2 returns capacity errors as HTTP 500; the AWS SDK retryer treats 500 as retryable and the
+    resource timeout does not govern that retry loop. The error is invisible in normal terraform
+    output. A dry AZ therefore *stalls* rather than failing, which makes a bare AZ sweep useless.
+    Real recipe (`docs/HANDOFF.md`): `TF_LOG=DEBUG` + `grep InsufficientInstanceCapacity` + an
+    external wall-clock guard → ~20s per dry AZ. Orphan-check after every kill: a cancelled
+    `RunInstances` returns `context canceled`, so AWS may have launched a box you never saw.
   - **vLLM crash-looped on first serve — KV starvation, not OOM-on-capture.** 72B AWQ (~41.6 GiB
     weights) at `0.92` util + `16384` ctx left only 0.1 GiB for KV (needs 5.0) → `_check_enough_
     kv_cache_memory` ValueError → docker `--restart` → reload 38 GiB from EFS (~6 min) → repeat.
