@@ -53,23 +53,38 @@ def http_call(base_url: str, model: str, messages: list[dict], timeout: float,
     return data["choices"][0]["message"]["content"]
 
 
-def fan_out(query: str, cfg: EnsembleConfig, call=http_call) -> list[dict]:
-    """Query every candidate. Records per-model latency (v3 decision 4: this is
-    the raw material for the co-resident SM-contention measurement). Sequential
-    for now — co-resident models contend for SMs anyway, so parallel client
-    threads would not buy real parallelism on one GPU; revisit for multi-GPU."""
+def _one(model: str, query: str, cfg: EnsembleConfig, call) -> dict:
     msgs = [{"role": "user", "content": query}]
-    out = []
-    for model in cfg.candidates:
-        t0 = time.monotonic()
-        try:
-            content = call(cfg.gateway_url, model, msgs, cfg.timeout)
-            err = None
-        except Exception as e:  # network / model error — keep the others
-            content, err = None, f"{type(e).__name__}: {e}"
-        out.append({"model": model, "content": content,
-                    "latency_s": round(time.monotonic() - t0, 3), "error": err})
-    return out
+    t0 = time.monotonic()
+    try:
+        content = call(cfg.gateway_url, model, msgs, cfg.timeout)
+        err = None
+    except Exception as e:  # network / model error — keep the others
+        content, err = None, f"{type(e).__name__}: {e}"
+    return {"model": model, "content": content,
+            "latency_s": round(time.monotonic() - t0, 3), "error": err}
+
+
+def fan_out(query: str, cfg: EnsembleConfig, call=http_call) -> list[dict]:
+    """Query every candidate one at a time. Each latency_s is therefore a SOLO
+    latency — no other model inferencing, no SM contention. max(solo) is the
+    ideal-parallel lower bound that fan_out_parallel is measured against."""
+    return [_one(m, query, cfg, call) for m in cfg.candidates]
+
+
+def fan_out_parallel(query: str, cfg: EnsembleConfig, call=http_call) -> tuple[list[dict], float]:
+    """Query every candidate concurrently; also return the wall clock. Compare
+    that wall against max(solo latency) from fan_out to get the real co-residency
+    tax on one GPU (v3 decision 4). Do NOT assume co-residents serialize — vLLM
+    processes timeshare the SMs and the size of that tax is the whole question
+    Chunk 4's multi-GPU spend rests on. Threads, not processes: these calls are
+    blocking urllib I/O, so the GIL is released while the GPU works."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    t0 = time.monotonic()
+    with ThreadPoolExecutor(max_workers=len(cfg.candidates)) as ex:
+        out = list(ex.map(lambda m: _one(m, query, cfg, call), cfg.candidates))
+    return out, round(time.monotonic() - t0, 3)
 
 
 # Folded into the user turn, not a system message: Gemma-2 (the default judge)
@@ -189,7 +204,18 @@ def demo() -> None:
     content = res["choices"][0]["message"]["content"]
     assert "sorted(xs)" in content and "d['k']" in content, "braces-in-answer survived parse"
     assert res["metadata"]["wall_s"] >= 0
-    print("ok — ensemble pipeline + judge parse verified offline")
+
+    # Parallel fan-out: same shape/order as sequential, and it really overlaps —
+    # 3 x 0.2s sleeps must finish well under the 0.6s a serial pass would take.
+    def slow_call(base_url, model, messages, timeout, response_format=None):
+        time.sleep(0.2)
+        return canned[model]
+
+    par, wall = fan_out_parallel("q", cfg, call=slow_call)
+    assert [c["model"] for c in par] == cfg.candidates, "order preserved"
+    assert all(c["error"] is None for c in par), "no errors on the happy path"
+    assert wall < 0.5, f"threads did not overlap: wall={wall}s"
+    print("ok — ensemble pipeline + judge parse + parallel fan-out verified offline")
 
 
 if __name__ == "__main__":

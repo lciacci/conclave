@@ -16,12 +16,24 @@ Last updated: 2026-07-08 (end of session). Read this + `design.md` to resume col
 
 ## The ONE next action
 
-**Chunk 2 — contention baseline (a paid boot, ~45min, ~$2-3).** One boot does double duty: it
-**validates Chunk 1** (does the fleet boot clean, zero restarts, no dev_mode reap?) and **captures
-the baseline** (real seq-vs-ideal-parallel latency — the number that justifies multi-GPU).
-Steps: boot with `-var dev_mode=true` (playbook below), set the gateway, run
+**Chunk 2 — contention baseline (a paid boot, ~45min, ~$2-3). Attempted 2026-07-09, BLOCKED on
+EC2 capacity — $0 spent, nothing launched.** g6e.xlarge on-demand was dry in every us-east-1 AZ.
+Retry the boot; if xlarge is still dry, use `-var gpu_instance_type=g6e.2xlarge` (same L40S, see
+landmines). Harness work for this chunk is DONE and merged — just boot and run it.
+
+One boot does double duty: it **validates Chunk 1** (does the fleet boot clean, zero restarts, no
+dev_mode reap?) and **captures the baseline**. Steps: boot with `-var dev_mode=true` (playbook
+below, use the fast-fail sweep), set the gateway, run
 `CONCLAVE_GW=<ts-ip>:4000 python3 orchestrator/harness.py --baseline`, then tear down. If a model
 still KV-starves, live-tune its ceiling in `variables.tf` (utils are an estimate) and persist.
+
+**What the baseline now measures (fixed 2026-07-09).** It used to compute `sum(solo latencies)` vs
+`max(solo latency)` and call the ratio a "co-residency tax" — but `fan_out` queried models ONE AT A
+TIME, so nothing ever ran concurrently and the number was pure arithmetic (~+150% for any 3 models,
+regardless of GPU behaviour). The old "+40% over ideal-parallel" datapoint has this defect; discard it.
+`fan_out_parallel` (threaded) now runs a real concurrent pass, and the tax is
+`(parallel_wall - max_solo) / max_solo`. **~0% ⇒ the L40S timeshares fine and Chunk 4 multi-GPU is NOT
+justified; ~+100% ⇒ co-residents serialize and it IS.** Either answer is worth the boot.
 
 **v3 status.** Four design decisions locked (see `design.md` § "v3 locked decisions"): client-side
 orchestrator · pluggable judge, default in-fleet Gemma · OpenAI-compatible `model=ensemble` + debug
@@ -32,9 +44,9 @@ built + **live-smoke-verified** 2026-07-08; live harness in `orchestrator/harnes
 ### The v3 chunk plan (breakdown + time scope)
 - **Chunk 1 — pre-boot infra fixes. ✅ DONE + merged (PR #4, `c8919c7`).** `dev_mode` idle-stop +
   cumulative-util/sequential-start KV fix. Both unverified until Chunk 2's boot.
-- **Chunk 2 — contention baseline. ← NEXT.** Boot · ~45min · ~$2-3. Validates Chunk 1 + captures
-  the baseline. Rough prior datapoint (from the reaped run's one clean smoke): co-residency ≈ +40%
-  over ideal-parallel — replace with a real measurement.
+- **Chunk 2 — contention baseline. ← NEXT (boot blocked on capacity 2026-07-09, retry).** Boot ·
+  ~45min · ~$2-3. Validates Chunk 1 + captures the baseline. Harness fixed + merged; no prior
+  datapoint survives (the old +40% was an artifact of a sequential fan-out — see above).
 - **Chunk 3 — judge eval (the thesis payload).** ~2h harness build (no boot) + ~45min boot ·
   ~$2-3 + tiny frontier API. Build a labeled query set (~15-20 Qs across coder/reasoning/general
   strengths) + a scorer; run `judge=gemma` vs a frontier `judge_url`/`judge_model`; compare
@@ -73,8 +85,20 @@ until the race resolves, ~3-5 min) is the fallback behaviour.
 2. Launch: from `infra/` — **add `-var dev_mode=true` for any interactive boot** (widens idle-stop
    to 90m so debugging doesn't get reaped; see below) —
    `terraform apply -var enable_gpu=true -var dev_mode=true -var use_spot=false -var gpu_az=us-east-1c`
-   (on-demand; us-east-1c had capacity 3 launches running. If `InsufficientInstanceCapacity`,
-   sweep AZs: `-var gpu_az=us-east-1a` / `1d` / `1f`.) Instance create took ~10 min last boot.
+   Instance create took ~10 min last successful boot.
+   **NEVER run a bare apply to sweep AZs — a dry AZ HANGS, it does not error.** See
+   "capacity errors stall" below. Sweep with `TF_LOG=DEBUG`, an external timeout, and a grep:
+
+   ```sh
+   TF_LOG=DEBUG terraform apply -auto-approve -var enable_gpu=true -var dev_mode=true \
+     -var use_spot=false -var gpu_az=$az > /tmp/tf-$az.log 2>&1 &
+   TFPID=$!
+   # poll: instance up -> keep; 'InsufficientInstanceCapacity' in log -> kill, next AZ (~20s)
+   grep -qm1 InsufficientInstanceCapacity /tmp/tf-$az.log && kill -TERM $TFPID
+   ```
+   **After ANY kill, orphan-check** — a cancelled `RunInstances` returns `context canceled`, so
+   you never saw whether AWS launched a box:
+   `aws ec2 describe-instances --filters "Name=tag:project,Values=conclave" --profile yeti-conclave --query 'Reservations[].Instances[].[InstanceId,State.Name]' --output text`
 3. Babysit the boot via SSM (no SSH). **SSM doc is `AWS-RunShellScript`** (not `-Command`).
    **sh, not bash** — no `declare -A`/assoc arrays; for multiline scripts, base64-encode locally
    and send `echo <b64> | base64 -d | bash` (the CLI `commands=[...]` shorthand mangles newlines).
@@ -98,11 +122,13 @@ until the race resolves, ~3-5 min) is the fallback behaviour.
 
 - **Model set (in `infra/variables.tf` `models` var):** coder=`Qwen/Qwen2.5-Coder-14B-Instruct-AWQ`,
   reasoning=`RedHatAI/DeepSeek-R1-Distill-Qwen-7B-FP8-dynamic`, general=`hugging-quants/gemma-2-9b-it-AWQ-INT4`.
-  **Utils now 0.36/0.26/0.24 (sum 0.86).** The old 0.28/0.20/0.18 (sum 0.66) crashed all 3 on load
-  with `_check_enough_kv_cache_memory` — each slice ≈ its own weights, ~0 for KV, while 34% of the
-  GPU sat idle. Co-resident vLLM counts util as a fraction of TOTAL mem, so late starters see others'
-  weights against their budget (coder lost the KV race twice, then won). 0.86 boots all 3 clean.
-  Each `--enforce-eager`.
+  **Utils are CUMULATIVE, and array order = start order: general 0.25 → coder 0.55 → reasoning 0.82**
+  (Chunk 1, 2026-07-08). vLLM's `gpu_memory_utilization` is a per-process ceiling on TOTAL GPU mem,
+  not a private slice, so each model's value ≈ (everything resident once it loads) / 48 GB. Earlier
+  per-slice schemes (0.28/0.20/0.18, later 0.36/0.26/0.24) treated it as additive; a late starter's
+  ceiling fell below what the others already held → negative KV → `_check_enough_kv_cache_memory`
+  crash-loop. User-data now also starts one model at a time, waiting for `Application startup
+  complete`. **Both unverified until Chunk 2's boot.** Each `--enforce-eager`.
 - **Why 14B not 32B coder:** a 32B + 2 small can't co-reside (32B+Gemma alone filled 42/44 GiB).
   32B returns in v3 on its own GPU.
 - **Why Qwen-7B not Llama-8B reasoning:** the Llama distill leaks BPE byte markers under vLLM
@@ -121,7 +147,23 @@ until the race resolves, ~3-5 min) is the fallback behaviour.
   live-swap via SSM then persist to `variables.tf`.
 - **Per-vLLM mem partitioning is empirical** — actual usage ran higher than nominal util last
   time. If a model OOMs on load (`Free memory ... less than desired`), lower utils and restart clean.
-- **us-east-1c capacity** — on-demand can be dry; AZ-sweep as above.
+- **Capacity errors STALL, they don't fail (2026-07-09, cost us a session).** EC2 returns
+  `InsufficientInstanceCapacity` as an HTTP 500; the AWS SDK retryer treats 500 as retryable and
+  silently retries. The `timeouts { create = "3m" }` in `gpu.tf` does NOT bound it — an apply sat in
+  `Still creating...` for **26 min** before we killed it. The error NEVER appears in normal terraform
+  output. Diagnose only via `TF_LOG=DEBUG` + `grep InsufficientInstanceCapacity` (shows in ~20s).
+  Use the fast-fail sweep in the playbook above.
+- **g6e.xlarge on-demand was dry in ALL of us-east-1a/b/c/d (2026-07-09).** AWS's own error text
+  suggests other AZs ("you can currently get capacity by choosing us-east-1b/1c/1d") — it is
+  **generic boilerplate, not a live capacity read**. All three suggestions were also dry. Don't
+  trust it; sweep and measure.
+- **Quota is the real ceiling: G+VT = 8 vCPU** (on-demand AND spot, us-east-1). So `g6e.xlarge`
+  (4 vCPU) and `g6e.2xlarge` (8 vCPU, **same single L40S 48 GB** — all `mem_util` values stay
+  valid) are the only options; `g6e.4xlarge` (16 vCPU) fails `VcpuLimitExceeded`. If xlarge is dry,
+  `-var gpu_instance_type=g6e.2xlarge` is a different capacity pool for ~$0.30 more on a 45-min run.
+  Caveat: 8 vCPU vs 4 changes CPU-side contention — record the instance type next to any baseline number.
+- **Spot is not an escape hatch here** — g6e.xlarge spot was $1.50-1.85/hr against ~$1.86 on-demand
+  (2026-07-09). No real saving, plus interruption risk mid-measurement.
 
 ## After v2 is verified → v3 (the thesis)
 
