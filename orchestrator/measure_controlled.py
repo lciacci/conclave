@@ -10,9 +10,7 @@ import json, os, sys, time, urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 GW = os.environ.get("CONCLAVE_GW", "").rstrip("/")
-if not GW:
-    sys.exit("set CONCLAVE_GW=100.x.y.z:4000")
-if not GW.startswith("http"):
+if GW and not GW.startswith("http"):
     GW = "http://" + GW
 MODELS = ["coder", "reasoning", "general"]
 MAX_TOK = 256
@@ -69,6 +67,8 @@ def _median(xs):
 
 
 def main():
+    if not GW:
+        sys.exit("set CONCLAVE_GW=100.x.y.z:4000")
     print(f"warmup... (max_tok={MAX_TOK}, ignore_eos=True)")
     call("general", "hi")
     taxes, solos, walls = [], [], []
