@@ -470,11 +470,11 @@
   <div class="wrap">
     <p class="eyebrow">The open question · v3 baseline</p>
     <h2 style="font-size:clamp(1.7rem,4vw,2.4rem); max-width:24ch; margin-bottom:14px;">Does one GPU timeshare three models — or serialize them?</h2>
-    <p class="lede" style="margin-bottom:28px;">Three vLLM processes on one L40S contend for the same compute units. The <em>co-residency tax</em> decides whether spending 4× on multi-GPU is justified. It's one measured number away — and either answer is worth the boot.</p>
+    <p class="lede" style="margin-bottom:28px;">Three vLLM processes on one L40S contend for the same compute units. The <em>co-residency tax</em> decides whether spending 4× on multi-GPU is justified. <b>Measured 2026-07-10: +30%</b> — real, but far from serialized. Compare the outcome against the hypothetical it was weighed against.</p>
 
     <div class="cont-toggle" role="group" aria-label="Contention scenario">
-      <button id="scA" aria-pressed="true">GPU timeshares fine</button>
-      <button id="scB" aria-pressed="false">Co-residents serialize</button>
+      <button id="scA" aria-pressed="true">Measured (+30%)</button>
+      <button id="scB" aria-pressed="false">If they serialized</button>
     </div>
 
     <div class="bars">
@@ -484,14 +484,14 @@
       </div>
       <div class="bar-row">
         <span class="bl">parallel_wall</span>
-        <div class="bar-track"><div class="bar-fill par" id="barPar" style="width:46%"><span id="parLabel">1.08×</span></div></div>
+        <div class="bar-track"><div class="bar-fill par" id="barPar" style="width:55%"><span id="parLabel">1.30×</span></div></div>
       </div>
     </div>
 
     <div class="verdict-line notjust" id="contVerdict">
-      tax = <span class="tax" id="taxVal">+8%</span> &nbsp;→&nbsp; <b>the L40S timeshares fine.</b> Multi-GPU is <b>not</b> justified — the fan-out already runs near-parallel on one card.
+      tax = <span class="tax" id="taxVal">+30%</span> &nbsp;→&nbsp; <b>the L40S timeshares three models.</b> Multi-GPU is <b>not</b> justified — a 4× box buys back at most ~30% latency.
     </div>
-    <p style="margin-top:22px; font-family:var(--mono); font-size:12.5px; color:var(--ink-faint); max-width:74ch;">tax = (parallel_wall − max_solo) / max_solo. An earlier harness compared sum(solo) to max(solo) — pure arithmetic that can't falsify either branch. The threaded <code>fan_out_parallel</code> pass fixes it. Not yet measured: the baseline boot is blocked on EC2 g6e.xlarge capacity.</p>
+    <p style="margin-top:22px; font-family:var(--mono); font-size:12.5px; color:var(--ink-faint); max-width:74ch;">tax = (parallel_wall − max_solo) / max_solo, measured 2026-07-10: max_solo 12.0s → parallel_wall 15.7s. Controlled for output length (every call forced to exactly 256 tokens) — without that, R1's variable chain-of-thought dominates and the number is noise (an uncontrolled run gave a misleading +9%).</p>
   </div>
 </section>
 
@@ -515,7 +515,7 @@
       </div>
       <div class="phase active">
         <div><div class="pv">v3</div><span class="status wip">in progress</span></div>
-        <div><h3>Ensemble + judge — the thesis</h3><p class="pd">Client-side orchestrator built and verified offline. Four design decisions locked. Next: the contention baseline (a paid ~45-min boot, currently blocked on EC2 capacity), then the judge eval — does a small self-hosted judge hold up against a frontier one?</p></div>
+        <div><h3>Ensemble + judge — the thesis</h3><p class="pd">Client-side orchestrator built and verified. Four design decisions locked. Contention baseline captured (+30% → multi-GPU dismissed) and the fleet boots clean on additive memory slices. Next: the judge eval — does a small self-hosted judge hold up against a frontier one?</p></div>
       </div>
       <div class="phase">
         <div><div class="pv">v4</div><span class="status next">maybe</span></div>
@@ -749,11 +749,11 @@
     scB.setAttribute("aria-pressed", which === "B");
     if (which === "A") {
       barSolo.style.width = "42%";
-      barPar.style.width = "45%";
-      parLabel.textContent = "1.08×";
-      taxVal.textContent = "+8%";
+      barPar.style.width = "55%";
+      parLabel.textContent = "1.30×";
+      taxVal.textContent = "+30%";
       contVerdict.className = "verdict-line notjust";
-      contVerdict.innerHTML = 'tax = <span class="tax">+8%</span> &nbsp;→&nbsp; <b>the L40S timeshares fine.</b> Multi-GPU is <b>not</b> justified — the fan-out already runs near-parallel on one card.';
+      contVerdict.innerHTML = 'tax = <span class="tax">+30%</span> &nbsp;→&nbsp; <b>the L40S timeshares three models.</b> Multi-GPU is <b>not</b> justified — a 4× box buys back at most ~30% latency.';
     } else {
       barSolo.style.width = "42%";
       barPar.style.width = "82%";

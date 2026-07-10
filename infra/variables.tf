@@ -88,23 +88,26 @@ variable "models" {
     cost_out = number
   }))
   #
-  # ARRAY ORDER = START ORDER, and mem_util is CUMULATIVE (2026-07-08, v3 Chunk 1).
-  # vLLM's gpu_memory_utilization is a per-process CEILING on TOTAL GPU mem, not a
-  # private slice — so with models co-resident, a later starter whose ceiling is
-  # below the memory the earlier ones already hold computes NEGATIVE KV and dies
-  # (`Available KV cache memory: -12.1 GiB`, reproduced both v2 boots). Additive
-  # fractions summing to <1 are therefore WRONG here. Fix: start the models one at
-  # a time (user-data waits for each "Application startup complete" before the
-  # next) with ceilings that RISE to cover cumulative residency — each model's
-  # util ≈ (everything resident once it loads) / 48 GB. Order small→large so early
-  # ceilings stay low and leave room:
-  #   general   ~5.5 GB wt + KV  -> ~10 GB cumulative -> 0.25
-  #   coder     +9   GB wt + KV  -> ~24 GB cumulative -> 0.55
-  #   reasoning +8   GB wt + KV  -> ~37 GB cumulative -> 0.82 (takes the remainder)
-  # HYPOTHESIS pending the Chunk 2 boot — if a model still OOMs/KV-starves, nudge
-  # its (and later) ceilings up; if one wastes headroom, down. The old additive
-  # 0.24/0.26/0.36 "worked" only via restart-roulette (crash-loop until the race
-  # happened to resolve); this is the deterministic replacement.
+  # ARRAY ORDER = START ORDER; mem_util is a PER-SLICE ADDITIVE fraction, summing
+  # to <~0.9 (MEASURED + FIXED 2026-07-10, v3 Chunk 2 boot). vLLM 0.24 checks, at
+  # each process's startup, that FREE GPU mem >= mem_util * TOTAL, then reserves
+  # that slice — the error is verbatim: "Free memory on device cuda:0 (7.19/44.39
+  # GiB) on startup is less than desired GPU memory utilization (0.82, 36.4 GiB)".
+  # So mem_util is a per-process REQUEST measured against currently-free memory,
+  # NOT a cumulative ceiling on total. The earlier "cumulative 0.25/0.55/0.82"
+  # scheme (untested until this boot) is therefore IMPOSSIBLE: the last starter
+  # demands util*total FREE (reasoning at 0.82 wanted 36 GiB free with only 7
+  # left) and crash-loops forever. Additive per-slice is correct, and the 2026-07-08
+  # v2 boot that "verified" 3 models was in fact running additive utils, not the
+  # cumulative reorder. Sequential start (user-data waits for each "Application
+  # startup complete") is still REQUIRED: it makes each slice's free-check run
+  # against real predecessor residency, avoiding a boot-time race. Size each slice
+  # to weights + KV, order small->large so early free-checks pass easily:
+  #   general   ~6 GB wt  -> 0.25 (11.1 GiB)   free-check vs 44 -> ok
+  #   coder     ~9 GB wt  -> 0.30 (13.3 GiB)   free-check vs ~33 -> ok
+  #   reasoning ~7.5 GB wt -> 0.24 (10.6 GiB)  free-check vs ~20 -> ok   (sum 0.79)
+  # Verified this boot: all three startup=1, restarts=0, ~7.6 GiB headroom left.
+  # If a model OOMs on load, nudge its slice up; if one wastes headroom, down.
   default = [
     # general (Gemma-2-9b INT4) starts first: smallest footprint, and it's the
     # default judge (decorrelated from the two Qwen candidates).
@@ -112,16 +115,16 @@ variable "models" {
     # 14B not 32B: a 32B coder + 2 small models can't co-reside on one 48 GB L40S
     # (2026-07-07 — 32B+Gemma alone filled 42/44 GiB, no room for the 3rd). 14B
     # leaves headroom for all three. The 32B returns in v3 on its own GPU.
-    { name = "coder", repo = "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ", port = 8001, mem_util = 0.55, max_len = 8192, dtype = "", cost_in = 0.00000040, cost_out = 0.00000040 },
+    { name = "coder", repo = "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ", port = 8001, mem_util = 0.30, max_len = 8192, dtype = "", cost_in = 0.00000040, cost_out = 0.00000040 },
     # R1-Distill-QWEN-7B (not Llama): the Llama distill leaks BPE byte markers
-    # (Ġ/Ċ) under vLLM 0.24's V1 detokenizer — reproduced across 2 quants, and
-    # 0.24 is already the newest vLLM (no image bump available). The Qwen tokenizer
-    # decodes clean (coder proves it). Trade: a 2nd Qwen member dents the lineage
-    # decorrelation — acceptable for v2; restoring a Llama-lineage reasoner (V0
-    # engine VLLM_USE_V1=0, or a future vLLM) is a v3 experiment. FP8-dynamic:
-    # reputable RedHat quant, native on the L40S (Ada), ~8 GB, no AWQ-dtype hassle.
-    # Starts last with the top ceiling (0.82) so it takes whatever KV remains.
-    { name = "reasoning", repo = "RedHatAI/DeepSeek-R1-Distill-Qwen-7B-FP8-dynamic", port = 8002, mem_util = 0.82, max_len = 8192, dtype = "", cost_in = 0.00000020, cost_out = 0.00000020 },
+    # (Ġ/Ċ) under vLLM 0.24 — and the "try the V0 engine" hypothesis is now
+    # FALSIFIED (2026-07-10, Chunk 2): jakiAJK Llama-8B AWQ under VLLM_USE_V1=0
+    # STILL leaks Ġ/Ċ, so the bug is not V1-detokenizer-specific. Restoring a
+    # Llama-lineage reasoner now waits on a future vLLM release or a different
+    # model/quant — not an engine flag. The Qwen tokenizer decodes clean (coder
+    # proves it). Trade: a 2nd Qwen member dents lineage decorrelation, accepted.
+    # FP8-dynamic: reputable RedHat quant, native on the L40S (Ada), ~7.5 GB.
+    { name = "reasoning", repo = "RedHatAI/DeepSeek-R1-Distill-Qwen-7B-FP8-dynamic", port = 8002, mem_util = 0.24, max_len = 8192, dtype = "", cost_in = 0.00000020, cost_out = 0.00000020 },
   ]
 }
 
