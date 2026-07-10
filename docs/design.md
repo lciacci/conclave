@@ -123,11 +123,21 @@ the frontier out of the critical path.
    box; going multi-GPU then changes *only* topology (Terraform), not app code — de-risking the
    expensive phase. First fan out to the 3 co-resident models and quantify the SM-contention
    serialization penalty ("co-resident fan-out costs ~X% vs ideal parallel") — that number is both
-   a deliverable and the evidence that *justifies* multi-GPU. Then move to g6e.12xlarge (4× L40S,
-   one model per GPU) to measure the delta, and unlock the 32B coder + a dedicated judge GPU +
-   Llama-reasoner restoration. Rejected going straight to multi-GPU: ~4× hourly cost with no
-   baseline to compare against, and it forces debugging new judge code + new multi-GPU surprises
-   (per-GPU device pinning, `CUDA_VISIBLE_DEVICES`, placement) at the same time.
+   a deliverable and the evidence that *justifies* multi-GPU. **Defined precisely (2026-07-09):**
+   a solo pass (`fan_out`, one model at a time) gives `max_solo`, the ideal-parallel lower bound; a
+   concurrent pass (`fan_out_parallel`) gives `parallel_wall`; the tax is
+   `(parallel_wall - max_solo) / max_solo`. ~0% ⇒ the GPU timeshares fine and multi-GPU is NOT
+   justified; ~+100% ⇒ co-residents serialize and it is. Comparing `sum(solo)` to `max(solo)` — as
+   the first harness did — measures arithmetic, not hardware, and cannot falsify either branch.
+   **MEASURED 2026-07-10 (Chunk 2 boot): tax = +30%** — controlled for output length (every call
+   forced to exactly 256 tokens via `ignore_eos`+`max_tokens`; without that control R1's variable
+   chain-of-thought dominates and the number is noise — an uncontrolled run gave a misleading +9%).
+   `max_solo` 12.0s → `parallel_wall` 15.7s, dead-stable across 8 queries. **Verdict: multi-GPU is
+   NOT justified** — a 4× box buys back at most ~30% latency. So Chunk 4 (below) is dismissed; the
+   g6e.12xlarge move stays available only if a *different* need reopens it (32B coder headroom,
+   failure isolation, a dedicated judge GPU). Rejected going straight to multi-GPU: ~4× hourly cost
+   with no baseline to compare against, and it forces debugging new judge code + new multi-GPU
+   surprises (per-GPU device pinning, `CUDA_VISIBLE_DEVICES`, placement) at the same time.
 
 ## Cost controls
 
@@ -165,11 +175,22 @@ Controls first, compute second.
   - **Capacity, not quota, was the wall.** Spot G quota approved 2026-07-06 but g6e.xlarge *spot*
     was capacity-starved region-wide (placement scores 1–3/10 every us-east-1 AZ) — repeated
     `InsufficientInstanceCapacity`. Quota = permission ceiling; capacity = physical GPUs free.
-    Separate things. On-demand has priority over spot for scarce capacity.
+    Separate things. On-demand has priority over spot for scarce capacity. Recurred 2026-07-09:
+    g6e.xlarge on-demand dry in *all* of us-east-1a/b/c/d (AWS's "try 1b/1c/1d" error text is
+    generic boilerplate, not a live capacity read — all three were dry). The G+VT quota is 8 vCPU
+    for on-demand **and** spot, so `g6e.2xlarge` (8 vCPU, same single L40S 48 GB, `mem_util`
+    values unchanged) is the only fallback size; `g6e.4xlarge` would fail `VcpuLimitExceeded`.
   - **On-demand quota granted overnight** → switched to on-demand (`use_spot=false`). Even then,
     a single pinned AZ (1b) hung ~20 min (provider retries `InsufficientInstanceCapacity` for the
-    whole create timeout). Fix: `timeouts { create = "3m" }` (fail fast) + an **AZ sweep**
-    (1a→1c→1d→1f). 1a dry, **1c had capacity** → launched.
+    whole create timeout). We *thought* the fix was `timeouts { create = "3m" }` (fail fast) + an
+    **AZ sweep** (1a→1c→1d→1f). 1a dry, **1c had capacity** → launched.
+    **That fix does not work — verified 2026-07-09, it hung 26 min with `create = "3m"` set.**
+    EC2 returns capacity errors as HTTP 500; the AWS SDK retryer treats 500 as retryable and the
+    resource timeout does not govern that retry loop. The error is invisible in normal terraform
+    output. A dry AZ therefore *stalls* rather than failing, which makes a bare AZ sweep useless.
+    Real recipe (`docs/HANDOFF.md`): `TF_LOG=DEBUG` + `grep InsufficientInstanceCapacity` + an
+    external wall-clock guard → ~20s per dry AZ. Orphan-check after every kill: a cancelled
+    `RunInstances` returns `context canceled`, so AWS may have launched a box you never saw.
   - **vLLM crash-looped on first serve — KV starvation, not OOM-on-capture.** 72B AWQ (~41.6 GiB
     weights) at `0.92` util + `16384` ctx left only 0.1 GiB for KV (needs 5.0) → `_check_enough_
     kv_cache_memory` ValueError → docker `--restart` → reload 38 GiB from EFS (~6 min) → repeat.
@@ -248,8 +269,11 @@ Controls first, compute second.
       each minute; primary alarm watches it (notBreaching), CPU alarm kept as backstop. IAM gains
       scoped `cloudwatch:PutMetricData`.
     - Next launch verifies all three in one boot.
-- **v3 — ensemble + judge.** Parallel fan-out, judge selection/synthesis, judge evals separate
-  from specialist evals. The pedagogically interesting phase.
+- **v3 — ensemble + judge. 🔨 in progress.** Parallel fan-out, judge selection/synthesis, judge
+  evals separate from specialist evals. The pedagogically interesting phase. Chunk 1 (infra fixes:
+  additive-util KV fix, pinned image, dev_mode idle-stop) + Chunk 2 (contention baseline = +30%,
+  multi-GPU dismissed) DONE 2026-07-10. Chunk 3 (judge eval: in-fleet Gemma vs frontier) is next —
+  the thesis payload. See `docs/HANDOFF.md`.
 - **v4 (maybe) — MCP front-end.** Unpauses project #5: MCP server as the structured interface
   to the platform.
 
@@ -283,13 +307,15 @@ Controls first, compute second.
    multi-GPU box itself — g5.12xlarge vs g6e.12xlarge (4× L40S) — price/perf-compare when the
    single-GPU baseline is in hand.
 4. **v2 reasoning member — RESOLVED 2026-07-07: R1-Distill-Qwen-7B (FP8) for v2.** The Llama
-   distill leaks BPE byte markers (`Ġ`/`Ċ`) under vLLM 0.24's V1 detokenizer — reproduced across
-   jakiAJK AWQ + NeuralMagic w8a8, so it's the Llama-distill × vLLM, not the quant (coder/general
-   decode clean). The preferred fix (bump vLLM) was a **dead end — 0.24 is already the newest
-   release**. So v2 uses `RedHatAI/DeepSeek-R1-Distill-Qwen-7B-FP8-dynamic` (Qwen tokenizer decodes
-   clean, FP8 native on the L40S, ~8 GB). Trade accepted: a 2nd Qwen member dents lineage
-   decorrelation for v2. **v3 experiment to restore a Llama-lineage reasoner:** try the V0 engine
-   (`VLLM_USE_V1=0`) — the bug is V1-detokenizer-specific — or a future vLLM release.
+   distill leaks BPE byte markers (`Ġ`/`Ċ`) under vLLM 0.24 — reproduced across jakiAJK AWQ +
+   NeuralMagic w8a8, so it's the Llama-distill × vLLM, not the quant (coder/general decode clean).
+   The preferred fix (bump vLLM) was a **dead end — 0.24 is already the newest release**. So v2 uses
+   `RedHatAI/DeepSeek-R1-Distill-Qwen-7B-FP8-dynamic` (Qwen tokenizer decodes clean, FP8 native on
+   the L40S, ~7.5 GB). Trade accepted: a 2nd Qwen member dents lineage decorrelation for v2.
+   **The V0-engine restoration hypothesis is FALSIFIED (2026-07-10, Chunk 2):** jakiAJK Llama-8B AWQ
+   under `VLLM_USE_V1=0` STILL leaks `Ġ`/`Ċ`, so the bug is NOT V1-detokenizer-specific. Restoring a
+   Llama-lineage reasoner now waits on a future vLLM release or a different model/quant — not an
+   engine flag. (Only the AWQ quant was V0-tested; w8a8-under-V0 untested but same expectation.)
 
 ## Launch-day risks (v1 first boot)
 

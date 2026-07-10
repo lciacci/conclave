@@ -36,11 +36,11 @@ set -x
 # --enforce-eager on every model: frees CUDA-graph memory for KV and avoids the
 # capture spike (learned v1) — doubly important with 3 processes sharing 48 GB.
 # STARTED ONE AT A TIME, in models-var order, waiting for each to finish loading
-# before the next: mem_util is a per-process CEILING on TOTAL GPU mem, so each
-# model must profile against the true amount its predecessors already hold. The
-# utils rise cumulatively (see the models var); starting them in parallel makes
-# those ceilings meaningless and a late model KV-starves (`-12.1 GiB`). Model set
-# is JSON from Terraform.
+# before the next: vLLM 0.24 checks FREE mem >= mem_util*TOTAL at each process's
+# startup, so each model's free-check must run against real predecessor residency.
+# The utils are additive per-slice (see the models var); starting them in parallel
+# races the free-checks and a later model fails ("less than desired GPU memory
+# utilization") or crash-loops. Model set is JSON from Terraform.
 apt-get install -y jq
 echo '${models_json}' > /etc/conclave-models.json
 
@@ -53,10 +53,13 @@ jq -c '.[]' /etc/conclave-models.json | while read -r m; do
   dtype=$(echo "$m" | jq -r .dtype)
   dtype_arg=""
   [ -n "$dtype" ] && [ "$dtype" != "null" ] && dtype_arg="--dtype $dtype"
+  # Image PINNED to v0.24.0 (was :latest, which resolved to v0.24.0 on the
+  # 2026-07-10 boot). Pinning stops a silent vLLM bump from changing mem-util
+  # semantics or detokenizer behaviour under us between boots.
   docker run -d --restart unless-stopped --name "vllm-$name" --gpus all \
     -v /mnt/efs/models:/models -p "$port":8000 \
     $HF_ENV \
-    vllm/vllm-openai:latest \
+    vllm/vllm-openai:v0.24.0 \
     --model "$repo" \
     --served-model-name "$name" \
     --download-dir /models \
