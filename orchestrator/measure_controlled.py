@@ -62,29 +62,58 @@ def parallel_pass(prompt):
     return round(time.monotonic() - t0, 2)
 
 
+def _median(xs):
+    s = sorted(xs)
+    n = len(s)
+    return s[n // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2]) / 2
+
+
 def main():
     print(f"warmup... (max_tok={MAX_TOK}, ignore_eos=True)")
     call("general", "hi")
     taxes, solos, walls = [], [], []
+    uncontrolled = False  # any call whose length was NOT pinned to MAX_TOK
     for i, p in enumerate(PROMPTS):
-        solo = solo_pass(p)
+        try:
+            solo = solo_pass(p)
+            wall = parallel_pass(p)
+        except Exception as e:  # one bad call shouldn't sink the whole run
+            print(f"[{i+1}/{len(PROMPTS)}] SKIPPED — {type(e).__name__}: {e}")
+            continue
         max_solo = max(v[0] for v in solo.values())
-        wall = parallel_pass(p)
         tax = (wall - max_solo) / max_solo
         taxes.append(tax); solos.append(max_solo); walls.append(wall)
         lat = {m: solo[m][0] for m in MODELS}
         tok = {m: solo[m][1] for m in MODELS}
+        # The whole method depends on ignore_eos surviving the LiteLLM gateway
+        # (which runs drop_params: true — ignore_eos is a vLLM-only param). If it
+        # gets dropped, calls stop at natural EOS, lengths vary, and the "control"
+        # silently fails back to the noisy number this tool exists to avoid. Guard.
+        if any(t != MAX_TOK for t in tok.values()):
+            uncontrolled = True
         print(f"[{i+1}/{len(PROMPTS)}] solo={lat} toks={tok} "
               f"max_solo={max_solo:.2f} wall={wall:.2f} tax={tax*100:+.0f}%")
     n = len(taxes)
+    if not n:
+        sys.exit("no successful queries — check the gateway is reachable")
     mean = lambda xs: sum(xs) / len(xs)
     print("\n=== CONTROLLED MEAN over %d queries ===" % n)
     print(f"  max_solo   {mean(solos):.2f}s")
     print(f"  parallel   {mean(walls):.2f}s")
-    print(f"  TAX        {mean(taxes)*100:+.0f}%   (median {sorted(taxes)[n//2]*100:+.0f}%)")
+    print(f"  TAX        {mean(taxes)*100:+.0f}%   (median {_median(taxes)*100:+.0f}%)")
     verdict = "NOT justified" if mean(taxes) < 0.5 else "JUSTIFIED"
     print(f"  verdict: multi-GPU {verdict}")
+    if uncontrolled:
+        print("\n!! WARNING: some calls did not generate exactly "
+              f"{MAX_TOK} tokens — ignore_eos was NOT honored (LiteLLM likely "
+              "dropped it). Output length is uncontrolled, so this TAX is "
+              "confounded by generation length. DISTRUST the number.")
 
 
 if __name__ == "__main__":
-    main()
+    if "--selfcheck" in sys.argv:  # offline: verify _median, no gateway needed
+        assert _median([1, 2, 3]) == 2
+        assert _median([1, 2, 3, 4]) == 2.5  # even n = mean of the two middles
+        print("ok — _median verified")
+    else:
+        main()
