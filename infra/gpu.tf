@@ -98,8 +98,13 @@ resource "aws_instance" "gpu" {
     volume_type = "gp3"
   }
 
-  # Fail fast on InsufficientInstanceCapacity instead of the provider's long
-  # default retry (which hung ~20 min on 2026-07-07). Lets us sweep AZs quickly.
+  # DOES NOT bound InsufficientInstanceCapacity. Verified 2026-07-09: an apply
+  # sat in "Still creating..." for 26 min with create=3m set. EC2 returns capacity
+  # errors as HTTP 500, the AWS SDK's retryer treats 500 as retryable, and that
+  # retry loop is not governed by this timeout — so a dry AZ stalls instead of
+  # failing. Only the wait-for-running phase honours it. To sweep AZs you need an
+  # EXTERNAL wall-clock guard plus `TF_LOG=DEBUG | grep InsufficientInstanceCapacity`
+  # (the error never reaches normal output). Recipe in docs/HANDOFF.md.
   timeouts {
     create = "3m"
   }
