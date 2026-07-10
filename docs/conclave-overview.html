@@ -1,0 +1,772 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Conclave — a multi-model inference lab</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    --ground: #10131a;
+    --surface: #171b24;
+    --surface-2: #1e232f;
+    --ink: #e9e7de;
+    --ink-muted: #9aa2b0;
+    --ink-faint: #6b7280;
+    --line: rgba(233, 231, 222, 0.10);
+    --line-strong: rgba(233, 231, 222, 0.18);
+    --brass: #cba24d;
+    --brass-soft: rgba(203, 162, 77, 0.14);
+    --coder: #56b4cb;
+    --reasoning: #9b8ce6;
+    --general: #8bc06e;
+    --good: #6cba7d;
+    --warn: #d99a4e;
+    --crit: #d9634e;
+
+    --serif: "New York", ui-serif, Georgia, "Times New Roman", serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+
+    --maxw: 1080px;
+    --r: 14px;
+    color-scheme: dark;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --ground: #f2f1eb;
+      --surface: #fbfaf6;
+      --surface-2: #f5f4ee;
+      --ink: #191c22;
+      --ink-muted: #565d68;
+      --ink-faint: #8a8f99;
+      --line: rgba(25, 28, 34, 0.12);
+      --line-strong: rgba(25, 28, 34, 0.20);
+      --brass: #927024;
+      --brass-soft: rgba(146, 112, 36, 0.12);
+      --coder: #227f92;
+      --reasoning: #5b4ea8;
+      --general: #4b7a34;
+      color-scheme: light;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #10131a; --surface: #171b24; --surface-2: #1e232f;
+    --ink: #e9e7de; --ink-muted: #9aa2b0; --ink-faint: #6b7280;
+    --line: rgba(233,231,222,0.10); --line-strong: rgba(233,231,222,0.18);
+    --brass: #cba24d; --brass-soft: rgba(203,162,77,0.14);
+    --coder: #56b4cb; --reasoning: #9b8ce6; --general: #8bc06e;
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --ground: #f2f1eb; --surface: #fbfaf6; --surface-2: #f5f4ee;
+    --ink: #191c22; --ink-muted: #565d68; --ink-faint: #8a8f99;
+    --line: rgba(25,28,34,0.12); --line-strong: rgba(25,28,34,0.20);
+    --brass: #927024; --brass-soft: rgba(146,112,36,0.12);
+    --coder: #227f92; --reasoning: #5b4ea8; --general: #4b7a34;
+    color-scheme: light;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 14px;
+  }
+  .eyebrow.brass { color: var(--brass); }
+
+  h1, h2, h3 { font-family: var(--serif); font-weight: 500; text-wrap: balance; line-height: 1.12; margin: 0; }
+  p { margin: 0 0 1em; }
+  a { color: var(--brass); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+
+  .lede { color: var(--ink-muted); font-size: 1.12rem; max-width: 60ch; }
+  code, .mono { font-family: var(--mono); }
+  :not(pre) > code {
+    font-size: 0.86em;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    padding: 0.1em 0.4em;
+    border-radius: 6px;
+    color: var(--ink);
+  }
+
+  section { padding: 96px 0; border-top: 1px solid var(--line); }
+  section:first-of-type { border-top: none; }
+
+  /* ---------- HERO ---------- */
+  .hero { position: relative; padding: 140px 0 104px; overflow: hidden; }
+  .hero-glow {
+    position: absolute; inset: -30% 0 auto 0; height: 620px;
+    background: radial-gradient(ellipse 60% 50% at 50% 0%, var(--brass-soft), transparent 70%);
+    pointer-events: none; z-index: 0;
+  }
+  .hero .wrap { position: relative; z-index: 1; }
+  .hero h1 { font-size: clamp(2.7rem, 7vw, 5.2rem); letter-spacing: -0.01em; }
+  .hero h1 em { font-style: italic; color: var(--brass); }
+  .hero .lede { margin-top: 26px; font-size: clamp(1.05rem, 2.2vw, 1.32rem); max-width: 44ch; }
+  .hero-meta {
+    display: flex; flex-wrap: wrap; gap: 8px 10px; margin-top: 34px;
+    font-family: var(--mono); font-size: 12.5px; color: var(--ink-muted);
+  }
+  .chip {
+    border: 1px solid var(--line-strong); border-radius: 999px;
+    padding: 5px 12px; white-space: nowrap;
+  }
+  .chip b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- DEMO ---------- */
+  .demo-head { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 30px; }
+  .demo-head h2 { font-size: clamp(1.7rem, 4vw, 2.4rem); }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .queries { display: flex; flex-wrap: wrap; gap: 8px; }
+  .qbtn {
+    font-family: var(--sans); font-size: 14px; color: var(--ink-muted);
+    background: var(--surface); border: 1px solid var(--line-strong);
+    padding: 9px 14px; border-radius: 999px; cursor: pointer; transition: all .18s ease;
+  }
+  .qbtn:hover { color: var(--ink); border-color: var(--brass); }
+  .qbtn[aria-pressed="true"] { color: var(--ground); background: var(--brass); border-color: var(--brass); font-weight: 600; }
+
+  .convene {
+    font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase;
+    background: var(--ink); color: var(--ground); border: none;
+    padding: 12px 20px; border-radius: 10px; cursor: pointer; font-weight: 600;
+    transition: transform .12s ease, opacity .2s ease;
+  }
+  .convene:hover { transform: translateY(-1px); }
+  .convene:disabled { opacity: .5; cursor: default; transform: none; }
+  .mode-toggle { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 10px; overflow: hidden; }
+  .mode-toggle button {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .04em;
+    background: transparent; color: var(--ink-muted); border: none; padding: 10px 14px; cursor: pointer;
+  }
+  .mode-toggle button[aria-pressed="true"] { background: var(--surface-2); color: var(--ink); }
+
+  .stage { display: grid; gap: 20px; }
+  .query-card {
+    background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r);
+    padding: 18px 22px; display: flex; align-items: center; gap: 14px;
+  }
+  .query-card .tag { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-faint); }
+  .query-card .q { font-family: var(--serif); font-size: 1.15rem; color: var(--ink); }
+
+  .fan { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .agent {
+    position: relative; background: var(--surface); border: 1px solid var(--line);
+    border-top: 3px solid var(--accent); border-radius: var(--r); padding: 18px;
+    min-height: 148px; display: flex; flex-direction: column;
+    opacity: .38; transform: translateY(8px); transition: opacity .45s ease, transform .45s ease, box-shadow .3s ease;
+  }
+  .agent.on { opacity: 1; transform: translateY(0); }
+  .agent.answered { box-shadow: 0 0 0 1px var(--accent) inset; }
+  .agent[data-role="coder"] { --accent: var(--coder); }
+  .agent[data-role="reasoning"] { --accent: var(--reasoning); }
+  .agent[data-role="general"] { --accent: var(--general); }
+  .agent .role { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .agent .role-name { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .agent .model { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); }
+  .agent .answer { font-size: 14.5px; color: var(--ink); line-height: 1.5; flex: 1; }
+  .agent .answer code { font-size: .9em; }
+  .agent .lat { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); margin-top: 12px; }
+  .agent .thinking { color: var(--ink-faint); font-family: var(--mono); letter-spacing: .3em; }
+  .agent.picked { box-shadow: 0 0 0 2px var(--brass) inset; }
+  .agent .badge {
+    position: absolute; top: -11px; right: 14px; background: var(--brass); color: var(--ground);
+    font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+    padding: 3px 9px; border-radius: 999px; font-weight: 700; opacity: 0; transition: opacity .3s ease;
+  }
+  .agent.picked .badge { opacity: 1; }
+
+  .converge { display: flex; justify-content: center; color: var(--ink-faint); }
+  .converge svg { width: 40px; height: 26px; }
+
+  .verdict {
+    background: linear-gradient(180deg, var(--brass-soft), transparent), var(--surface);
+    border: 1px solid var(--line-strong); border-left: 3px solid var(--brass);
+    border-radius: var(--r); padding: 22px 24px;
+    opacity: .35; transform: translateY(8px); transition: opacity .5s ease, transform .5s ease;
+  }
+  .verdict.on { opacity: 1; transform: translateY(0); }
+  .verdict .vhead { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+  .verdict .judge-name { font-family: var(--mono); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--brass); font-weight: 700; }
+  .verdict .decision { font-family: var(--mono); font-size: 11px; color: var(--ink-muted); border: 1px solid var(--line-strong); border-radius: 999px; padding: 3px 10px; }
+  .verdict .answer { font-family: var(--serif); font-size: 1.18rem; line-height: 1.5; color: var(--ink); }
+  .verdict .answer code { font-family: var(--mono); font-size: .82em; }
+  .verdict .rationale { margin-top: 14px; font-size: 14px; color: var(--ink-muted); font-style: italic; }
+  .verdict .rationale::before { content: "rationale — "; font-style: normal; font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
+
+  .telemetry {
+    display: flex; flex-wrap: wrap; gap: 20px 32px; margin-top: 18px; padding-top: 18px;
+    border-top: 1px dashed var(--line); font-family: var(--mono); font-size: 12.5px; color: var(--ink-muted);
+    opacity: 0; transition: opacity .5s ease;
+  }
+  .telemetry.on { opacity: 1; }
+  .telemetry .t b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .telemetry .t span { color: var(--ink-faint); }
+
+  /* ---------- GENERIC GRID ---------- */
+  .grid2 { display: grid; grid-template-columns: 1.1fr 1fr; gap: 40px; align-items: start; }
+  .stack-diagram {
+    background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r); padding: 8px;
+    font-family: var(--mono); font-size: 13px;
+  }
+  .layer {
+    display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 10px; margin: 6px;
+    background: var(--surface-2); border: 1px solid var(--line);
+  }
+  .layer .lbl { color: var(--ink); }
+  .layer .sub { color: var(--ink-faint); margin-left: auto; font-size: 11.5px; }
+  .layer.accent-brass { border-color: var(--brass); }
+  .gpu-split { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 6px; }
+  .gpu-cell { padding: 12px 10px; border-radius: 8px; border: 1px solid var(--line); font-size: 11.5px; text-align: center; }
+  .gpu-cell.c { border-top: 2px solid var(--coder); } .gpu-cell.c b { color: var(--coder); }
+  .gpu-cell.r { border-top: 2px solid var(--reasoning); } .gpu-cell.r b { color: var(--reasoning); }
+  .gpu-cell.g { border-top: 2px solid var(--general); } .gpu-cell.g b { color: var(--general); }
+  .gpu-cell .frac { display: block; color: var(--ink-faint); margin-top: 4px; }
+
+  .arrow-down { text-align: center; color: var(--ink-faint); font-family: var(--mono); line-height: .5; padding: 2px; }
+
+  .featlist { list-style: none; padding: 0; margin: 0; display: grid; gap: 18px; }
+  .featlist li { display: grid; grid-template-columns: auto 1fr; gap: 14px; }
+  .featlist .k { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--brass); padding-top: 4px; white-space: nowrap; }
+  .featlist .v { color: var(--ink-muted); font-size: 15px; }
+  .featlist .v b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- CONTENTION ---------- */
+  .cont-toggle { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 12px; overflow: hidden; margin-bottom: 28px; }
+  .cont-toggle button { font-family: var(--sans); font-size: 14px; background: transparent; color: var(--ink-muted); border: none; padding: 12px 18px; cursor: pointer; }
+  .cont-toggle button[aria-pressed="true"] { background: var(--surface-2); color: var(--ink); font-weight: 600; }
+  .bars { display: grid; gap: 14px; margin: 8px 0 22px; }
+  .bar-row { display: grid; grid-template-columns: 130px 1fr; align-items: center; gap: 14px; }
+  .bar-row .bl { font-family: var(--mono); font-size: 12px; color: var(--ink-muted); }
+  .bar-track { height: 34px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; position: relative; }
+  .bar-fill { height: 100%; border-radius: 7px 0 0 7px; transition: width .6s cubic-bezier(.2,.7,.2,1); display: flex; align-items: center; padding-left: 12px; }
+  .bar-fill.solo { background: color-mix(in srgb, var(--coder) 55%, var(--surface)); }
+  .bar-fill.par { background: color-mix(in srgb, var(--brass) 60%, var(--surface)); }
+  .bar-fill span { font-family: var(--mono); font-size: 12px; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .verdict-line { padding: 16px 18px; border-radius: 10px; border: 1px solid var(--line-strong); font-size: 15px; }
+  .verdict-line .tax { font-family: var(--mono); font-weight: 700; }
+  .verdict-line.justified { border-color: var(--warn); }
+  .verdict-line.notjust { border-color: var(--good); }
+  .verdict-line b { color: var(--ink); }
+
+  /* ---------- TIMELINE ---------- */
+  .phases { display: grid; gap: 0; }
+  .phase {
+    display: grid; grid-template-columns: 92px 1fr; gap: 22px; padding: 22px 0; border-top: 1px solid var(--line);
+  }
+  .phase:first-child { border-top: none; }
+  .phase .pv { font-family: var(--mono); font-size: 15px; color: var(--ink); font-weight: 600; }
+  .phase .status { font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; margin-top: 6px; display: inline-block; padding: 2px 8px; border-radius: 999px; }
+  .status.done { color: var(--good); border: 1px solid color-mix(in srgb, var(--good) 45%, transparent); }
+  .status.wip { color: var(--brass); border: 1px solid color-mix(in srgb, var(--brass) 45%, transparent); background: var(--brass-soft); }
+  .status.next { color: var(--ink-faint); border: 1px dashed var(--line-strong); }
+  .phase h3 { font-size: 1.25rem; margin-bottom: 6px; }
+  .phase .pd { color: var(--ink-muted); font-size: 15px; max-width: 62ch; }
+  .phase.active { }
+  .phase.active h3 { color: var(--brass); }
+
+  /* ---------- FOOTER ---------- */
+  footer { padding: 60px 0 80px; border-top: 1px solid var(--line); color: var(--ink-faint); font-family: var(--mono); font-size: 12.5px; }
+  footer .note { max-width: 68ch; line-height: 1.7; }
+
+  .theme-toggle {
+    position: fixed; top: 18px; right: 18px; z-index: 20;
+    font-family: var(--mono); font-size: 11px; letter-spacing: .06em;
+    background: var(--surface); color: var(--ink-muted); border: 1px solid var(--line-strong);
+    padding: 8px 12px; border-radius: 999px; cursor: pointer;
+  }
+
+  :focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; border-radius: 4px; }
+
+  @media (max-width: 760px) {
+    body { font-size: 16px; }
+    section { padding: 68px 0; }
+    .grid2 { grid-template-columns: 1fr; gap: 28px; }
+    .fan { grid-template-columns: 1fr; }
+    .phase { grid-template-columns: 1fr; gap: 8px; }
+    .bar-row { grid-template-columns: 90px 1fr; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+    .agent, .verdict { opacity: 1; transform: none; }
+  }
+</style>
+</head>
+<body>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle light and dark theme">◐ theme</button>
+
+<!-- ===================== HERO ===================== -->
+<header class="hero">
+  <div class="hero-glow" aria-hidden="true"></div>
+  <div class="wrap">
+    <p class="eyebrow brass">Self-hosted multi-model inference lab · AWS · Tailscale-only</p>
+    <h1>Three models deliberate.<br />A <em>judge</em> renders the verdict.</h1>
+    <p class="lede">Conclave fans one question out to a fleet of specialist open-weight models running on a single GPU, then a meta-reasoner selects or synthesizes the best answer across them.</p>
+    <div class="hero-meta">
+      <span class="chip"><b>3</b> co-resident specialists</span>
+      <span class="chip"><b>1×</b> L40S · 48&nbsp;GB</span>
+      <span class="chip">vLLM → LiteLLM gateway</span>
+      <span class="chip">judge = <b>meta-reasoner</b></span>
+      <span class="chip">$100/mo cap</span>
+    </div>
+  </div>
+</header>
+
+<!-- ===================== INTERACTIVE DEMO ===================== -->
+<section id="demo">
+  <div class="wrap">
+    <div class="demo-head">
+      <div>
+        <p class="eyebrow">The core loop</p>
+        <h2>Convene the conclave</h2>
+      </div>
+      <div class="controls">
+        <div class="mode-toggle" role="group" aria-label="Judge mode">
+          <button id="modeSyn" aria-pressed="true">synthesize</button>
+          <button id="modeSel" aria-pressed="false">select</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="queries" id="queries" role="group" aria-label="Choose a query"></div>
+    <div style="margin:22px 0 30px;">
+      <button class="convene" id="conveneBtn">▶ Convene</button>
+    </div>
+
+    <div class="stage">
+      <div class="query-card">
+        <span class="tag">query</span>
+        <span class="q" id="queryText">—</span>
+      </div>
+
+      <div class="fan" id="fan">
+        <div class="agent" data-role="coder">
+          <span class="badge">chosen</span>
+          <div class="role"><span class="role-name">coder</span><span class="model">Qwen2.5-Coder-14B</span></div>
+          <div class="answer" data-slot></div>
+          <div class="lat" data-lat></div>
+        </div>
+        <div class="agent" data-role="reasoning">
+          <span class="badge">chosen</span>
+          <div class="role"><span class="role-name">reasoning</span><span class="model">R1-Distill-Qwen-7B</span></div>
+          <div class="answer" data-slot></div>
+          <div class="lat" data-lat></div>
+        </div>
+        <div class="agent" data-role="general">
+          <span class="badge">chosen</span>
+          <div class="role"><span class="role-name">general</span><span class="model">Gemma-2-9B</span></div>
+          <div class="answer" data-slot></div>
+          <div class="lat" data-lat></div>
+        </div>
+      </div>
+
+      <div class="converge" aria-hidden="true">
+        <svg viewBox="0 0 40 26" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M4 2 L20 22 M36 2 L20 22 M20 2 L20 22" />
+          <path d="M15 17 L20 24 L25 17" />
+        </svg>
+      </div>
+
+      <div class="verdict" id="verdict">
+        <div class="vhead">
+          <span class="judge-name" id="judgeName">judge · gemma</span>
+          <span class="decision" id="decision">awaiting</span>
+        </div>
+        <div class="answer" id="verdictAnswer">Pick a query and convene the fleet.</div>
+        <div class="rationale" id="rationale" hidden></div>
+        <div class="telemetry" id="telemetry">
+          <div class="t"><span>max_solo</span> <b id="tSolo">—</b></div>
+          <div class="t"><span>parallel_wall</span> <b id="tWall">—</b></div>
+          <div class="t"><span>judge</span> <b id="tJudge">—</b></div>
+        </div>
+      </div>
+    </div>
+    <p style="margin-top:20px; font-family:var(--mono); font-size:12px; color:var(--ink-faint); max-width:70ch;">Candidate responses shown here are recorded, not live — the orchestrator is designed to iterate the judge against cached answers with the GPU box <em>down</em>, so this whole loop runs offline. Latencies are illustrative.</p>
+  </div>
+</section>
+
+<!-- ===================== HOW IT WORKS ===================== -->
+<section id="stack">
+  <div class="wrap">
+    <p class="eyebrow">The stack</p>
+    <h2 style="font-size:clamp(1.7rem,4vw,2.4rem); margin-bottom:36px;">One request, one GPU, one wire format</h2>
+    <div class="grid2">
+      <div class="stack-diagram">
+        <div class="layer"><span class="lbl">any client</span><span class="sub">curl · OpenAI SDK · MCP (v4)</span></div>
+        <div class="arrow-down">↓</div>
+        <div class="layer"><span class="lbl">Tailscale mesh</span><span class="sub">WireGuard · zero public ports</span></div>
+        <div class="arrow-down">↓</div>
+        <div class="layer accent-brass"><span class="lbl">LiteLLM gateway :4000</span><span class="sub">model=ensemble · cost accounting</span></div>
+        <div class="arrow-down">↓</div>
+        <div class="gpu-split">
+          <div class="gpu-cell c"><b>coder</b><span class="frac">util 0.25→0.55</span></div>
+          <div class="gpu-cell r"><b>reasoning</b><span class="frac">→ 0.82</span></div>
+          <div class="gpu-cell g"><b>general</b><span class="frac">starts first</span></div>
+        </div>
+        <div class="layer" style="justify-content:center; color:var(--ink-faint);"><span class="sub" style="margin:0;">3× vLLM co-resident on one L40S · 48 GB</span></div>
+      </div>
+      <div>
+        <ul class="featlist">
+          <li><span class="k">wire</span><span class="v"><b>OpenAI-compatible everywhere.</b> vLLM serves it, LiteLLM routes it, the client speaks it — and it touches zero OpenAI servers. Compatibility buys drop-in clients, not a dependency.</span></li>
+          <li><span class="k">fleet</span><span class="v"><b>Lineage-decorrelated specialists.</b> Qwen coder, a Qwen-distill reasoner, and Google's Gemma — chosen so their <em>failure modes</em> don't correlate. A judge feeds on disagreement.</span></li>
+          <li><span class="k">memory</span><span class="v"><b>Cumulative VRAM ceilings.</b> vLLM's <code>gpu_memory_utilization</code> is a ceiling on <em>total</em> GPU memory, not a private slice. Models start one at a time with rising ceilings (0.25 → 0.55 → 0.82) so no late starter starves the KV cache.</span></li>
+          <li><span class="k">access</span><span class="v"><b>Tailscale-only, no exceptions.</b> The inference box has no public ingress, ever. Reachable like a LAN device over WireGuard.</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== THE JUDGE ===================== -->
+<section id="judge">
+  <div class="wrap">
+    <p class="eyebrow brass">The thesis</p>
+    <h2 style="font-size:clamp(1.7rem,4vw,2.4rem); max-width:20ch;">The judge is the whole point</h2>
+    <p class="lede" style="margin:20px 0 40px;">Arbiter, judge, mediator, critic, router — all meta-reasoners over specialized outputs. Naming that family is what turns two similar components into a design-pattern exploration. Conclave's judge runs <em>per request</em>.</p>
+    <div class="grid2">
+      <div>
+        <ul class="featlist">
+          <li><span class="k">pluggable</span><span class="v">The judge target is a config value — model name + URL — not hardcoded. Swapping in-fleet ↔ frontier is a one-line change.</span></li>
+          <li><span class="k">default</span><span class="v"><b>In-fleet Gemma-9B.</b> Its lineage is decorrelated from the two Qwen candidates, so it's less likely to share their blind spots. No frontier model in the critical path.</span></li>
+          <li><span class="k">eval</span><span class="v"><b>Frontier is a baseline to beat, never the default.</b> Run the identical ensemble with <code>judge=gemma</code> vs <code>judge=frontier</code> and compare selection quality. That comparison <em>is</em> the experiment.</span></li>
+          <li><span class="k">modes</span><span class="v"><b>Select or synthesize.</b> Return the single best answer verbatim, or merge the correct points and drop the errors. Candidates + rationale ride in response metadata for debugging.</span></li>
+        </ul>
+      </div>
+      <div class="stack-diagram" style="align-self:start;">
+        <div class="layer" style="border-color:var(--coder);"><span class="lbl">candidate 0</span><span class="sub">coder</span></div>
+        <div class="layer" style="border-color:var(--reasoning);"><span class="lbl">candidate 1</span><span class="sub">reasoning</span></div>
+        <div class="layer" style="border-color:var(--general);"><span class="lbl">candidate 2</span><span class="sub">general</span></div>
+        <div class="arrow-down">↓ &nbsp; labeled, model-blind &nbsp; ↓</div>
+        <div class="layer accent-brass"><span class="lbl">judge → guided JSON</span><span class="sub">{chosen, rationale, answer}</span></div>
+        <div class="arrow-down">↓</div>
+        <div class="layer"><span class="lbl">one answer + full trace</span><span class="sub">degrades to a valid candidate on failure</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== CONTENTION ===================== -->
+<section id="contention">
+  <div class="wrap">
+    <p class="eyebrow">The open question · v3 baseline</p>
+    <h2 style="font-size:clamp(1.7rem,4vw,2.4rem); max-width:24ch; margin-bottom:14px;">Does one GPU timeshare three models — or serialize them?</h2>
+    <p class="lede" style="margin-bottom:28px;">Three vLLM processes on one L40S contend for the same compute units. The <em>co-residency tax</em> decides whether spending 4× on multi-GPU is justified. It's one measured number away — and either answer is worth the boot.</p>
+
+    <div class="cont-toggle" role="group" aria-label="Contention scenario">
+      <button id="scA" aria-pressed="true">GPU timeshares fine</button>
+      <button id="scB" aria-pressed="false">Co-residents serialize</button>
+    </div>
+
+    <div class="bars">
+      <div class="bar-row">
+        <span class="bl">max_solo</span>
+        <div class="bar-track"><div class="bar-fill solo" id="barSolo" style="width:42%"><span>1.0×</span></div></div>
+      </div>
+      <div class="bar-row">
+        <span class="bl">parallel_wall</span>
+        <div class="bar-track"><div class="bar-fill par" id="barPar" style="width:46%"><span id="parLabel">1.08×</span></div></div>
+      </div>
+    </div>
+
+    <div class="verdict-line notjust" id="contVerdict">
+      tax = <span class="tax" id="taxVal">+8%</span> &nbsp;→&nbsp; <b>the L40S timeshares fine.</b> Multi-GPU is <b>not</b> justified — the fan-out already runs near-parallel on one card.
+    </div>
+    <p style="margin-top:22px; font-family:var(--mono); font-size:12.5px; color:var(--ink-faint); max-width:74ch;">tax = (parallel_wall − max_solo) / max_solo. An earlier harness compared sum(solo) to max(solo) — pure arithmetic that can't falsify either branch. The threaded <code>fan_out_parallel</code> pass fixes it. Not yet measured: the baseline boot is blocked on EC2 g6e.xlarge capacity.</p>
+  </div>
+</section>
+
+<!-- ===================== PHASES ===================== -->
+<section id="phases">
+  <div class="wrap">
+    <p class="eyebrow">Build log</p>
+    <h2 style="font-size:clamp(1.7rem,4vw,2.4rem); margin-bottom:34px;">Controls first, compute second</h2>
+    <div class="phases">
+      <div class="phase">
+        <div><div class="pv">v0.5</div><span class="status done">verified</span></div>
+        <div><h3>Cost layer, zero GPU spend</h3><p class="pd">Tiered budget alerts, a hard-stop Lambda that stops tagged instances, and an idle-stop alarm — all live and tested against a throwaway box <em>before</em> the first GPU ever launched. One forgotten weekend on a g6e ≈ the whole monthly cap.</p></div>
+      </div>
+      <div class="phase">
+        <div><div class="pv">v1</div><span class="status done">verified</span></div>
+        <div><h3>A single 70B-class model, serving tokens</h3><p class="pd">Qwen2.5-72B AWQ (~40 GB, 4-bit) on one L40S via vLLM, reachable over Tailscale. Hit KV-cache starvation on first serve — fixed with <code>--enforce-eager</code> and a tuned memory ceiling. Torn down to $0.</p></div>
+      </div>
+      <div class="phase">
+        <div><div class="pv">v2</div><span class="status done">verified</span></div>
+        <div><h3>Gateway + a 3-model fleet</h3><p class="pd">LiteLLM in front of three co-resident specialists on one GPU, each serving clean through the gateway, with per-model cost accounting and a GPU-utilization idle-stop metric. The 32B coder didn't fit three-way — dropped to 14B; it returns on its own GPU later.</p></div>
+      </div>
+      <div class="phase active">
+        <div><div class="pv">v3</div><span class="status wip">in progress</span></div>
+        <div><h3>Ensemble + judge — the thesis</h3><p class="pd">Client-side orchestrator built and verified offline. Four design decisions locked. Next: the contention baseline (a paid ~45-min boot, currently blocked on EC2 capacity), then the judge eval — does a small self-hosted judge hold up against a frontier one?</p></div>
+      </div>
+      <div class="phase">
+        <div><div class="pv">v4</div><span class="status next">maybe</span></div>
+        <div><h3>MCP front-end</h3><p class="pd">An MCP server as the structured interface to the platform. The OpenAI-compatible gateway already makes any such client a first-class caller.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p class="note"><b style="color:var(--ink-muted);">Conclave</b> — a learning lab for cloud GPU infrastructure, inference serving, and the "meta-reasoners over specialized outputs" pattern family. Open-weight models, self-hosted, Tailscale-only, ~$100/mo cap. The honest counter-argument stays on the record: OpenRouter is cheaper unless utilization is high — the justification is learning the infra and owning the stack, not saving money.</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---- theme toggle ----
+  var root = document.documentElement;
+  var tbtn = document.getElementById("themeToggle");
+  tbtn.addEventListener("click", function () {
+    var cur = root.getAttribute("data-theme");
+    if (!cur) {
+      cur = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+    root.setAttribute("data-theme", cur === "dark" ? "light" : "dark");
+  });
+
+  // ---- demo data (grounded in orchestrator/ensemble.py demo() + fleet roles) ----
+  var QUERIES = [
+    {
+      id: "sort",
+      label: "Sort a list without mutating it",
+      q: "How do I sort a list in Python without mutating it?",
+      answers: {
+        coder: "<code>sorted(xs)</code> returns a new sorted list; <code>xs.sort()</code> mutates in place — avoid it here.",
+        reasoning: "Use <code>sorted(xs)</code>. It returns a new list and leaves the input untouched.",
+        general: "You can sort a copy with <code>sorted(xs)</code>."
+      },
+      lat: { coder: 1.9, reasoning: 2.4, general: 1.2 },
+      synthesize: {
+        chosen: -1,
+        answer: "Use <code>sorted(xs)</code> — it returns a new sorted list and never mutates the original. For objects, pass a key: <code>sorted(xs, key=lambda d: d['k'])</code>.",
+        rationale: "merged the coder's key tip with reasoning's clarity; general's was correct but thin."
+      },
+      select: {
+        chosen: "reasoning",
+        answer: "Use <code>sorted(xs)</code>. It returns a new list and leaves the input untouched.",
+        rationale: "most precise and complete of the three."
+      }
+    },
+    {
+      id: "prime",
+      label: "Is 337 prime?",
+      q: "Is 337 a prime number?",
+      answers: {
+        coder: "<code>all(337 % d for d in range(2, int(337**0.5)+1))</code> evaluates True — so 337 is prime.",
+        reasoning: "√337 ≈ 18.4. Test primes ≤ 18: 2, 3, 5, 7, 11, 13, 17 — none divide 337. Therefore 337 is prime.",
+        general: "Yes, 337 is a prime number."
+      },
+      lat: { coder: 1.6, reasoning: 3.1, general: 0.9 },
+      synthesize: {
+        chosen: -1,
+        answer: "Yes — 337 is prime. No prime ≤ ⌊√337⌋ = 18 (2, 3, 5, 7, 11, 13, 17) divides it.",
+        rationale: "kept reasoning's trial-division proof; general and coder agreed on the result but showed no work."
+      },
+      select: {
+        chosen: "reasoning",
+        answer: "√337 ≈ 18.4. Test primes ≤ 18: 2, 3, 5, 7, 11, 13, 17 — none divide 337. Therefore 337 is prime.",
+        rationale: "only answer that justified the result instead of asserting it."
+      }
+    },
+    {
+      id: "mutex",
+      label: "What is a mutex, in one sentence?",
+      q: "Explain a mutex in one sentence.",
+      answers: {
+        coder: "A <code>threading.Lock()</code> you acquire() before a critical section and release() after.",
+        reasoning: "A mutex enforces mutual exclusion: at most one thread holds it, so a shared resource is touched by one thread at a time.",
+        general: "A mutex is a lock that lets only one thread use a shared resource at a time, preventing race conditions."
+      },
+      lat: { coder: 1.3, reasoning: 2.7, general: 1.4 },
+      synthesize: {
+        chosen: -1,
+        answer: "A mutex is a lock that lets only one thread access a shared resource at a time, enforcing mutual exclusion and preventing race conditions.",
+        rationale: "fused general's clarity with reasoning's 'mutual exclusion' framing; coder's was implementation, not definition."
+      },
+      select: {
+        chosen: "general",
+        answer: "A mutex is a lock that lets only one thread use a shared resource at a time, preventing race conditions.",
+        rationale: "clearest and most complete single-sentence definition."
+      }
+    }
+  ];
+
+  var ROLES = ["coder", "reasoning", "general"];
+  var mode = "synthesize";
+  var selected = QUERIES[0];
+  var running = false;
+  var reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // ---- build query buttons ----
+  var qwrap = document.getElementById("queries");
+  QUERIES.forEach(function (query, i) {
+    var b = document.createElement("button");
+    b.className = "qbtn";
+    b.textContent = query.label;
+    b.setAttribute("aria-pressed", i === 0 ? "true" : "false");
+    b.addEventListener("click", function () {
+      if (running) return;
+      selected = query;
+      Array.prototype.forEach.call(qwrap.children, function (c) { c.setAttribute("aria-pressed", "false"); });
+      b.setAttribute("aria-pressed", "true");
+      document.getElementById("queryText").textContent = query.q;
+      reset();
+    });
+    qwrap.appendChild(b);
+  });
+  document.getElementById("queryText").textContent = selected.q;
+
+  // ---- mode toggle ----
+  var mSyn = document.getElementById("modeSyn"), mSel = document.getElementById("modeSel");
+  mSyn.addEventListener("click", function () { setMode("synthesize"); });
+  mSel.addEventListener("click", function () { setMode("select"); });
+  function setMode(m) {
+    if (running) return;
+    mode = m;
+    mSyn.setAttribute("aria-pressed", m === "synthesize");
+    mSel.setAttribute("aria-pressed", m === "select");
+    reset();
+  }
+
+  // ---- element refs ----
+  var agents = {};
+  Array.prototype.forEach.call(document.querySelectorAll(".agent"), function (el) {
+    agents[el.getAttribute("data-role")] = el;
+  });
+  var verdictEl = document.getElementById("verdict");
+  var verdictAnswer = document.getElementById("verdictAnswer");
+  var rationaleEl = document.getElementById("rationale");
+  var decisionEl = document.getElementById("decision");
+  var telemetryEl = document.getElementById("telemetry");
+  var conveneBtn = document.getElementById("conveneBtn");
+
+  function reset() {
+    ROLES.forEach(function (r) {
+      var a = agents[r];
+      a.classList.remove("on", "answered", "picked");
+      a.querySelector("[data-slot]").innerHTML = "";
+      a.querySelector("[data-lat]").textContent = "";
+    });
+    verdictEl.classList.remove("on");
+    verdictAnswer.textContent = "Convene the fleet to see the verdict.";
+    rationaleEl.hidden = true;
+    decisionEl.textContent = "awaiting";
+    telemetryEl.classList.remove("on");
+  }
+
+  function delay(ms) { return new Promise(function (res) { setTimeout(res, reduced ? 0 : ms); }); }
+
+  conveneBtn.addEventListener("click", async function () {
+    if (running) return;
+    running = true;
+    conveneBtn.disabled = true;
+    conveneBtn.textContent = "convening…";
+    reset();
+
+    var q = selected;
+
+    // fan-out: light up + think, staggered
+    for (var i = 0; i < ROLES.length; i++) {
+      var r = ROLES[i];
+      agents[r].classList.add("on");
+      agents[r].querySelector("[data-slot]").innerHTML = '<span class="thinking">· · ·</span>';
+      await delay(180);
+    }
+    await delay(500);
+
+    // answers arrive, ordered by latency for realism
+    var order = ROLES.slice().sort(function (a, b) { return q.lat[a] - q.lat[b]; });
+    for (var j = 0; j < order.length; j++) {
+      var role = order[j];
+      var a = agents[role];
+      a.querySelector("[data-slot]").innerHTML = q.answers[role];
+      a.querySelector("[data-lat]").textContent = q.lat[role].toFixed(1) + "s";
+      a.classList.add("answered");
+      await delay(reduced ? 0 : 620);
+    }
+
+    // judge deliberates
+    decisionEl.textContent = "deliberating…";
+    verdictEl.classList.add("on");
+    await delay(900);
+
+    var res = q[mode];
+    var judgeLat = 1.7;
+    verdictAnswer.innerHTML = res.answer;
+    rationaleEl.textContent = res.rationale;
+    rationaleEl.hidden = false;
+
+    if (mode === "select") {
+      decisionEl.textContent = "selected · " + res.chosen;
+      agents[res.chosen].classList.add("picked");
+    } else {
+      decisionEl.textContent = "synthesized · chosen −1";
+    }
+
+    // telemetry: max_solo vs a plausible parallel wall (near-parallel timeshare)
+    var maxSolo = Math.max(q.lat.coder, q.lat.reasoning, q.lat.general);
+    var wall = maxSolo * 1.08; // ~8% co-residency tax, illustrative
+    document.getElementById("tSolo").textContent = maxSolo.toFixed(1) + "s";
+    document.getElementById("tWall").textContent = wall.toFixed(1) + "s";
+    document.getElementById("tJudge").textContent = judgeLat.toFixed(1) + "s";
+    telemetryEl.classList.add("on");
+
+    conveneBtn.disabled = false;
+    conveneBtn.textContent = "▶ Convene again";
+    running = false;
+  });
+
+  // ---- contention scenario toggle ----
+  var scA = document.getElementById("scA"), scB = document.getElementById("scB");
+  var barSolo = document.getElementById("barSolo"), barPar = document.getElementById("barPar");
+  var parLabel = document.getElementById("parLabel"), taxVal = document.getElementById("taxVal");
+  var contVerdict = document.getElementById("contVerdict");
+
+  function setScenario(which) {
+    scA.setAttribute("aria-pressed", which === "A");
+    scB.setAttribute("aria-pressed", which === "B");
+    if (which === "A") {
+      barSolo.style.width = "42%";
+      barPar.style.width = "45%";
+      parLabel.textContent = "1.08×";
+      taxVal.textContent = "+8%";
+      contVerdict.className = "verdict-line notjust";
+      contVerdict.innerHTML = 'tax = <span class="tax">+8%</span> &nbsp;→&nbsp; <b>the L40S timeshares fine.</b> Multi-GPU is <b>not</b> justified — the fan-out already runs near-parallel on one card.';
+    } else {
+      barSolo.style.width = "42%";
+      barPar.style.width = "82%";
+      parLabel.textContent = "1.95×";
+      taxVal.textContent = "+95%";
+      contVerdict.className = "verdict-line justified";
+      contVerdict.innerHTML = 'tax = <span class="tax">+95%</span> &nbsp;→&nbsp; <b>co-residents serialize on compute.</b> Multi-GPU <b>is</b> justified — the number itself is the evidence that pays for the 4× box.';
+    }
+  }
+  scA.addEventListener("click", function () { setScenario("A"); });
+  scB.addEventListener("click", function () { setScenario("B"); });
+})();
+</script>
+
+</body>
+</html>
