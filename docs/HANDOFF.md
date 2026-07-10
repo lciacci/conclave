@@ -172,7 +172,7 @@ it failed here. If a model OOMs on load, nudge its slice up; if one wastes headr
 - **g6e.xlarge capacity is day-volatile.** Dry in ALL of us-east-1a/b/c/d on 2026-07-09; the very
   next day (2026-07-10) us-east-1c had capacity and launched in ~20s via the sweep. AWS's "try
   us-east-1b/1c/1d" error text is generic boilerplate, not a live capacity read — don't trust it,
-  sweep and measure. The fast-fail sweep (`scratchpad/sweep.sh` this session, or the playbook
+  sweep and measure. The fast-fail sweep (`scripts/sweep-gpu-capacity.sh`, or the playbook
   recipe) is the tool: it caught 1c's capacity immediately instead of hanging.
 - **Quota is the real ceiling: G+VT = 8 vCPU** (on-demand AND spot, us-east-1). So `g6e.xlarge`
   (4 vCPU) and `g6e.2xlarge` (8 vCPU, **same single L40S 48 GB** — all `mem_util` values stay
