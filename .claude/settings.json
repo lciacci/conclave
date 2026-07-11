@@ -93,6 +93,12 @@
             "command": "if [ -x \".claude/scripts/mnemos-stop-ingest.sh\" ]; then exec \".claude/scripts/mnemos-stop-ingest.sh\"; elif [ -x \"$HOME/.claude/templates/mnemos-stop-ingest.sh\" ]; then exec \"$HOME/.claude/templates/mnemos-stop-ingest.sh\"; fi; exit 0",
             "timeout": 10,
             "statusMessage": "Ingesting Claude transcript + scoring haze..."
+          },
+          {
+            "type": "command",
+            "command": "if [ -x \".claude/scripts/tessera-gate-scan.sh\" ]; then exec \".claude/scripts/tessera-gate-scan.sh\"; fi; exit 0",
+            "timeout": 10,
+            "statusMessage": "Scanning for unlogged suggestion-gates..."
           }
         ]
       }
