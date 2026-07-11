@@ -36,16 +36,21 @@ class EnsembleConfig:
 
 
 def http_call(base_url: str, model: str, messages: list[dict], timeout: float,
-              response_format: dict | None = None, api_key: str = "none") -> str:
+              response_format: dict | None = None, api_key: str = "none",
+              temperature: float | None = None) -> str:
     """One OpenAI-compatible chat completion. Returns the message content.
     `response_format={"type": "json_object"}` asks vLLM for guided-JSON output.
     `api_key` defaults to "none" for the keyless local gateway; pass a real key
     (e.g. via functools.partial) to reach a frontier endpoint on the same wire
     format — OpenAI, or Anthropic's OpenAI-compatible base_url. That is the seam
-    the judge eval uses to run a frontier judge/grader without new code."""
-    payload = {"model": model, "messages": messages}
+    the judge eval uses to run a frontier judge/grader without new code.
+    `temperature` is omitted from the request when None (server default); set 0 for
+    a deterministic judge/grader (reproducible eval scores)."""
+    payload: dict = {"model": model, "messages": messages}
     if response_format:
         payload["response_format"] = response_format
+    if temperature is not None:
+        payload["temperature"] = temperature
     body = json.dumps(payload).encode()
     req = urllib.request.Request(
         f"{base_url}/v1/chat/completions",

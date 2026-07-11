@@ -52,8 +52,10 @@ def frontier_call(base_url, model, messages, timeout, response_format=None, api_
     it and lean on the prompt's 'respond ONLY with JSON' + lenient parsing —
     verified: sonnet returns clean parseable JSON this way. Portable to OpenAI too
     (which also honors the prompt instruction). vLLM's local judge keeps json_object
-    via the default http_call; only frontier calls route through here."""
-    return http_call(base_url, model, messages, timeout, response_format=None, api_key=api_key)
+    via the default http_call; only frontier calls route through here. temperature=0
+    so the frontier judge/grader is deterministic — reproducible eval scores."""
+    return http_call(base_url, model, messages, timeout, response_format=None,
+                     api_key=api_key, temperature=0)
 _HERE = os.path.dirname(os.path.abspath(__file__))
 GEMMA_JUDGMENTS = os.path.join(_HERE, "eval_judgments_gemma.json")
 FRONTIER_JUDGMENTS = os.path.join(_HERE, "eval_judgments_frontier.json")
@@ -85,8 +87,10 @@ def _extract_score(raw: str) -> float | None:
     m = re.search(r'"?score"?\s*[:=]\s*([0-5](?:\.\d+)?)', raw, re.I)  # "score": 4
     if not m:
         m = re.search(r'\b([0-5](?:\.\d+)?)\s*/\s*5\b', raw)            # 4/5
-    if not m:
-        m = re.search(r'\b([0-5](?:\.\d+)?)\b', raw)                    # a lone 0-5
+    if not m:  # a number near a scoring word — avoids grabbing a stray digit from prose
+        m = re.search(r'(?:score|rate|rating|give|grade)\D{0,15}([0-5](?:\.\d+)?)', raw, re.I)
+    if not m and re.fullmatch(r'\s*[0-5](?:\.\d+)?\s*', raw):           # the whole reply is a number
+        m = re.search(r'([0-5](?:\.\d+)?)', raw)
     return float(m.group(1)) if m else None
 
 
@@ -249,6 +253,8 @@ def demo() -> None:
     assert _extract_score('The score is 4/5 because...') == 4.0
     assert _extract_score('Score: 5 — fully correct') == 5.0
     assert _extract_score('I would rate this a 2.') == 2.0
+    assert _extract_score('4') == 4.0                          # whole reply is a number
+    assert _extract_score('Summarized in 3 crisp points.') is None  # stray digit, no score word
     assert _extract_score('no number here') is None
 
     print("ok — judge_eval pipeline, both scorers, head-to-head verified offline")

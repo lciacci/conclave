@@ -41,7 +41,10 @@ not evidence about judge quality; the heuristic is a CI/smoke backstop only.
    judge the grader never marks down. **Fix:** a cross-vendor independent grader
    (e.g. Gemini or GPT grading a Claude-vs-Gemma comparison).
 2. **Single grader sample.** Re-running moved Gemma 0.911 → 0.889 — grader
-   non-determinism. Rigor needs N samples + variance/significance.
+   non-determinism. The frontier judge/grader now pin `temperature=0` (post-review)
+   so future runs are deterministic; the committed fixture is the pre-pin 2026-07-11
+   snapshot, so re-scoring it won't reproduce to the decimal. Rigor still needs N
+   samples + variance/significance.
 3. **n = 18, reference-anchored (not pairwise).** Small set; absolute 0–5 grading is
    less sensitive than blinded head-to-head. Rigor path: a `PairwiseScorer` (blinded,
    position-randomized), more queries.
