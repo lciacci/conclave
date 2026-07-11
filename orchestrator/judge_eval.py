@@ -61,6 +61,25 @@ def _terms(text: str) -> set[str]:
     return {t for t in toks if len(t) > 2 and t not in _STOP}
 
 
+def _extract_score(raw: str) -> float | None:
+    """Pull a 0-5 score from a grader reply. Prefers clean JSON, but degrades to
+    regex — some OpenAI-compatible endpoints (e.g. Anthropic's compat layer) don't
+    honor response_format=json_object and return prose or fenced JSON. Without this
+    every grade would silently collapse to 0.0."""
+    try:
+        v = json.loads(raw).get("score")
+        if v is not None:
+            return float(v)
+    except (ValueError, TypeError, AttributeError):
+        pass
+    m = re.search(r'"?score"?\s*[:=]\s*([0-5](?:\.\d+)?)', raw, re.I)  # "score": 4
+    if not m:
+        m = re.search(r'\b([0-5](?:\.\d+)?)\s*/\s*5\b', raw)            # 4/5
+    if not m:
+        m = re.search(r'\b([0-5](?:\.\d+)?)\b', raw)                    # a lone 0-5
+    return float(m.group(1)) if m else None
+
+
 class LocalHeuristicScorer:
     """Fraction of the reference's key terms present in the answer. Deterministic,
     offline, zero deps — a CI/smoke backstop, NOT the thesis number: it is blind to
@@ -102,9 +121,8 @@ class ReferenceGrader:
             'Respond ONLY with JSON: {"score": <0-5>, "reason": "<one sentence>"}')}]
         raw = self._call(self.base_url, self.model, msg, self.timeout,
                          response_format={"type": "json_object"})
-        try:
-            s = float(json.loads(raw).get("score"))
-        except (ValueError, TypeError, AttributeError):
+        s = _extract_score(raw)
+        if s is None:
             return 0.0
         return round(max(0.0, min(5.0, s)) / 5.0, 3)
 
@@ -215,6 +233,13 @@ def demo() -> None:
     rg = ReferenceGrader("http://frontier", "grader-x", "testkey", call=fake_grader)
     assert rg.score(qs[0], "anything") == round(4 / 5, 3), "grade normalized to [0,1]"
     assert rg.score(qs[0], None) == 0.0
+
+    # lenient score extraction — non-JSON grader replies must not collapse to 0
+    assert _extract_score('{"score": 3, "reason": "ok"}') == 3.0
+    assert _extract_score('The score is 4/5 because...') == 4.0
+    assert _extract_score('Score: 5 — fully correct') == 5.0
+    assert _extract_score('I would rate this a 2.') == 2.0
+    assert _extract_score('no number here') is None
 
     print("ok — judge_eval pipeline, both scorers, head-to-head verified offline")
 
