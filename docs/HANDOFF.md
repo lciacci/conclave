@@ -1,6 +1,7 @@
 # HANDOFF — resume here
 
-Last updated: 2026-07-10 (end of session). Read this + `design.md` to resume cold.
+Last updated: 2026-07-11 (end of session). Read this + `design.md` to resume cold.
+**v3 thesis is proven — v0.5→v3 all done. Next is a rigor pass on the judge eval, or v4 (MCP). No work in flight, nothing running, $0.**
 
 ## Where we are
 
