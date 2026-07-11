@@ -1,0 +1,110 @@
+{
+  "coder-dedupe-order": {
+    "answer": "```python\ndef remove_duplicates(lst):\n    return list({x: None for x in lst}.keys())\n```",
+    "chosen": 2,
+    "rationale": "The synthesized answer effectively combines the conciseness and correct order preservation from Answer 2 while avoiding the confusion of the reasoning in Answer 1.",
+    "model": "general"
+  },
+  "coder-bug-mutable-default": {
+    "answer": "The bug is that the default `acc=[]` is mutable, causing all calls to share the same list. To fix this, change the default to `None` and initialize a new list if `acc` is `None`.",
+    "chosen": 1,
+    "rationale": "Answer 1 provides a clear and accurate explanation of the bug and its fix.",
+    "model": "general"
+  },
+  "coder-sql-param": {
+    "answer": "```python\ncur.execute(\"SELECT * FROM users WHERE name = %s\", (name,))\n```",
+    "chosen": 0,
+    "rationale": "Answer 0 provides the correct solution using parameterized queries and a clear explanation.",
+    "model": "general"
+  },
+  "coder-async-gather": {
+    "answer": "{\"chosen\": 1, \"rationale\": \"This answer accurately uses asyncio.gather to run the coroutines concurrently and collect their results.\", \"answer\": \n  \"To run three async coroutines concurrently and collect all their results using asyncio, you can use `asyncio.gather`:```python\\nimport asyncio\\n\\nasync def coroutine_function(name):\\n  print(f\\\"Coroutine {name} starting...\\\")\\n  await asyncio.sleep(2)\\n  print(f\\\"Coroutine {name} finished.\\\")\\n  return f\\\"Result from coroutine {name}\\\"\\n\\nasync def main():\\n  coroutines = [coroutine_function(\\\"A\\\"), coroutine_function(\\\"B\\\"), coroutine_function(\\\"C\\\")]\\n  results = await asyncio.gather(*coroutines)\\n  print(\\\"All coroutines completed. Results:\\\")\\n  for result in results:\\n    print(result)\\n\\nasyncio.run(main())\\n```\\nThis code defines three coroutines, runs them concurrently, and collects their results in a list., then prints each result.     \\n The `asyncio.gather()` function is key, ensuring all coroutines are run at once and their results are retrieved when they finish.\",\" } },added TaskingClarfications to the prompt. Add the dict back in so the model can see what the task is asking for. autant ({\"\n \n \n \n\n\n\n    \n    \n    \n    \n  \n  \n\n\n\n\n  \n   \n \n     \n\n\n\n   \n  \n        \n  \n   \n\n\n\n  \n\n\n\n  \n    \n    \n\n    \n\n     \n\n\n     \n  \n\n\n\n  \n\n\n\n  \n\n\n\n  \n\n\n\n \n \n\n\n\n \n\n\n\n \n\n\n\n   \n\n\n   \n\n\n\n \n\n\n  \n\n\n   \n\n\n\n  \n       \n\n\n\n  \n\n\n\n\n\n\n\n\n  \n  \n  \n   \n\n  \n \n\n\n\n\n \n\n  \n\n\n\n\n\n  \n   \n\n \n    \n  \n\n\n  \n\n\n \n\n\n \n\n\n\n\n\n\n\n  \n\n\n\n \n\n\n\n       \n\n\n\n\n   \n\n\n\n\n\n   \n\n\n\n  \n\n\n\n \n \n\n \n \n\n\n\n \n  \n  \n  \n\n\n\n\n\n\n  \n\n\n\n  \n\n\n\n \n \n\n\n\n\n\n\n\n\n  \n  \n\n\n\n  \n\n\n\n\n  \n\n\n\n\n \n\n\n\n \n\n\n \n\n\n\n \n\n\n\n\n\n\n  \n\n\n\n   \n\n\n\n \n\n\n  \n\n\n\n\n\n  \n\n\n\n\n \n\n\n\n \n\n  \n    \n\n\n\n\n  \n        \n\n \n \n\n \n\n  \n \n \n\n\n\n \n\n\n\n  \n\n\n\n \n\n\n\n \n \n\n\n\n  \n  \n\n \n\n\n\n \n  \n\n\n\n      \n       \n   \n\n\n\n  \n\n\n\n \n\n\n\n \n\n \n  \n\n\n\n    \n \n\n\n\n\n\n\n \n  \n\n \n\n  \n  \n\n\n\n\n\n \n\n\n\n \n\n\n\n \n\n\n\n  \n\n\n\n   \n\n \n\n\n\n \n\n\n\n\n \n\n\n   \n\n   \n  \n\n\n\n\n\n\n \n \n\n\n\n \n\n\n\n \n\n\n\n \n\n\n\n\n \n\n\n   \n\n\n\n \n\n\n\n\n  \n\n\n\n  \n\n\n   \n\n\n\n    \n      \n  \n   \n\n\n\n\n \n\n\n\n  \n\n\n\n   \n\n  \n\n\n\n \n\n\n\n        \n\n\n\n  \n \n\n\n      \n\n\n\n\n  \n\n\n\n  \n\n\n\n   \n  \n\n  \n\n\n\n \n  \n\n\n\n   \n\n      \n\n\n\n\n\n \n\n\n\n \n\n\n\n  \n\n\n\n    \n\n\n   \n\n\n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n\n\n\n\n\n   \n  \n\n  \n\n\n\n \n\n\n\n \n\n\n\n\n\n\n  \n \n\n\n\n \n\n\n               \n\n\n\n  \n \n\n\n\n\n\n     \n\n\n\n     \n\n\n    \n\n\n\n \n\n\n\n      \n\n  \n\n\n\n  \n\n\n\n\n\n\n\n\n  \n\n\n\n   \n\n\n\n  \n\n\n\n  \n  \n\n\n\n   \n\n\n\n \n\n  \n   \n\n\n\n\n \n\n  \n                                                              \n  \n\n\n \n\n\n \n\n\n\n \n\n\n\n   \n\n\n\n\n\n  \n\n\n\n \n\n\n\n\n\n\n \n\n\n\n \n\n\n\n \n \n \n \n \n\n\n   \n \n \n\n\n\n\n \n\n\n\n  \n\n\n\n   \n\n  \n\n \n\n \n\n \n\n\n\n  \n\n   \n\n\n\n\n \n\n\n   \n   \n\n\n\n  \n\n\n\n\n  \n\n\n  \n  \n\n\n\n   \n\n\n\n  \n\n\n\n\n\n\n \n  \n\n\n\n  \n\n\n\n \n \n\n\n\n \n\n\n     \n\n\n\n     \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n    \n\n\n\n \n\n\n\n \n\n \n \n\n\n\n    \n\n\n\n\n  \n\n\n\n\n   \n\n\n\n \n\n\n\n  \n\n\n\n  \n\n\n\n  \n\n \n\n\n\n  \n\n\n\n\n\n\n \n\n\n\n \n\n\n  \n\n\n\n  \n\n\n\n  \n   \n\n\n\n  \n \n\n\n\n       \n\n\n\n\n   \n\n\n\n\n  \n\n\n\n    \n\n\n\n  \n   \n\n\n\n\n  \n     \n\n\n\n    \n   \n\n\n\n \n\n\n\n \n\n\n\n \n\n\n\n  \n\n\n\n   \n\n\n\n  \n\n\n\n \n\n\n\n  \n\n\n \n   \n\n\n  \n\n\n\n\n\n\n     \n\n\n\n  \n\n\n\n\n  \n\n\n\n  \n  \n\n\n\n   \n\n\n\n \n\n\n\n  \n\n\n\n    \n\n\n\n\n  \n\n\n\n   \n\n\n\n   \n\n\n\n \n\n\n\n\n  \n\n\n\n \n     \n\n\n\n\n  \n\n  \n\n\n\n   \n\n\n\n\n \n\n\n\n \n\n\n\n\n   \n\n\n\n \n  \n  \n \n  \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n   \n\n\n\n  \n\n\n\n   \n\n\n      \n  \n\n\n\n  \n  \n\n\n\n  \n\n\n   \n \n\n\n    \n\n  \n \n\n\n\n  \n\n\n\n \n\n\n\n\n\n\n\n  \n\n\n\n \n\n\n\n\n   \n\n\n\n  \n \n\n\n\n   \n\n\n\n  \n\n\n\n\n\n\n\n  \n\n\n\n  \n\n\n\n   \n\n\n\n\n  \n\n\n\n \n\n\n\n  \n\n\n\n\n  \n\n\n\n   \n\n\n\n \n\n\n\n\n \n  \n \n\n\n  \n\n\n\n    \n\n\n\n  \n\n\n\n   \n\n\n\n \n\n\n\n  \n\n  \n\n\n\n \n\n \n\n\n\n \n\n\n\n     \n\n\n\n \n \n\n\n\n  \n\n\n\n  \n\n\n\n\n \n \n\n\n\n \n\n\n\n \n\n\n\n \n\n\n\n \n\n\n\n  \n\n\n\n   \n\n\n\n \n\n \n\n\n\n  \n\n\n\n  \n\n\n\n\n\n\n\n   \n\n\n\n     \n   \n\n\n\n \n  \n\n\n\n \n\n\n    \n       \n\n\n\n\n\n     \n\n\n\n  \n\n \n\n\n\n  \n\n\n\n   \n\n\n\n \n\n\n\n  \n\n\n\n   \n\n \n\n\n\n\n \n  \n\n   \n\n\n        \n    \n\n \n  \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n\n\n  \n\n\n\n  \n     \n   \n\n\n\n   \n  \n\n\n\n \n\n\n\n\n   \n\n\n\n  \n\n\n\n  \n\n\n\n    \n\n\n\n \n\n\n\n    \n\n\n   \n\n\n   \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n   \n\n\n\n   \n\n\n\n\n \n  \n\n\n\n    \n\n  \n\n\n\n \n\n\n\n \n\n\n\n\n\n\n\n  \n \n\n\n\n \n\n\n\n\n\n\n\n   \n\n\n\n  \n\n\n\n   \n  \n\n\n\n  \n\n\n\n    \n\n\n\n  \n\n\n\n  \n\n\n\n \n\n\n\n\n\n \n\n\n\n  \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n\n\n\n \n\n\n\n\n  \n\n  \n\n\n\n  \n\n\n\n \n\n\n\n  \n\n\n\n \n\n\n\n \n\n  \n\n\n\n  \n\n\n\n  \n\n\n\n  \n   \n\n\n\n\n \n\n\n   \n\n\n\n  \n \n\n\n\n   \n\n\n\n  \n\n\n\n  \n\n\n\n  \n\n\n\n \n\n\n\n   \n\n\n\n \n\n\n\n  \n\n\n\n \n\n   \n\n \n\n\n   \n\n\n\n  \n\n\n\n  \n\n\n\n\n\n   \n\n\n\n \n\n\n\n \n\n\n  \n  \n\n\n\n\n\n \n\n\n\n  \n\n\n\n   \n\n\n\n \n\n\n\n  \n\n \n\n\n\n \n\n\n   \n\n\n\n \n\n\n\n     \n\n\n\n  \n\n\n\n \n\n\n   \n  \n\n \n\n  \n\n\n\n  \n\n\n\n  \n\n\n\n  \n\n\n\n  \n\n\n\n\n  \n\n\n\n \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n  \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n  \n\n\n\n \n\n\n\n   \n  \n   \n\n\n\n   \n   \n  \n\n\n\n  \n\n\n\n \n\n\n\n   \n\n\n\n  \n\n   \n\n\n\n    \n\n\n\n   \n\n\n\n \n\n\n\n \n\n\n\n \n\n\n\n  \n\n\n\n  \n\n\n\n   \n\n\n\n\n\n\n   \n\n\n\n    \n\n\n  \n\n\n\n   \n\n\n\n   \n\n\n\n \n\n\n\n   \n\n\n\n \n\n  \n \n\n\n\n  \n   \n  \n \n\n\n\n\n\n\n   \n\n\n\n \n\n  \n\n\n\n \n\n\n   \n\n\n\n \n\n\n  \n\n \n\n\n\n \n       \n\n  \n\n\n\n   \n\n\n\n  \n\n  \n\n\n\n   \n\n\n\n\n \n\n\n\n    \n    \n\n\n   \n\n\n \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n \n\n\n   \n\n\n\n\n\n   \n\n\n\n \n\n\n\n \n\n\n\n  \n\n\n\n  \n \n\n\n\n \n\n\n\n \n\n\n\n  \n\n\n\n  \n\n\n\n   \n\n\n\n  \n\n \n\n\n\n  \n\n\n\n  \n\n\n\n   \n\n  \n\n\n\n  \n\n\n\n   \n  \n\n\n\n\n\n   \n\n\n\n\n   \n\n\n\n   \n\n\n\n  \n\n\n\n \n\n\n\n   \n \n\n\n\n   \n\n\n\n  \n\n\n\n\n\n\n\n  \n\n\n\n \n\n\n \n\n\n\n  \n\n\n\n \n  \n\n  \n    \n\n \n\n\n\n \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n  \n\n\n\n   \n\n\n\n \n\n\n\n \n\n\n\n  \n\n\n\n  \n\n\n\n   \n\n\n\n \n\n\n\n \n  \n\n\n\n \n\n\n   \n\n\n\n \n\n\n\n  \n\n\n\n \n\n\n\n\n\n\n  \n\n\n\n\n\n\n\n   \n\n   \n \n\n    \n\n   \n\n\n\n    \n\n\n\n  \n  \n\n\n\n   \n\n\n  \n\n\n\n  \n\n\n \n\n\n\n \n\n\n\n\n \n\n\n\n\n\n\n\n     \n\n\n\n\n\n\n   \n\n\n\n  \n\n\n\n \n\n\n\n   \n\n\n\n \n\n\n\n\n\n\n\n\n\n  \n\n\n\n\n \n\n\n\n   \n\n  \n\n\n\n  \n\n\n\n \n\n\n  \n\n\n\n  \n\n\n\n\n \n\n\n\n\n\n       \n\n\n\n   \n\n\n\n \n\n\n\n  \n\n\n\n  \n\n\n\n \n\n \n\n\n\n \n\n\n\n  \n\n\n\n \n\n\n\n \n  \n  \n\n\n\n   \n\n\n\n \n\n\n\n  \n\n\n\n  \n\n\n\n  \n\n \n\n\n\n \n\n\n\n \n\n\n\n \n\n\n\n\n\n  \n\n\n\n\n \n\n\n\n   \n\n\n\n  \n\n  \n\n\n\n \n\n \n\n\n\n \n\n\n\n  \n\n\n\n   \n\n\n\n \n\n   \n\n  \n\n\n\n \n\n \n   \n\n\n\n   \n\n\n\n \n\n\n\n \n\n    \n\n\n\n  \n\n\n\n  \n\n\n\n   \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n \n  \n\n\n\n   \n\n  \n\n \n\n\n\n \n\n \n\n\n\n\n\n\n  \n\n\n\n   \n\n\n \n\n\n\n  \n\n\n\n  \n\n\n\n \n\n\n\n  \n\n   \n\n\n\n   \n\n\n\n  \n\n\n \n\n\n  \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n  \n\n\n\n  \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n  \n\n\n\n\n\n \n\n\n\n   \n\n\n\n\n \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n \n\n\n\n  \n\n\n\n  \n   \n\n\n\n    \n\n\n\n \n\n\n\n  \n\n\n\n  \n\n\n   \n    \n\n\n\n \n\n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n   \n   \n\n\n\n \n\n\n\n \n\n\n\n\n\n\n\n \n\n\n      \n  \n\n\n\n  \n\n\n\n  \n\n\n\n    \n\n\n\n \n\n  \n\n\n\n \n\n\n\n \n\n\n\n\n   \n \n\n\n\n\n\n\n\n       \n\n\n\n  \n\n  \n\n\n\n  \n\n\n\n  \n\n\n\n\n    \n\n\n\n  \n\n\n\n  \n\n\n\n  \n\n\n\n  \n\n\n\n \n\n\n\n   \n\n\n\n\n\n  \n\n\n\n  \n\n\n\n  \n\n  \n\n\n\n   \n\n\n\n   \n\n\n\n   \n\n\n\n  \n\n\n\n  \n\n\n   \n\n\n\n \n\n    \n\n\n\n\n  \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n   \n\n\n\n  \n\n\n\n   \n\n\n\n   \n\n\n\n  \n\n\n\n \n\n      \n  \n\n\n\n\n  \n\n  \n\n\n\n \n\n\n\n   \n\n\n\n\n \n\n\n\n\n\n    \n\n   \n\n\n\n   \n\n\n\n\n\n\n\n\n\n   \n\n\n\n\n \n\n\n\n  \n\n\n\n\n\n\n\n \n\n\n\n \n\n\n \n\n\n\n \n\n\n\n \n\n\n\n  \n\n\n\n\n\n  \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n \n\n \n\n\n\n  \n\n\n\n  \n\n\n\n\n\n\n\n\n\n\n     \n  \n  \n   \n\n  \n   \n\n\n\n  \n\n\n\n\n\n\n \n\n\n\n \n\n\n\n\n  \n\n  \n\n\n\n\n\n\n \n\n\n\n \n\n\n\n   \n\n\n\n    \n\n\n\n\n  \n\n\n\n\n \n\n\n\n   \n\n  \n\n\n\n    \n\n\n\n   \n\n\n\n \n  \n   \n\n\n\n    \n\n\n\n   \n\n\n   \n\n\n\n \n\n\n\n   \n   \n\n\n\n \n\n\n\n \n\n\n\n    \n\n\n\n \n\n\n\n \n\n\n\n   \n\n\n\n  \n\n\n\n   \n\n\n\n \n\n\n\n   \n   \n\n\n\n\n  \n\n\n\n  \n\n\n\n  \n\n\n\n \n\n\n\n  \n   \n     \n\n   \n\n\n\n   \n\n \n\n \n\n\n\n\n  \n\n\n\n  \n\n\n\n\n  \n      \n     \n\n\n\n  \n\n    \n\n\n\n  \n\n\n\n\n \n\n\n\n  \n\n\n\n\n  \n\n\n\n\n \n\n\n\n  \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n\n  \n\n\n\n  \n\n\n\n\n\n  \n\n\n    \n\n\n \n\n\n\n   \n\n\n\n\n\n  \n\n  \n\n\n\n \n\n\n\n  \n\n \n\n\n\n   \n\n\n\n   \n\n\n\n  \n\n\n\n \n\n\n\n  \n\n\n \n\n\n\n\n   \n\n\n\n \n\n\n\n  \n\n\n\n    \n\n\n\n\n   \n\n\n\n    \n\n\n\n  \n\n\n\n\n\n   \n \n\n\n   \n\n\n\n  \n\n\n\n\n  \n\n\n\n   \n\n\n\n \n\n  \n\n\n\n   \n\n\n\n \n\n\n\n  \n\n\n\n  \n\n\n\n  \n\n\n\n \n\n\n\n  \n\n\n\n  \n\n\n\n \n\n\n\n  \n\n",
+    "chosen": -1,
+    "rationale": "unparsed judge output",
+    "model": "general"
+  },
+  "coder-git-undo-commit": {
+    "answer": "To move the last commit from your current branch to a new branch and remove it from the current one, follow these steps:\n\n1. **Create a New Branch**: First, create a new branch from the current branch where you want to move the last commit. \n   ```bash\n   git checkout -b new-branch-name\n   ```\n2. **Reset the Current Branch**: Next, reset the current branch to the commit before the last one. This will remove the last commit from the current branch.\n   ```bash\n   git reset HEAD~1\n   ```\n3. **Verify Changes**: Check the status and log to ensure that the last commit is no longer on the current branch.\n   ```bash\n   git status\n   git log --oneline\n   ```\n4. **Switch Back to the New Branch**: Switch back to the new branch you created earlier.\n   ```bash\n   git checkout new-branch-name\n   ```\n5. **Push Changes (Optional)**: If you need to push the changes to a remote repository, make sure to push both branches.\n   ```bash\n   git push origin current-branch-name\n   git push origin new-branch-name\n   ```\nBy following these steps, you effectively move the last commit to a new branch while removing it from the current branch.",
+    "chosen": 1,
+    "rationale": "Answer 1 provides the precise steps necessary, while Answer 2  gets bogged down in overthinking. ",
+    "model": "general"
+  },
+  "coder-bigo-nested": {
+    "answer": "The time complexity of checking each element in a list of  n items against another list of n items using the `in` operator is O(n) on average due to the hash table implementation.  To further optimize, convert the second list into a set for O(1) average time complexity per check.",
+    "chosen": 2,
+    "rationale": "Answer 2 best combines the correctness of Answer 1 with the conciseness of Answer 0.",
+    "model": "general"
+  },
+  "reason-prime-337": {
+    "answer": "337 is a prime number because it is not divisible by any prime number less than or equal to its square root (which is approximately 18.36). ",
+    "chosen": 2,
+    "rationale": "Answer 2 provides a clear explanation of the concept and the process of primality testing.",
+    "model": "general"
+  },
+  "reason-trains": {
+    "answer": "The trains will meet in 2 hours.",
+    "chosen": 2,
+    "rationale": "Answer 2 provides a clear and concise solution with the correct steps and calculation.",
+    "model": "general"
+  },
+  "reason-bat-ball": {
+    "answer": "$0.05",
+    "chosen": -1,
+    "rationale": "All solutions correctly use algebra to solve for the ball's cost.",
+    "model": "general"
+  },
+  "reason-work-rate": {
+    "answer": "3 minutes",
+    "chosen": 2,
+    "rationale": "It accurately follows the logic of the problem and provides a clear, concise solution.",
+    "model": "general"
+  },
+  "reason-logic-cards": {
+    "answer": "The cards that must be flipped are A and 7.",
+    "chosen": 1,
+    "rationale": "Answer 1 correctly identifies the need to check for both vowels paired with even numbers and odd numbers not paired with vowels.",
+    "model": "general"
+  },
+  "reason-compound": {
+    "answer": "1331.00",
+    "chosen": 2,
+    "rationale": "Answer 2 provides a clear explanation of the formula and its application, correctly arriving at the solution.",
+    "model": "general"
+  },
+  "gen-mutex-1sentence": {
+    "answer": "A mutex is a synchronization mechanism used in computer programming to ensure that only one thread or process can access a shared resource at a time, preventing data corruption and race conditions.",
+    "chosen": 0,
+    "rationale": "Answer 0 provides a clear and concise definition of a mutex.",
+    "model": "general"
+  },
+  "gen-tcp-udp": {
+    "answer": "TCP (Transmission Control Protocol) ensures reliable data transmission with error checking, making it suitable for applications like web browsing and email, while UDP (User Datagram Protocol), being connectionless and faster, is used in real-time applications like video streaming where timely delivery is prioritized, even if some data is lost.",
+    "chosen": 0,
+    "rationale": "Answer 0 provides a clear and accurate comparison of TCP and UDP.",
+    "model": "general"
+  },
+  "gen-photosynthesis": {
+    "answer": "Photosynthesis is like a magic recipe that plants use to make their food using sunlight! Imagine the leaves of a plant as little solar panels that catch sunlight. The plant then uses this sunlight to turn water from the soil and carbon dioxide from the air into glucose, which is a type of sugar that gives the plant energy to grow. This process also makes oxygen, which is the air we need to breathe.",
+    "chosen": 0,
+    "rationale": "Answer 0 uses clear analogies and explains the key inputs and outputs of photosynthesis.",
+    "model": "general"
+  },
+  "gen-email-decline": {
+    "answer": "Subject: Re: Meeting Invitation - [Meeting Topic]\n\nDear [Name],\n\nThank you for the meeting invitation. Unfortunately, due to a scheduling conflict, I won't be available to meet on [Date] at [Time].\n\nWould you be open to connecting asynchronously instead? I'm happy to discuss [Topic] via email or a quick phone call at your convenience.\n\nBest regards,\n\n[Your Name]",
+    "chosen": 2,
+    "rationale": "Answer 2 is concise and polite while clearly stating the conflict and suggesting alternatives.",
+    "model": "general"
+  },
+  "gen-analogy-cache": {
+    "answer": "Imagine you have a big bookshelf full of books. Every time you want to read a book, you go to the shelf and find it. Now, imagine you have a small table next to your chair where you keep the books you read most often. This table acts like a cache. When you need to read one of those frequently used books, you can quickly grab it from the table instead of searching for it on the shelf. This saves you time because you don't have to go all the way to the shelf every time. The cache stores the most recently or frequently accessed data so that it can be quickly retrieved when needed again.",
+    "chosen": 0,
+    "rationale": "Answer 0 provides a clear and accurate analogy using a familiar object, the bookshelf.",
+    "model": "general"
+  },
+  "gen-summarize-pros-cons": {
+    "answer": "**Pros:**\n- Flexibility in working hours and location\n- Potential for reduced commuting time and costs\n\n**Cons:**\n- Challenges in maintaining team cohesion and communication\n- Isolation and potential loneliness for some workers",
+    "chosen": 0,
+    "rationale": "Answer 0 provides a concise and accurate list of pros and cons.",
+    "model": "general"
+  }
+}

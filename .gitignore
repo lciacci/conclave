@@ -25,4 +25,9 @@ __pycache__/
 .venv/
 venv/
 
+# v3 judge-eval boot artifacts — regenerated from a boot (judge_eval.py --generate),
+# not source. Commit a specific run as a fixture later if reproducibility needs it.
+orchestrator/eval_candidates.json
+orchestrator/eval_judgments_*.json
+
 # --- add your stack below (build artifacts, deps, lockfiles you don't track) ---
