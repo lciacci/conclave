@@ -17,13 +17,31 @@ Last updated: 2026-07-10 (end of session). Read this + `design.md` to resume col
 
 ## The ONE next action
 
-**Chunk 3 — judge eval (the thesis payload). ~2h harness build (NO boot) + ~45min boot · ~$2-3 +
-tiny frontier API.** Build a labeled query set (~15-20 Qs spanning coder/reasoning/general
-strengths) + a scorer; run `judge=gemma` (in-fleet default) vs a frontier `judge_url`/`judge_model`
-and compare selection/synthesis quality. Output: "does a small self-hosted judge hold up vs frontier."
-Most of it (query set + scorer + offline plumbing) builds with the GPU **down** against cached
-candidate responses — only the final comparison run needs a boot. The orchestrator already supports a
-pluggable judge (`EnsembleConfig.judge_url`/`judge_model`), so no orchestrator change is needed.
+**Chunk 3 — judge eval (the thesis payload). HARNESS BUILT 2026-07-11 (offline, no boot); remaining =
+one ~45min boot · ~$2-3 + a tiny frontier API bill.** "Does a small self-hosted judge hold up vs a
+frontier judge?" Built + offline-verified this session (all `--demo` self-checks pass):
+- `orchestrator/eval_queryset.py` — 18 labeled queries (6 coder / 6 reasoning / 6 general), each with
+  a gold reference. Divergent-by-design so the judge's choice matters.
+- `orchestrator/candidate_cache.py` — one boot fans every query to the fleet, caches candidates to
+  `eval_candidates.json` (gitignored); eval iterates offline forever after. All-error guard so a
+  gateway blip isn't frozen in.
+- `orchestrator/judge_eval.py` — pluggable Scorer protocol (LocalHeuristic = offline/CI backstop;
+  ReferenceGrader = LLM grades 0-5 vs the reference, the real number). Provider-agnostic judge/grader
+  via `ensemble.http_call` keyed with `functools.partial` (added an `api_key` param — one line).
+  Three phases decoupled by JSON: `--generate` (boot: candidates + Gemma judgments), `--frontier`
+  (offline: frontier judge over the cache), `--score [--heuristic]` (offline: score + head-to-head).
+
+**Run order to finish Chunk 3:**
+1. Boot the fleet (v2 playbook + `scripts/sweep-gpu-capacity.sh g6e.xlarge us-east-1c ...`, `dev_mode=true`).
+2. `CONCLAVE_GW=<ts-ip>:4000 python3 orchestrator/judge_eval.py --generate` → candidates + Gemma judgments cached. **Tear down here** — the rest is offline.
+3. `JUDGE_URL=<frontier-base> JUDGE_MODEL=<model> JUDGE_API_KEY=<key> python3 orchestrator/judge_eval.py --frontier`
+4. `python3 orchestrator/judge_eval.py --score --heuristic` (free sanity), then `... --score` (real, uses the frontier grader) → aggregate + per-category + head-to-head Gemma vs frontier.
+
+**Chosen methodology (demoable now, rigorous later — the upgrade path is documented in
+`judge_eval.py`'s header):** reference-anchored 0-5 grading (self-bias low), single grader sample,
+18 queries, Claude as the intended frontier judge+grader. Rigor upgrades = a PairwiseScorer (with
+blinding + position-randomization), a cross-vendor independent grader, N samples, a bigger set.
+Frontier is the **baseline to beat**, never a default in the serving path.
 
 ### Chunk 2 result (2026-07-10 boot, g6e.xlarge us-east-1c on-demand, ~1h, done)
 - **Contention tax = +30%** (controlled: every call forced to exactly 256 tokens via
@@ -60,11 +78,10 @@ built + **live-smoke-verified** 2026-07-08; live harness in `orchestrator/harnes
   `infra/variables.tf` + `user-data.sh.tftpl`. Sequential start kept (still needed).
 - **Chunk 2 — contention baseline. ✅ DONE 2026-07-10.** +30% tax → multi-GPU not justified (result
   block above).
-- **Chunk 3 — judge eval (the thesis payload). ← NEXT.** ~2h harness build (no boot) + ~45min boot ·
-  ~$2-3 + tiny frontier API. Build a labeled query set (~15-20 Qs across coder/reasoning/general
-  strengths) + a scorer; run `judge=gemma` vs a frontier `judge_url`/`judge_model`; compare
-  selection/synthesis quality. Output: "does a small self-hosted judge hold up vs frontier." Build
-  the query set + scorer offline (GPU down, cached candidates); boot only for the comparison run.
+- **Chunk 3 — judge eval (the thesis payload). 🔨 HARNESS BUILT 2026-07-11; boot + scoring remain.**
+  Query set + candidate cache + pluggable-scorer harness done and offline-verified (see "ONE next
+  action" for the files + the 4-step run order). Remaining: one ~45min boot to `--generate`, then
+  offline `--frontier` + `--score`. ~$2-3 + tiny frontier API.
 - **Chunk 4 — multi-GPU. ✗ DISMISSED by the Chunk 2 baseline (+30% ≠ worth 4× cost).** Not on the
   path unless a later need (32B coder headroom, failure isolation) reopens it — then: pick box
   (g5.12xlarge vs g6e.12xlarge), per-GPU placement (`CUDA_VISIBLE_DEVICES`/pinning), measure delta.
