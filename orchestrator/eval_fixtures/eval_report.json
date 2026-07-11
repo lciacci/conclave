@@ -1,0 +1,356 @@
+{
+  "heuristic": {
+    "scorer": "local_heuristic",
+    "judges": [
+      "gemma",
+      "frontier"
+    ],
+    "n": 18,
+    "aggregate": {
+      "gemma": 0.374,
+      "frontier": 0.686
+    },
+    "by_category": {
+      "coder": {
+        "gemma": 0.5,
+        "frontier": 0.788
+      },
+      "reasoning": {
+        "gemma": 0.188,
+        "frontier": 0.716
+      },
+      "general": {
+        "gemma": 0.434,
+        "frontier": 0.553
+      }
+    },
+    "per_query": [
+      {
+        "id": "coder-dedupe-order",
+        "category": "coder",
+        "scores": {
+          "gemma": 0.125,
+          "frontier": 0.625
+        }
+      },
+      {
+        "id": "coder-bug-mutable-default",
+        "category": "coder",
+        "scores": {
+          "gemma": 0.5,
+          "frontier": 0.6
+        }
+      },
+      {
+        "id": "coder-sql-param",
+        "category": "coder",
+        "scores": {
+          "gemma": 0.545,
+          "frontier": 0.909
+        }
+      },
+      {
+        "id": "coder-async-gather",
+        "category": "coder",
+        "scores": {
+          "gemma": 0.7,
+          "frontier": 0.9
+        }
+      },
+      {
+        "id": "coder-git-undo-commit",
+        "category": "coder",
+        "scores": {
+          "gemma": 0.462,
+          "frontier": 0.692
+        }
+      },
+      {
+        "id": "coder-bigo-nested",
+        "category": "coder",
+        "scores": {
+          "gemma": 0.667,
+          "frontier": 1.0
+        }
+      },
+      {
+        "id": "reason-prime-337",
+        "category": "reasoning",
+        "scores": {
+          "gemma": 0.333,
+          "frontier": 0.5
+        }
+      },
+      {
+        "id": "reason-trains",
+        "category": "reasoning",
+        "scores": {
+          "gemma": 0.167,
+          "frontier": 0.833
+        }
+      },
+      {
+        "id": "reason-bat-ball",
+        "category": "reasoning",
+        "scores": {
+          "gemma": 0.0,
+          "frontier": 0.5
+        }
+      },
+      {
+        "id": "reason-work-rate",
+        "category": "reasoning",
+        "scores": {
+          "gemma": 0.125,
+          "frontier": 0.75
+        }
+      },
+      {
+        "id": "reason-logic-cards",
+        "category": "reasoning",
+        "scores": {
+          "gemma": 0.0,
+          "frontier": 0.714
+        }
+      },
+      {
+        "id": "reason-compound",
+        "category": "reasoning",
+        "scores": {
+          "gemma": 0.5,
+          "frontier": 1.0
+        }
+      },
+      {
+        "id": "gen-mutex-1sentence",
+        "category": "general",
+        "scores": {
+          "gemma": 0.833,
+          "frontier": 0.833
+        }
+      },
+      {
+        "id": "gen-tcp-udp",
+        "category": "general",
+        "scores": {
+          "gemma": 0.353,
+          "frontier": 0.588
+        }
+      },
+      {
+        "id": "gen-photosynthesis",
+        "category": "general",
+        "scores": {
+          "gemma": 0.611,
+          "frontier": 0.778
+        }
+      },
+      {
+        "id": "gen-email-decline",
+        "category": "general",
+        "scores": {
+          "gemma": 0.067,
+          "frontier": 0.267
+        }
+      },
+      {
+        "id": "gen-analogy-cache",
+        "category": "general",
+        "scores": {
+          "gemma": 0.444,
+          "frontier": 0.5
+        }
+      },
+      {
+        "id": "gen-summarize-pros-cons",
+        "category": "general",
+        "scores": {
+          "gemma": 0.294,
+          "frontier": 0.353
+        }
+      }
+    ],
+    "head_to_head": {
+      "gemma": 0,
+      "frontier": 17,
+      "tie": 1
+    }
+  },
+  "reference_grade": {
+    "scorer": "reference_grader",
+    "judges": [
+      "gemma",
+      "frontier"
+    ],
+    "n": 18,
+    "aggregate": {
+      "gemma": 0.889,
+      "frontier": 1.0
+    },
+    "by_category": {
+      "coder": {
+        "gemma": 0.733,
+        "frontier": 1.0
+      },
+      "reasoning": {
+        "gemma": 0.933,
+        "frontier": 1.0
+      },
+      "general": {
+        "gemma": 1.0,
+        "frontier": 1.0
+      }
+    },
+    "per_query": [
+      {
+        "id": "coder-dedupe-order",
+        "category": "coder",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        }
+      },
+      {
+        "id": "coder-bug-mutable-default",
+        "category": "coder",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        }
+      },
+      {
+        "id": "coder-sql-param",
+        "category": "coder",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        }
+      },
+      {
+        "id": "coder-async-gather",
+        "category": "coder",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        }
+      },
+      {
+        "id": "coder-git-undo-commit",
+        "category": "coder",
+        "scores": {
+          "gemma": 0.2,
+          "frontier": 1.0
+        }
+      },
+      {
+        "id": "coder-bigo-nested",
+        "category": "coder",
+        "scores": {
+          "gemma": 0.2,
+          "frontier": 1.0
+        }
+      },
+      {
+        "id": "reason-prime-337",
+        "category": "reasoning",
+        "scores": {
+          "gemma": 0.6,
+          "frontier": 1.0
+        }
+      },
+      {
+        "id": "reason-trains",
+        "category": "reasoning",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        }
+      },
+      {
+        "id": "reason-bat-ball",
+        "category": "reasoning",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        }
+      },
+      {
+        "id": "reason-work-rate",
+        "category": "reasoning",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        }
+      },
+      {
+        "id": "reason-logic-cards",
+        "category": "reasoning",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        }
+      },
+      {
+        "id": "reason-compound",
+        "category": "reasoning",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        }
+      },
+      {
+        "id": "gen-mutex-1sentence",
+        "category": "general",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        }
+      },
+      {
+        "id": "gen-tcp-udp",
+        "category": "general",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        }
+      },
+      {
+        "id": "gen-photosynthesis",
+        "category": "general",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        }
+      },
+      {
+        "id": "gen-email-decline",
+        "category": "general",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        }
+      },
+      {
+        "id": "gen-analogy-cache",
+        "category": "general",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        }
+      },
+      {
+        "id": "gen-summarize-pros-cons",
+        "category": "general",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        }
+      }
+    ],
+    "head_to_head": {
+      "gemma": 0,
+      "frontier": 3,
+      "tie": 15
+    }
+  }
+}

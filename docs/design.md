@@ -269,11 +269,12 @@ Controls first, compute second.
       each minute; primary alarm watches it (notBreaching), CPU alarm kept as backstop. IAM gains
       scoped `cloudwatch:PutMetricData`.
     - Next launch verifies all three in one boot.
-- **v3 — ensemble + judge. 🔨 in progress.** Parallel fan-out, judge selection/synthesis, judge
-  evals separate from specialist evals. The pedagogically interesting phase. Chunk 1 (infra fixes:
-  additive-util KV fix, pinned image, dev_mode idle-stop) + Chunk 2 (contention baseline = +30%,
-  multi-GPU dismissed) DONE 2026-07-10. Chunk 3 (judge eval: in-fleet Gemma vs frontier) is next —
-  the thesis payload. See `docs/HANDOFF.md`.
+- **v3 — ensemble + judge. ✅ thesis proven 2026-07-11.** Parallel fan-out, judge selection/synthesis,
+  judge evals separate from specialist evals. Chunk 1 (additive-util KV fix, pinned image, dev_mode
+  idle-stop) + Chunk 2 (contention baseline +30%, multi-GPU dismissed) done 2026-07-10; Chunk 3 (judge
+  eval) done 2026-07-11 — **the in-fleet Gemma judge holds up vs a frontier judge: 0.89–0.91 vs 1.00,
+  tied on 15/18 queries**, trailing only on code (self-bias + n=18 caveats, see
+  `docs/chunk3-judge-eval-results.md`). Remaining v3 = optional rigor upgrades. Chunk 4 dismissed.
 - **v4 (maybe) — MCP front-end.** Unpauses project #5: MCP server as the structured interface
   to the platform.
 

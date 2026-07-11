@@ -1,0 +1,110 @@
+{
+  "coder-dedupe-order": {
+    "answer": "```python\ndef remove_duplicates(lst):\n    return list(dict.fromkeys(lst))\n```\n\n**How it works:**\n- `dict.fromkeys(lst)` builds a dictionary using the elements of `lst` as keys (values default to `None`). Since dictionary keys must be unique, any duplicate elements are automatically collapsed to a single entry.\n- Since Python 3.7+, dictionaries preserve insertion order, so the keys retain the order of their first appearance in the original list.\n- Wrapping the result in `list(...)` converts the dictionary's keys back into a list, giving you the original elements in their original order, with duplicates removed.\n\n**Example:**\n```python\n>>> remove_duplicates([1, 2, 2, 3, 4, 4, 4, 5])\n[1, 2, 3, 4, 5]\n```\n\nThis is the most idiomatic and efficient (O(n)) one-liner for this task in modern Python.",
+    "chosen": -1,
+    "rationale": "Answer 0's solution is correct, concise, and clearly explained, while Answer 1 arrives at the same correct one-liner but with excessive rambling, and Answer 2 duplicates Answer 0 with a minor inaccuracy about dictionaries 'not handling order'.",
+    "model": "claude-sonnet-5"
+  },
+  "coder-bug-mutable-default": {
+    "answer": "**The Bug:**\n\nIn Python, default argument values are evaluated only **once**, at function definition time—not on every call. Since `acc=[]` creates a single list object at definition time, every call to `add()` that doesn't explicitly pass `acc` will share and mutate that *same* list.\n\nExample:\n```python\nadd(1)  # returns [1]\nadd(2)  # returns [1, 2]  <-- unexpected! not a fresh list\nadd(3)  # returns [1, 2, 3]\n```\nEach call appends to the same persistent list instead of starting fresh, which is rarely the intended behavior.\n\n**The Fix:**\n\nAvoid mutable default arguments. Use `None` as the default sentinel and create a new list inside the function body when needed:\n\n```python\ndef add(x, acc=None):\n    if acc is None:\n        acc = []\n    acc.append(x)\n    return acc\n```\n\nNow, each call without an explicit `acc` gets its own fresh list, while callers who intentionally pass their own list can still accumulate into it as expected:\n\n```python\nadd(1)          # [1]\nadd(2)          # [2]  (fresh list, no leftover state)\nmy_list = []\nadd(1, my_list) # [1]\nadd(2, my_list) # [1, 2]  (explicit accumulation still works)\n```",
+    "chosen": -1,
+    "rationale": "All answers correctly identify the mutable default argument bug and propose the same standard fix, but Answer 0 has a redundant duplicate 'Fix 2' that adds no value, so a merged clean version is best.",
+    "model": "claude-sonnet-5"
+  },
+  "coder-sql-param": {
+    "answer": "Use parameterized queries so the database driver handles escaping, rather than concatenating strings directly into the SQL statement.\n\nIf using a driver with `%s`-style placeholders (e.g., psycopg2, MySQLdb):\n```python\ncur.execute(\"SELECT * FROM users WHERE name = %s\", (name,))\n```\n\nIf using a driver with `?`-style placeholders (e.g., sqlite3):\n```python\ncur.execute(\"SELECT * FROM users WHERE name = ?\", (name,))\n```\n\n**Why this is safe:** The placeholder (`%s` or `?`) is not part of the literal SQL string—the driver sends the query and the parameter value separately to the database, so `name` is always treated as data, never as executable SQL. This eliminates SQL injection risk regardless of what characters (quotes, semicolons, etc.) appear in `name`.\n\n**Do not** manually embed the value into the query string (e.g., via f-strings, `.format()`, or `%` placeholders inside quotes like `'%(name)s'`)—that reintroduces the same injection vulnerability since it's just string interpolation before execution, not true parameter binding.\n\nChoose the placeholder style (`%s`, `?`, or `%(name)s` with proper `cur.execute(query, {\"name\": name})` syntax *outside* of quotes) that matches your database driver's DB-API convention.",
+    "chosen": -1,
+    "rationale": "Answers 0 and 2 correctly use standard parameterized query placeholders (%s or ?), while Answer 1 incorrectly embeds a %(name)s placeholder inside quotes in the query string, which is a flawed/incorrect approach to parameterization.",
+    "model": "claude-sonnet-5"
+  },
+  "coder-async-gather": {
+    "answer": "To run three async coroutines concurrently in Python and collect all their results, use `asyncio.gather()`, which schedules all coroutines to run concurrently and returns their results in the same order they were passed in (regardless of completion order).\n\n```python\nimport asyncio\n\nasync def coroutine1():\n    print(\"Coroutine 1 starting...\")\n    await asyncio.sleep(1)  # Simulate async work\n    print(\"Coroutine 1 finished.\")\n    return \"Result from coroutine 1\"\n\nasync def coroutine2():\n    print(\"Coroutine 2 starting...\")\n    await asyncio.sleep(2)\n    print(\"Coroutine 2 finished.\")\n    return \"Result from coroutine 2\"\n\nasync def coroutine3():\n    print(\"Coroutine 3 starting...\")\n    await asyncio.sleep(3)\n    print(\"Coroutine 3 finished.\")\n    return \"Result from coroutine 3\"\n\nasync def main():\n    results = await asyncio.gather(\n        coroutine1(),\n        coroutine2(),\n        coroutine3()\n    )\n    print(\"All coroutines completed. Results:\")\n    for result in results:\n        print(result)\n\nif __name__ == \"__main__\":\n    asyncio.run(main())\n```\n\n**How it works:**\n\n1. Define each coroutine with `async def`, doing some asynchronous work (here simulated with `asyncio.sleep`) and returning a result.\n2. In an outer `async def main()` function, call `asyncio.gather(coroutine1(), coroutine2(), coroutine3())` and `await` it. `gather` starts all three coroutines essentially at once (they all begin running, and whichever hits an `await` yields control back to the event loop so others can proceed), rather than running them one after another sequentially.\n3. `asyncio.gather` waits until *all* coroutines finish, then returns a list of their results in the same order the coroutines were passed in—even though the coroutines may actually finish in a different order (e.g., the fastest one prints \"finished\" first).\n4. Finally, run the whole thing with `asyncio.run(main())`, which sets up and manages the event loop for you (the standard way to launch top-level asyncio programs since Python 3.7).\n\n**Example output** (exact interleaving of the \"starting\"/\"finished\" lines may vary, but total runtime is about 3 seconds—the time of the *longest* coroutine—rather than 1+2+3=6 seconds if run sequentially):\n\n```\nCoroutine 1 starting...\nCoroutine 2 starting...\nCoroutine 3 starting...\nCoroutine 1 finished.\nCoroutine 2 finished.\nCoroutine 3 finished.\nAll coroutines completed. Results:\nResult from coroutine 1\nResult from coroutine 2\nResult from coroutine 3\n```\n\nThis confirms all three coroutines ran concurrently, and their results were collected in the original order once everything completed.",
+    "chosen": -1,
+    "rationale": "Answers 0 and 2 both correctly use asyncio.gather, while Answer 1 invents a non-existent API (asyncio.run_coroutine_threadpool) and contains numerous errors, so the best synthesis combines the correct gather-based approach with clear explanation and example output.",
+    "model": "claude-sonnet-5"
+  },
+  "coder-git-undo-commit": {
+    "answer": "Since you haven't pushed yet, the simplest fix is:\n\n1. From your current (wrong) branch, create a new branch at the current commit — this carries the last commit with it:\n   ```bash\n   git checkout -b new-branch-name\n   ```\n\n2. Switch back to the original (wrong) branch:\n   ```bash\n   git checkout wrong-branch-name\n   ```\n\n3. Remove the last commit from that branch by resetting it back one commit (your changes stay safely on `new-branch-name`):\n   ```bash\n   git reset --hard HEAD~1\n   ```\n   (Use `--hard` to also discard the working-directory changes since they now live on the new branch; use a plain `git reset HEAD~1` if you want to keep the changes unstaged on the old branch too — but usually `--hard` is what you want here.)\n\n4. Verify:\n   ```bash\n   git log --oneline           # wrong-branch-name: commit gone\n   git log --oneline new-branch-name   # commit present\n   ```\n\n5. Switch to the new branch to keep working:\n   ```bash\n   git checkout new-branch-name\n   ```\n\n6. When ready, push as normal:\n   ```bash\n   git push origin new-branch-name\n   ```\n\nThis moves the commit cleanly to `new-branch-name` and removes it from the original branch, with no need for cherry-picking or any exotic commands — since nothing has been pushed, there's no remote history to worry about.",
+    "chosen": 0,
+    "rationale": "Answer 0 gives the standard, correct, and simplest Git workflow (branch, then reset), while Answer 1 is factually wrong with invented commands and Answer 2 unnecessarily complicates with cherry-pick and confusing branch switches.",
+    "model": "claude-sonnet-5"
+  },
+  "coder-bigo-nested": {
+    "answer": "Checking, for each of the n elements in the first list, whether it appears in the second list (also of size n) using Python's `in` operator on a list is O(n^2) overall. This is because `in` on a list performs a linear scan, which is O(n) per lookup, and you do this n times (once per element in the first list), giving O(n) * O(n) = O(n^2).\n\nTo speed this up, convert the second list into a set (or dict) before doing the lookups:\n\n```python\nlist1 = [...]  # first list\nlist2 = [...]  # second list\n\nset2 = set(list2)          # O(n) to build\n\nfor item in list1:         # O(n) iterations\n    if item in set2:       # O(1) average-case lookup\n        # do something\n```\n\nBecause Python sets (and dicts) are implemented as hash tables, membership testing is O(1) on average (though O(n) in the rare worst case of many hash collisions). Building the set from list2 costs O(n), and then performing n lookups costs O(n) on average, so the total time complexity drops from O(n^2) to O(n) on average. This is a substantial improvement for large lists. Note that converting to a set removes duplicates, which is fine if you only care about existence, and it does use additional O(n) memory for the set.",
+    "chosen": -1,
+    "rationale": "Answers 0 and 1 correctly identify O(n^2) for list-based 'in' checks and O(n) via set conversion, while Answer 2 incorrectly claims Python's list 'in' operator uses a hash table, which is factually wrong.",
+    "model": "claude-sonnet-5"
+  },
+  "reason-prime-337": {
+    "answer": "Yes, 337 is a prime number.\n\nA prime number is a natural number greater than 1 whose only positive divisors are 1 and itself. To check whether 337 is prime, it suffices to test divisibility by all prime numbers up to its square root, since if 337 had a divisor larger than its square root, it would also have a corresponding divisor smaller than the square root.\n\n√337 ≈ 18.36, so we only need to check the primes 2, 3, 5, 7, 11, 13, and 17.\n\n1. **Divisibility by 2:** 337 is odd, so it is not divisible by 2.\n2. **Divisibility by 3:** Sum of digits = 3+3+7 = 13, which is not divisible by 3, so 337 is not divisible by 3.\n3. **Divisibility by 5:** 337 does not end in 0 or 5, so it is not divisible by 5.\n4. **Divisibility by 7:** 337 ÷ 7 ≈ 48.14, not an integer, so 337 is not divisible by 7.\n5. **Divisibility by 11:** Alternating digit sum = 3 − 3 + 7 = 7, not divisible by 11, so 337 is not divisible by 11.\n6. **Divisibility by 13:** 337 ÷ 13 ≈ 25.92, not an integer, so 337 is not divisible by 13.\n7. **Divisibility by 17:** 337 ÷ 17 ≈ 19.82, not an integer, so 337 is not divisible by 17.\n\nSince 337 is not divisible by any prime number up to its square root (≈18.36), it has no divisors other than 1 and itself.\n\n**Conclusion:** 337 is a prime number.",
+    "chosen": -1,
+    "rationale": "Answers 0 and 1 are both correct and thorough, but Answer 0 needlessly checks 19 and 23 beyond the sqrt(337)≈18.36 limit while Answer 1 correctly stops at 17, so a merged version keeps the complete, accurate check up to 17 only.",
+    "model": "claude-sonnet-5"
+  },
+  "reason-trains": {
+    "answer": "Since the trains approach each other, their speeds add: 60 km/h + 90 km/h = 150 km/h combined speed. Time to meet = Distance / Speed = 300 km / 150 km/h = 2 hours.",
+    "chosen": -1,
+    "rationale": "All three answers are correct and essentially identical, so a merged concise version best represents the consensus solution.",
+    "model": "claude-sonnet-5"
+  },
+  "reason-bat-ball": {
+    "answer": "Let x be the cost of the ball in dollars. Since the bat costs $1.00 more than the ball, the bat costs x + 1 dollars. Their total cost is $1.10, so: x + (x + 1) = 1.10 → 2x + 1 = 1.10 → 2x = 0.10 → x = 0.05. Therefore, the ball costs $0.05 (5 cents), and the bat costs $1.05.",
+    "chosen": -1,
+    "rationale": "All three answers correctly solve the classic bat-and-ball problem with identical valid algebra, so the synthesized answer merges the clearest steps.",
+    "model": "claude-sonnet-5"
+  },
+  "reason-work-rate": {
+    "answer": "Since 3 machines make 3 widgets in 3 minutes, each machine makes 1 widget every 3 minutes (a rate of 1/3 widget per minute per machine). With 100 machines working simultaneously, each machine independently produces its own widget in that same 3-minute span, so 100 machines produce 100 widgets in 3 minutes. The answer is 3 minutes.",
+    "chosen": -1,
+    "rationale": "All three answers correctly conclude 3 minutes with valid reasoning, so the clearest and most rigorous explanation (Answer 1's rate-based derivation) is synthesized as the final answer.",
+    "model": "claude-sonnet-5"
+  },
+  "reason-logic-cards": {
+    "answer": "To test 'if a card shows a vowel, its other side is even,' you must flip A and 7. Flip A because if a vowel is paired with an odd number, the rule is violated. Flip 7 because if an odd number is paired with a vowel, the rule is violated (this is the contrapositive check). K need not be flipped since the rule makes no claim about consonants, and 4 need not be flipped since the rule doesn't require even numbers to be paired with vowels—only vowels must be paired with even numbers, not the reverse.",
+    "chosen": 1,
+    "rationale": "Both Answer 0 and Answer 1 correctly identify A and 7 as the cards to flip using proper Wason selection task logic, while Answer 2 incorrectly omits 7; Answer 1 provides the clearest and most rigorous explanation including the contrapositive reasoning.",
+    "model": "claude-sonnet-5"
+  },
+  "reason-compound": {
+    "answer": "Using the compound interest formula A = P(1 + r/n)^(nt), with P = $1000, r = 0.10, n = 1, and t = 3: A = 1000 × (1.10)^3 = 1000 × 1.331 = **$1331.00**. After 3 years, the investment will be worth exactly $1331.00.",
+    "chosen": -1,
+    "rationale": "All three answers correctly apply the compound interest formula and arrive at the same accurate result, so the clearest, most concise version is synthesized.",
+    "model": "claude-sonnet-5"
+  },
+  "gen-mutex-1sentence": {
+    "answer": "A mutex (mutual exclusion) is a synchronization primitive that ensures only one thread or process can access a shared resource at a time, preventing race conditions and data corruption.",
+    "chosen": -1,
+    "rationale": "Combining the clarity and correctness of all answers into one concise sentence, omitting the reasoning model's exploratory text.",
+    "model": "claude-sonnet-5"
+  },
+  "gen-tcp-udp": {
+    "answer": "TCP is a connection-oriented protocol that guarantees reliable, ordered delivery of data through handshakes and acknowledgments, making it ideal for applications like web browsing, email, and file transfers where data integrity matters. UDP is connectionless and skips these reliability checks, making it faster and lower-latency, which suits real-time applications like video streaming, VoIP, and online gaming where speed matters more than perfect accuracy. Choose TCP when correctness and completeness are essential, and UDP when speed and low overhead are more important than occasional data loss.",
+    "chosen": -1,
+    "rationale": "Answer 0 is the most concise and accurate, while Answer 1 contains raw reasoning clutter and Answer 2 lacks the 'when to pick' guidance clearly, so a merged concise version is best.",
+    "model": "claude-sonnet-5"
+  },
+  "gen-photosynthesis": {
+    "answer": "Photosynthesis is like a magic recipe plants use to make their own food! Their leaves act like little solar panels that catch sunlight. Using that sunlight, plants combine water from the soil with carbon dioxide from the air (with help from a green pigment called chlorophyll) to make sugar, which gives them energy to grow. As a bonus, this process releases oxygen into the air—the same oxygen we breathe! So plants are basically tiny food factories that also keep our air fresh.",
+    "chosen": -1,
+    "rationale": "Combining the clear analogy and complete input/output details from Answers 0 and 1, while dropping Answer 1's confusing reasoning process and Answer 2's vague 'air' reference, yields the most accurate and kid-friendly explanation.",
+    "model": "claude-sonnet-5"
+  },
+  "gen-email-decline": {
+    "answer": "Subject: Unable to Attend - Proposing an Async Follow-Up\n\nDear [Recipient's Name],\n\nThank you for the invitation to meet on [Date] at [Time]. I appreciate you setting this up.\n\nUnfortunately, I have a scheduling conflict at that time and won't be able to join. Rather than finding another slot, would you be open to following up asynchronously? I'm happy to share my thoughts via email, a shared doc, or a quick recorded update—whatever works best for covering [Topic].\n\nPlease let me know your preference, and I'll get back to you promptly. Thanks again for understanding, and I look forward to connecting soon.\n\nBest regards,\n[Your Full Name]\n[Your Position]\n[Your Contact Information]",
+    "chosen": -1,
+    "rationale": "Combining the concise, on-topic structure of Answer 2 with the polite, thorough tone of Answer 0 (which explicitly proposes async follow-up, unlike Answer 1 which mistakenly proposes rescheduling instead) yields the most accurate and complete response.",
+    "model": "claude-sonnet-5"
+  },
+  "gen-analogy-cache": {
+    "answer": "Think of a cache like the shelf in your fridge door where you keep the things you use most—milk, butter, juice. Instead of digging through the whole fridge every time you want one of these, you just grab it from that handy shelf. A cache works the same way for a computer: it keeps a small copy of the data or files you use most often in a spot that's quick to reach, so the computer doesn't have to search through everything each time. That's why a program or website often feels faster after you've used it once—it's pulling the info from the 'shelf' (cache) instead of fetching it from the back of the fridge (main storage).",
+    "chosen": -1,
+    "rationale": "Combining the clear, concise bookshelf/fridge-door analogy with the correct concept of frequently accessed data avoids the verbose, exposed reasoning of Answer 1 while merging the strongest points of Answers 0 and 2.",
+    "model": "claude-sonnet-5"
+  },
+  "gen-summarize-pros-cons": {
+    "answer": "Pros:\n- Flexibility in work hours and location\n- Reduced commuting time, costs, and stress\n\nCons:\n- Isolation and reduced in-person interaction with colleagues\n- Potential distractions and communication challenges affecting productivity",
+    "chosen": -1,
+    "rationale": "Answer 0 and 2 are clean and compact, while Answer 1 includes unwanted meta-reasoning/thinking process that violates the 'compact' requirement, so a synthesized concise version is best.",
+    "model": "claude-sonnet-5"
+  }
+}

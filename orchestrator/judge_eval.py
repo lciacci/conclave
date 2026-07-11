@@ -44,6 +44,16 @@ from eval_queryset import QUERY_SET
 import candidate_cache
 
 QUERY_BY_ID = {q["id"]: q for q in QUERY_SET}
+
+
+def frontier_call(base_url, model, messages, timeout, response_format=None, api_key="none"):
+    """Frontier-safe wrapper around http_call. Anthropic's OpenAI-compatible
+    endpoint REJECTS response_format=json_object (it wants json_schema), so we drop
+    it and lean on the prompt's 'respond ONLY with JSON' + lenient parsing —
+    verified: sonnet returns clean parseable JSON this way. Portable to OpenAI too
+    (which also honors the prompt instruction). vLLM's local judge keeps json_object
+    via the default http_call; only frontier calls route through here."""
+    return http_call(base_url, model, messages, timeout, response_format=None, api_key=api_key)
 _HERE = os.path.dirname(os.path.abspath(__file__))
 GEMMA_JUDGMENTS = os.path.join(_HERE, "eval_judgments_gemma.json")
 FRONTIER_JUDGMENTS = os.path.join(_HERE, "eval_judgments_frontier.json")
@@ -285,7 +295,7 @@ if __name__ == "__main__":
         if not cache:
             sys.exit("no candidate cache — run --generate on a boot first")
         cfg = EnsembleConfig(judge_url=base, judge_model=model)
-        call = functools.partial(http_call, api_key=key)
+        call = functools.partial(frontier_call, api_key=key)
         frontier = judge_over_cache(cache, cfg, call)
         _save(frontier, FRONTIER_JUDGMENTS)
         print(f"cached {len(frontier)} frontier judgments ({model})")
@@ -297,7 +307,7 @@ if __name__ == "__main__":
             scorer = LocalHeuristicScorer()
         else:
             base, model, key = _frontier_from_env()
-            scorer = ReferenceGrader(base, model, key)
+            scorer = ReferenceGrader(base, model, key, call=frontier_call)
         print_report(evaluate(cache, judgments, scorer))
 
     else:

@@ -11,37 +11,36 @@ Last updated: 2026-07-10 (end of session). Read this + `design.md` to resume col
   LiteLLM gateway — reasoning had NO byte-marker leak (Qwen distill fix holds). Per-model cost
   accounting prints (`response_cost` matched configured $/token exactly). GPUUtil idle-stop metric
   flowed. Torn down, $0 spend. One landmine hit + fixed (see below), fixes committed.
-- **v3 (ensemble + judge):** 🔨 **in progress.** Design locked; orchestrator built +
-  live-smoke-verified. Chunk 1 fixed + Chunk 2 done (2026-07-10 boot, below). Chunk 4 dismissed.
-  Next = **Chunk 3, the judge eval** — the thesis payload, no prior work started.
+- **v3 (ensemble + judge):** ✅ **thesis proven (2026-07-11).** Chunk 1 fixed + Chunk 2 done
+  (2026-07-10) + Chunk 3 judge eval done (2026-07-11, below); Chunk 4 dismissed. The core v3 arc is
+  complete — remaining is optional rigor upgrades or v4 (MCP front-end).
 
 ## The ONE next action
 
-**Chunk 3 — judge eval (the thesis payload). HARNESS BUILT 2026-07-11 (offline, no boot); remaining =
-one ~45min boot · ~$2-3 + a tiny frontier API bill.** "Does a small self-hosted judge hold up vs a
-frontier judge?" Built + offline-verified this session (all `--demo` self-checks pass):
-- `orchestrator/eval_queryset.py` — 18 labeled queries (6 coder / 6 reasoning / 6 general), each with
-  a gold reference. Divergent-by-design so the judge's choice matters.
-- `orchestrator/candidate_cache.py` — one boot fans every query to the fleet, caches candidates to
-  `eval_candidates.json` (gitignored); eval iterates offline forever after. All-error guard so a
-  gateway blip isn't frozen in.
-- `orchestrator/judge_eval.py` — pluggable Scorer protocol (LocalHeuristic = offline/CI backstop;
-  ReferenceGrader = LLM grades 0-5 vs the reference, the real number). Provider-agnostic judge/grader
-  via `ensemble.http_call` keyed with `functools.partial` (added an `api_key` param — one line).
-  Three phases decoupled by JSON: `--generate` (boot: candidates + Gemma judgments), `--frontier`
-  (offline: frontier judge over the cache), `--score [--heuristic]` (offline: score + head-to-head).
+**v3 is functionally done. Pick one:**
+- **(a) Rigor pass on the judge eval** (no boot needed for most of it): add a cross-vendor
+  independent grader to kill the self-bias (below), a `PairwiseScorer` (blinded + position-
+  randomized), N grader samples for variance, and a bigger query set. Then one boot to re-`--generate`
+  if the query set grows. This turns the demoable result into a defensible one.
+- **(b) v4 — MCP front-end.** An MCP server as the structured interface to the platform; the
+  OpenAI-compatible gateway already makes any such client first-class.
 
-**Run order to finish Chunk 3:**
-1. Boot the fleet (v2 playbook + `scripts/sweep-gpu-capacity.sh g6e.xlarge us-east-1c ...`, `dev_mode=true`).
-2. `CONCLAVE_GW=<ts-ip>:4000 python3 orchestrator/judge_eval.py --generate` → candidates + Gemma judgments cached. **Tear down here** — the rest is offline.
-3. `JUDGE_URL=<frontier-base> JUDGE_MODEL=<model> JUDGE_API_KEY=<key> python3 orchestrator/judge_eval.py --frontier`
-4. `python3 orchestrator/judge_eval.py --score --heuristic` (free sanity), then `... --score` (real, uses the frontier grader) → aggregate + per-category + head-to-head Gemma vs frontier.
+### Chunk 3 result — judge eval (2026-07-11, the v3 thesis). Full writeup: `docs/chunk3-judge-eval-results.md`.
+"Does the in-fleet Gemma-9B judge hold up vs a frontier judge (Claude Sonnet 5)?" **Yes.** 18 queries
+(6/6/6), reference-anchored grading. **Gemma 0.89–0.91 vs frontier 1.00; tied on 15/18**, matching the
+frontier on general + reasoning, trailing only on code (0.77). The local heuristic (keyword) says
+frontier 0.69 vs Gemma 0.37 — an ARTIFACT (it scores phrasing-overlap with the reference, not
+correctness); it's a CI backstop, not the number. **Caveats:** grader self-bias (Sonnet grades
+Sonnet's own judge → a non-discriminating 1.000, so the true gap is smaller than shown); single grader
+sample (re-run moved Gemma 0.911→0.889); n=18. These are the rigor-pass targets in (a).
 
-**Chosen methodology (demoable now, rigorous later — the upgrade path is documented in
-`judge_eval.py`'s header):** reference-anchored 0-5 grading (self-bias low), single grader sample,
-18 queries, Claude as the intended frontier judge+grader. Rigor upgrades = a PairwiseScorer (with
-blinding + position-randomization), a cross-vendor independent grader, N samples, a bigger set.
-Frontier is the **baseline to beat**, never a default in the serving path.
+**Harness (built + committed this chunk):** `orchestrator/eval_queryset.py` (18 labeled Qs),
+`candidate_cache.py` (one boot caches candidates, eval iterates offline), `judge_eval.py` (pluggable
+Scorer: LocalHeuristic + ReferenceGrader; provider-agnostic keyed judge/grader; phases `--generate`
+[boot] / `--frontier` / `--score`). Frozen run + report in `orchestrator/eval_fixtures/` — re-score
+offline with `judge_eval.py --score`. Frontier judge/grader = Anthropic's OpenAI-compat endpoint
+(`https://api.anthropic.com`); it rejects `response_format=json_object`, so `frontier_call` strips it
+and relies on prompt + lenient parse (key in SSM `/conclave/judge-api-key`).
 
 ### Chunk 2 result (2026-07-10 boot, g6e.xlarge us-east-1c on-demand, ~1h, done)
 - **Contention tax = +30%** (controlled: every call forced to exactly 256 tokens via
@@ -78,10 +77,9 @@ built + **live-smoke-verified** 2026-07-08; live harness in `orchestrator/harnes
   `infra/variables.tf` + `user-data.sh.tftpl`. Sequential start kept (still needed).
 - **Chunk 2 — contention baseline. ✅ DONE 2026-07-10.** +30% tax → multi-GPU not justified (result
   block above).
-- **Chunk 3 — judge eval (the thesis payload). 🔨 HARNESS BUILT 2026-07-11; boot + scoring remain.**
-  Query set + candidate cache + pluggable-scorer harness done and offline-verified (see "ONE next
-  action" for the files + the 4-step run order). Remaining: one ~45min boot to `--generate`, then
-  offline `--frontier` + `--score`. ~$2-3 + tiny frontier API.
+- **Chunk 3 — judge eval (the thesis payload). ✅ DONE 2026-07-11.** Gemma judge 0.89–0.91 vs frontier
+  1.00, tied 15/18 → a small self-hosted judge holds up. Full result + caveats above and in
+  `docs/chunk3-judge-eval-results.md`. Harness committed; frozen run in `orchestrator/eval_fixtures/`.
 - **Chunk 4 — multi-GPU. ✗ DISMISSED by the Chunk 2 baseline (+30% ≠ worth 4× cost).** Not on the
   path unless a later need (32B coder headroom, failure isolation) reopens it — then: pick box
   (g5.12xlarge vs g6e.12xlarge), per-GPU placement (`CUDA_VISIBLE_DEVICES`/pinning), measure delta.
