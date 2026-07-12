@@ -160,10 +160,22 @@ def test_parse_ttl_rejects_garbage(bad):
 # ── the hook contract: exit codes ─────────────────────────────────────────────
 
 def _run_hook(monkeypatch, capsys, command, auth):
+    # The audit emitter is already inert here — conftest.py strips CLAUDE_CODE_SESSION_ID for
+    # the whole suite, because these tests were writing REAL spend_denied events to the
+    # production log. See conftest.py; it is not an optional convenience.
     monkeypatch.setattr("guard.load_auth", lambda path=None: auth)
     monkeypatch.setattr("sys.stdin", _Stdin(json.dumps({"tool_input": {"command": command}})))
     code = main()
     return code, capsys.readouterr().err
+
+
+def test_the_suite_cannot_write_to_the_audit_log(tmp_path, monkeypatch):
+    """Pins conftest's guarantee. If someone deletes that fixture, this fails loudly rather
+    than quietly resuming the manufacture of spend events."""
+    import event
+    monkeypatch.chdir(tmp_path)
+    assert event.emit("spend_denied", {"command": "x"}) is None
+    assert not (tmp_path / ".tessera").exists()
 
 
 class _Stdin:

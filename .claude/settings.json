@@ -112,6 +112,16 @@
             "statusMessage": "Scanning for unlogged suggestion-gates..."
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x \".claude/scripts/tessera-spend-backstop.sh\" ]; then exec \".claude/scripts/tessera-spend-backstop.sh\"; fi; exit 0",
+            "timeout": 5,
+            "statusMessage": "Checking spend denials were dispositioned..."
+          }
+        ]
       }
     ],
     "SessionStart": [
