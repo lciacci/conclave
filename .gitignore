@@ -9,7 +9,6 @@ Thumbs.db
 # Tessera runtime
 .tessera/logs/*
 !.tessera/logs/README.md
-.tessera/config.yml
 .mnemos/
 .icpg/
 .claude/.tdd-iteration-count

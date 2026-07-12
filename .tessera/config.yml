@@ -1,0 +1,16 @@
+# Tessera tuning configuration — conclave.
+#
+# COMMITTED, not gitignored: a test command that vanishes on a fresh clone is useless to the
+# unsupervised agent it exists for. Keep secrets out of this file.
+#
+# ONLY keys that something ACTUALLY READS belong here. A knob that silently does nothing is
+# worse than no knob — it grants false assurance.
+
+# --- toolchain (read by bin/tessera-test) ---
+#
+# NOT `python3 -m pytest`. On a dual-Homebrew mac `python3` is 3.14, which has no pytest —
+# the same interpreter split that silently killed the Mnemos hooks (F-001). `python3.13` is
+# PATH-relative, so this stays portable; do NOT pin an absolute /opt/homebrew path.
+#
+# Verified 2026-07-11: 17 passed.
+test: python3.13 -m pytest scripts/
