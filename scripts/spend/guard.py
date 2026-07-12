@@ -56,13 +56,55 @@ COMMITTING = re.compile(
 # gate log, and a name-only classifier waves it straight through. Found 2026-07-12 while
 # live-firing this guard in conclave; it is exactly the "wrapper script slips through" ceiling
 # the contract predicted, and it was live in the flagship downstream. So: read one level down.
-SCRIPT_TOKEN = re.compile(r"[\w./~-]+\.(?:sh|py|bash)\b")
+# The script must be in COMMAND POSITION — first token of the segment, after any leading env
+# assignments, optionally behind an interpreter. `cp a.py b.py`, `git add x.sh`, `cat x.sh` and
+# `vim x.sh` all NAME a script without running it, and reading their contents to classify the
+# command is a category error: it blocked `cp guard.py test_guard.py` because the *test file*
+# quotes a boot command. Naming is not invoking.
+INVOKED_SCRIPT = re.compile(
+    r"^\s*(?:\w+=\S*\s+)*"                                        # FOO=bar BAZ=qux …
+    r"(?:(?:bash|sh|zsh|dash|python3?|perl|ruby|node)\s+)?"       # … optional interpreter
+    r"([\w./~-]+\.(?:sh|py|bash))\b"                              # … the script itself
+)
 MAX_SCRIPT_BYTES = 64_000
 
 # ponytail: ONE level, no recursion — a script that calls a script that boots a GPU still
 # slips through, as does anything using a cloud SDK (boto3 `run_instances`) rather than the
 # CLI. This is a recall net, not an oracle; the cloud budget (layer 3) is what bounds the
 # misses. Add patterns as new spend surfaces appear — a miss is a finding about this list.
+
+# A segment that EXECUTES its own literal text: a shell taking `-c`, an interpreter taking
+# `-c` or `-` (stdin), `eval`, `xargs`, or a bare shell reading a heredoc. Quoted strings and
+# heredoc bodies are stripped before the committing check EVERYWHERE ELSE — but not here,
+# because here they are code, not data. This is the line between a *mention* and an
+# *invocation*, and it is the only place that distinction can be drawn honestly.
+WRAPPER = re.compile(
+    r"^\s*(?:eval|xargs|bash|sh|zsh|dash)\b"
+    r"|\b(?:bash|sh|zsh|dash|python3?|perl|ruby|node)\s+-c\b"
+    r"|\bpython3?\s+-(?:\s|$)",
+    re.IGNORECASE,
+)
+QUOTED = re.compile(r"'[^']*'|\"[^\"]*\"")
+HEREDOC_START = re.compile(r"<<-?\s*['\"]?(\w+)['\"]?")
+
+
+def _strip_heredocs(command: str) -> str:
+    """Drop heredoc BODIES — they are data being written, not code being run.
+
+    Only ever called when the command is NOT wrapper-led, so `bash <<'EOF' … EOF` never
+    reaches here. `cat >> test.py <<'PY' … PY` does, and its body is a file being written.
+    """
+    lines, out, i = command.splitlines(), [], 0
+    while i < len(lines):
+        out.append(lines[i])
+        m = HEREDOC_START.search(lines[i])
+        i += 1
+        if not m:
+            continue
+        while i < len(lines) and lines[i].strip() != m.group(1):
+            i += 1
+        i += 1  # consume the delimiter
+    return "\n".join(out)
 
 
 def _script_body(token: str) -> str:
@@ -77,17 +119,17 @@ def _script_body(token: str) -> str:
 
 
 def _invoked_script_kind(segment: str) -> str | None:
-    """Classify the body of any local script this segment invokes. None if it invokes none."""
-    for token in SCRIPT_TOKEN.findall(segment):
-        body = _script_body(token)
-        if not body:
+    """Classify the body of the local script this segment INVOKES. None if it invokes none."""
+    m = INVOKED_SCRIPT.match(segment)
+    if not m:
+        return None
+    body = _script_body(m.group(1))
+    # Comments stripped — a commented-out boot command in a script is a mention, not a boot.
+    for line in body.splitlines():
+        if line.lstrip().startswith("#"):
             continue
-        # Classify the script's own lines, comments stripped — a commented-out
-        # `terraform apply` in a script is a mention, not a boot.
-        lines = [ln for ln in body.splitlines() if not ln.lstrip().startswith("#")]
-        for line in lines:
-            if COMMITTING.search(line) and not REDUCING.search(line):
-                return "committing"
+        if COMMITTING.search(line) and not REDUCING.search(line):
+            return "committing"
     return None
 
 
@@ -100,17 +142,34 @@ def _segments(command: str) -> list[str]:
     return [s for s in re.split(r"&&|\|\||[;\n|]", command) if s.strip()]
 
 
-def _classify_one(segment: str) -> str:
+def _classify_one(segment: str, wrapped: bool) -> str:
+    # REDUCING is checked on the RAW segment, quotes and all. A quoted `enable_gpu=false` is
+    # still a teardown, and the exit must never be blocked — so this check never gets narrower
+    # than the committing one. That ordering IS the invariant.
     if REDUCING.search(segment):
         return "reducing"
-    if COMMITTING.search(segment):
+    executable = segment if wrapped else QUOTED.sub(" ", segment)
+    if COMMITTING.search(executable):
         return "committing"
     return _invoked_script_kind(segment) or "neutral"
 
 
 def classify(command: str) -> str:
-    """-> 'committing' | 'reducing' | 'neutral'. Committing wins; it is the safe direction."""
-    kinds = {_classify_one(s) for s in _segments(command)}
+    """-> 'committing' | 'reducing' | 'neutral'. Committing wins; it is the safe direction.
+
+    Quoted text and heredoc bodies are DATA — a mention, not an invocation — and are stripped
+    before the committing check. UNLESS the command is wrapper-led, in which case they are code
+    and nothing is stripped.
+
+    Wrapper-ness is decided on the WHOLE command, never per segment: `python3 -c "a; b"` splits
+    on the `;` *inside its own quotes*, and the resulting fragment no longer looks like a
+    wrapper. Judging each fragment in isolation reopened the bypass this softening was only
+    safe without. Global, and conservative — if any part of the command can execute its own
+    literals, none of it gets stripped.
+    """
+    wrapped = bool(WRAPPER.search(command))
+    text = command if wrapped else _strip_heredocs(command)
+    kinds = {_classify_one(s, wrapped) for s in _segments(text)}
     if "committing" in kinds:
         return "committing"
     if "reducing" in kinds:
