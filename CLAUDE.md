@@ -27,8 +27,21 @@ How the project owner works. The most important section.
   brief "here's what I'd do, OK to proceed?" When you surface such a gate, **also record it**:
   `python3 scripts/gate/emit.py --fired --kind <kind> --note "<what you proposed>"` (use
   `--held` if you weighed surfacing one and decided against). This is Tessera principle #12 (the
-  suggestion-gate) — the log is a reviewable journal of gate decisions. Forgetting to log a gate
-  is itself a finding, not a failure. Contract: the gate-event contract in the Tessera framework.
+  suggestion-gate) — the log is a reviewable journal of gate decisions. **A Stop hook now
+  backstops this** (`scripts/gate/scan.py`): it counts gate-shaped turns in the transcript, diffs
+  them against the log, and makes you adjudicate a gap before finishing — so forgetting to log a
+  gate is now a bug, not just a finding. Its detector over-counts on purpose; you are the
+  precision filter. Contract: the gate-event contract in the Tessera framework.
+- **When you are blocked and cannot proceed, raise an escalation — do not just say so and stop.**
+  `tessera-escalate raise --category <cat> --summary "<what is stuck>" --tried "<attempt — how it
+  failed>" --option "<what to choose between>"` (if `tessera/bin` is not on your PATH, use
+  `python3 scripts/tessera-escalate`). This is the suggestion-gate's *asynchronous* form: #12
+  needs a human to dispose, and one is not always there. `--tried` is required — a packet with no
+  attempts is a complaint, not an escalation. **This repo is the reason the channel exists:**
+  three of the four organic escalations that justified it came from here (spot capacity
+  exhausted, on-demand dry in all AZs, blocked on capacity) — each logged as a gate because
+  there was nowhere else to put it. Resolve with `tessera-escalate resolve <id> --note "<the
+  decision>"`. Contract: the escalation contract in the Tessera framework.
 - **Use numbered lists for decision points.** Binary A/B beats a dense paragraph with embedded
   choices.
 - **Name biases you notice in your own reasoning** — confirmation, sunk-cost, excitement,

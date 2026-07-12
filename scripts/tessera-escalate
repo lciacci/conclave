@@ -1,0 +1,162 @@
+#!/usr/bin/env python3
+"""tessera-escalate — the suggestion-gate's asynchronous form (spec 07).
+
+Principle #12 (Claude proposes, user disposes) requires a human present to dispose.
+Running unsupervised there is none, so a blocked agent packages what it tried and what
+it needs decided, queues it, and stops — instead of silently compounding the problem or
+exiting with a summary nobody can act on.
+
+Contract: docs/contracts/escalation.md.
+
+    tessera-escalate raise --category missing_dependency --summary "..." \
+        --tried "ran X — failed: Y" --option "revert to abc" --ref "commit:abc123"
+    tessera-escalate list                  # open queue (exit 1 if any open)
+    tessera-escalate list --all --json
+    tessera-escalate resolve esc-2026... --note "reverted, see abc123"
+"""
+import argparse
+import json
+import os
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+ESCALATIONS = Path(".tessera/escalations")
+SEVERITIES = ("blocking", "high", "medium", "low")
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _iso(dt: datetime) -> str:
+    return dt.isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def _state(packet: dict) -> str:
+    """Everything before the first ':' is the state. No status == open — unknown
+    counts as needs-attention, never silently dropped (same rule as findings)."""
+    return (packet.get("status") or "open").split(":", 1)[0].strip()
+
+
+def load_all(root: Path | None = None) -> list[dict]:
+    # Resolved at call time, never bound as a default: an import-time default freezes
+    # the path and silently ignores any later reconfiguration.
+    root = root or ESCALATIONS
+    packets = []
+    for path in sorted(root.glob("*.json")):
+        try:
+            packets.append(json.loads(path.read_text()))
+        except (OSError, json.JSONDecodeError):
+            continue  # a corrupt packet must not hide the rest of the queue
+    return packets
+
+
+def raise_packet(args, root: Path | None = None) -> dict:
+    root = root or ESCALATIONS
+    now = _now()
+    packet = {
+        "id": f"esc-{now.strftime('%Y%m%d-%H%M%S')}",
+        "ts": _iso(now),
+        "agent": os.environ.get("CLAUDE_MODEL", "claude"),
+        "session_id": os.environ.get("CLAUDE_CODE_SESSION_ID", ""),
+        "severity": args.severity,
+        "category": args.category,
+        "summary": args.summary,
+        "tried": args.tried,
+        "options": args.option or [],
+        "refs": args.ref or [],
+        "status": "open",
+    }
+    root.mkdir(parents=True, exist_ok=True)
+    (root / f"{packet['id']}.json").write_text(json.dumps(packet, indent=2) + "\n")
+    return packet
+
+
+def resolve_packet(escalation_id: str, note: str, root: Path | None = None) -> dict | None:
+    root = root or ESCALATIONS
+    path = root / f"{escalation_id}.json"
+    try:
+        packet = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return None
+    packet["status"] = f"resolved:{note}"
+    packet["resolved_ts"] = _iso(_now())
+    path.write_text(json.dumps(packet, indent=2) + "\n")
+    return packet
+
+
+def _render(packet: dict) -> str:
+    lines = [f"  [{packet.get('severity', '?')}] {packet['id']} — {packet.get('summary', '')}"]
+    lines += [f"      tried:  {t}" for t in packet.get("tried") or []]
+    lines += [f"      option: {o}" for o in packet.get("options") or []]
+    if _state(packet) != "open":
+        lines.append(f"      status: {packet.get('status')}")
+    return "\n".join(lines)
+
+
+def cmd_list(args) -> int:
+    packets = load_all()
+    shown = packets if args.all else [p for p in packets if _state(p) == "open"]
+    if args.json:
+        print(json.dumps(shown, indent=2))
+    elif not shown:
+        print("No open escalations ✓")
+    else:
+        print(f"Escalations awaiting a human — {len(shown)} open\n")
+        print("\n\n".join(_render(p) for p in shown))
+    return 1 if any(_state(p) == "open" for p in packets) else 0
+
+
+def cmd_raise(args) -> int:
+    if not args.tried:
+        print("error: --tried is required (a packet with no attempts is a complaint, "
+              "not an escalation — see docs/contracts/escalation.md)", file=sys.stderr)
+        return 2
+    packet = raise_packet(args)
+    print(f"escalation raised → .tessera/escalations/{packet['id']}.json")
+    return 0
+
+
+def cmd_resolve(args) -> int:
+    packet = resolve_packet(args.id, args.note)
+    if packet is None:
+        print(f"error: no such escalation: {args.id}", file=sys.stderr)
+        return 2
+    print(f"resolved {packet['id']}: {args.note}")
+    return 0
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    sub = parser.add_subparsers(dest="cmd", required=True)
+
+    r = sub.add_parser("raise", help="queue a packet — you are blocked and need a decision")
+    r.add_argument("--category", required=True, help="free string; not an enum")
+    r.add_argument("--summary", required=True, help="what is stuck, and why it cannot self-resolve")
+    r.add_argument("--tried", action="append", default=[], required=False,
+                   help="repeatable; what you attempted and how it failed")
+    r.add_argument("--option", action="append", default=[], help="repeatable; what to choose between")
+    r.add_argument("--ref", action="append", default=[], help="repeatable; commit:/file:/checkpoint:")
+    r.add_argument("--severity", choices=SEVERITIES, default="blocking")
+    r.set_defaults(func=cmd_raise)
+
+    lst = sub.add_parser("list", help="the open queue (exit 1 if any open)")
+    lst.add_argument("--all", action="store_true", help="include resolved/abandoned")
+    lst.add_argument("--json", action="store_true", help="machine output")
+    lst.set_defaults(func=cmd_list)
+
+    res = sub.add_parser("resolve", help="a human decided")
+    res.add_argument("id")
+    res.add_argument("--note", required=True, help="the decision — this is the record")
+    res.set_defaults(func=cmd_resolve)
+    return parser
+
+
+def main(argv=None) -> int:
+    args = build_parser().parse_args(argv)
+    return args.func(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
