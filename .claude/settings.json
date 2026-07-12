@@ -65,6 +65,17 @@
             "statusMessage": "Checking fatigue + intent context..."
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x \".claude/scripts/tessera-spend-guard.sh\" ]; then exec \".claude/scripts/tessera-spend-guard.sh\"; fi; exit 0",
+            "timeout": 5,
+            "statusMessage": "Checking spend authorization..."
+          }
+        ]
       }
     ],
     "PostToolUse": [

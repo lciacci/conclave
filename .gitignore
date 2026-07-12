@@ -30,3 +30,6 @@ orchestrator/eval_candidates.json
 orchestrator/eval_judgments_*.json
 
 # --- add your stack below (build artifacts, deps, lockfiles you don't track) ---
+
+# Live spend authorization — never committed (spec 06)
+.tessera/spend-auth.json
