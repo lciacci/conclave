@@ -8,11 +8,6 @@
 
 # --- toolchain (read by bin/tessera-test) ---
 #
-# NOT `python3 -m pytest`. On a dual-Homebrew mac `python3` is 3.14, which has no pytest —
-# the same interpreter split that silently killed the Mnemos hooks (F-001). `python3.13` is
-# PATH-relative, so this stays portable; do NOT pin an absolute /opt/homebrew path.
-#
-# Verified 2026-07-11: 17 passed.
 # An interpreter is a PATH, not a NAME (F-001). This read `python3.13` until 2026-07-12,
 # when `uv python install` shimmed that very name into ~/.local/bin ahead of Homebrew —
 # and it silently became a different interpreter with no pytest. The suite broke.
