@@ -419,9 +419,9 @@
         <div class="layer accent-brass"><span class="lbl">LiteLLM gateway :4000</span><span class="sub">model=ensemble · cost accounting</span></div>
         <div class="arrow-down">↓</div>
         <div class="gpu-split">
-          <div class="gpu-cell c"><b>coder</b><span class="frac">util 0.25→0.55</span></div>
-          <div class="gpu-cell r"><b>reasoning</b><span class="frac">→ 0.82</span></div>
-          <div class="gpu-cell g"><b>general</b><span class="frac">starts first</span></div>
+          <div class="gpu-cell c"><b>coder</b><span class="frac">util 0.30</span></div>
+          <div class="gpu-cell r"><b>reasoning</b><span class="frac">util 0.24</span></div>
+          <div class="gpu-cell g"><b>general</b><span class="frac">util 0.25 · starts first</span></div>
         </div>
         <div class="layer" style="justify-content:center; color:var(--ink-faint);"><span class="sub" style="margin:0;">3× vLLM co-resident on one L40S · 48 GB</span></div>
       </div>
@@ -429,7 +429,7 @@
         <ul class="featlist">
           <li><span class="k">wire</span><span class="v"><b>OpenAI-compatible everywhere.</b> vLLM serves it, LiteLLM routes it, the client speaks it — and it touches zero OpenAI servers. Compatibility buys drop-in clients, not a dependency.</span></li>
           <li><span class="k">fleet</span><span class="v"><b>Lineage-decorrelated specialists.</b> Qwen coder, a Qwen-distill reasoner, and Google's Gemma — chosen so their <em>failure modes</em> don't correlate. A judge feeds on disagreement.</span></li>
-          <li><span class="k">memory</span><span class="v"><b>Cumulative VRAM ceilings.</b> vLLM's <code>gpu_memory_utilization</code> is a ceiling on <em>total</em> GPU memory, not a private slice. Models start one at a time with rising ceilings (0.25 → 0.55 → 0.82) so no late starter starves the KV cache.</span></li>
+          <li><span class="k">memory</span><span class="v"><b>Additive per-slice VRAM.</b> vLLM's <code>gpu_memory_utilization</code> is a per-process request checked against <em>free</em> memory at that process's own startup, not a shared ceiling — an earlier cumulative scheme (0.25 → 0.55 → 0.82) crash-looped the last starter. Models now start sequentially, each claiming its own slice (general 0.25 / coder 0.30 / reasoning 0.24, summing under 0.9) sized to its own weights + KV cache.</span></li>
           <li><span class="k">access</span><span class="v"><b>Tailscale-only, no exceptions.</b> The inference box has no public ingress, ever. Reachable like a LAN device over WireGuard.</span></li>
         </ul>
       </div>
@@ -464,14 +464,26 @@
     </div>
 
     <div class="verdict-line notjust" style="margin-top:40px;">
-      <p class="eyebrow" style="margin-bottom:14px;">Result · measured 2026-07-11 · 18 queries, blind reference-grading</p>
+      <p class="eyebrow" style="margin-bottom:14px;">Result · rigor pass 2026-07-12 · 36 queries, reference-grading, 3 grader samples</p>
       <div style="display:flex; flex-wrap:wrap; gap:28px 44px; align-items:flex-end; margin-bottom:14px;">
-        <div><div style="font-family:var(--serif); font-size:2.4rem; line-height:1; color:var(--general);">0.91</div><div style="font-family:var(--mono); font-size:11px; color:var(--ink-muted); margin-top:6px;">in-fleet Gemma-9B judge</div></div>
+        <div><div style="font-family:var(--serif); font-size:2.4rem; line-height:1; color:var(--general);">0.883</div><div style="font-family:var(--mono); font-size:11px; color:var(--ink-muted); margin-top:6px;">in-fleet Gemma-9B judge</div></div>
         <div style="font-family:var(--mono); color:var(--ink-faint); font-size:1.4rem; padding-bottom:6px;">vs</div>
         <div><div style="font-family:var(--serif); font-size:2.4rem; line-height:1; color:var(--brass);">1.00</div><div style="font-family:var(--mono); font-size:11px; color:var(--ink-muted); margin-top:6px;">frontier judge (Claude Sonnet 5)</div></div>
-        <div style="border-left:1px solid var(--line-strong); padding-left:28px;"><div style="font-family:var(--serif); font-size:2.4rem; line-height:1; color:var(--ink);">15<span style="font-size:1.2rem; color:var(--ink-faint);">/18</span></div><div style="font-family:var(--mono); font-size:11px; color:var(--ink-muted); margin-top:6px;">queries tied</div></div>
+        <div style="border-left:1px solid var(--line-strong); padding-left:28px;"><div style="font-family:var(--serif); font-size:2.4rem; line-height:1; color:var(--ink);">25<span style="font-size:1.2rem; color:var(--ink-faint);">/36</span></div><div style="font-family:var(--mono); font-size:11px; color:var(--ink-muted); margin-top:6px;">tied · 0 won · 11 lost</div></div>
       </div>
-      <p style="font-size:15px; color:var(--ink); margin:0;"><b>The small self-hosted judge holds up.</b> It matches the frontier on general and reasoning, trailing only on code selection. The frontier's perfect 1.00 is partly grader self-bias (same model judges and grades), so the real gap is smaller still — a rigor pass with a cross-vendor grader is the documented next step.</p>
+      <div style="border:1px solid var(--line-strong); border-left:3px solid var(--brass); padding:16px 18px; margin:0 0 16px; border-radius:3px;">
+        <p style="font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--brass); margin:0 0 10px;">The precondition — does this fleet have headroom?</p>
+        <p style="font-size:15px; color:var(--ink); margin:0 0 12px;"><b>Fan-out + judge only pays if the candidates are comparably strong <i>and</i> genuinely disagree.</b> That's a property of the <b>fleet</b>, measurable before you build any judge. The metric: <b>headroom = a perfect judge − the best single model</b>. Ours is <b>+0.028</b>.</p>
+        <div style="display:flex; flex-wrap:wrap; gap:20px 36px; align-items:flex-end; margin:0 0 12px;">
+          <div><div style="font-family:var(--serif); font-size:1.9rem; line-height:1; color:var(--ink-muted);">0.961</div><div style="font-family:var(--mono); font-size:10px; color:var(--ink-muted); margin-top:5px;">ORACLE · a <i>perfect</i> judge</div></div>
+          <div><div style="font-family:var(--serif); font-size:2.4rem; line-height:1; color:var(--coder);">0.933</div><div style="font-family:var(--mono); font-size:11px; color:var(--ink); margin-top:5px;"><b>ONE model, no judge</b></div></div>
+          <div><div style="font-family:var(--serif); font-size:2.4rem; line-height:1; color:var(--general);">0.883</div><div style="font-family:var(--mono); font-size:11px; color:var(--ink-muted); margin-top:5px;">the judged ensemble</div></div>
+        </div>
+        <p style="font-size:13px; color:var(--ink-muted); margin:0;">Even a <i>perfect</i> judge beats the best single model by only <b>+0.028</b> here — so no judge, however good, has much to win. The real judge does worse than that: <b>0.050 below simply always calling the coder model</b>, at 3× the inference plus a judge call plus the ~30% contention tax.<br><br><b>Why:</b> the candidates are <b>redundant, not hierarchical</b>. <b>28 of 36 queries are an exact tie</b> at the top — strict wins are coder 4, general 4, reasoning 0, and no model is significantly the best. There is simply very little disagreement to arbitrate.<br><br><b>⚠️ But the instrument is saturated, so this is not settled.</b> On <b>31 of 36</b> queries the top candidate already scores full marks, where headroom is zero <i>by construction</i> — the whole result rests on <b>5 queries</b>, and the decision threshold falls inside the confidence interval. <b>The next step is harder queries, not a new fleet:</b> you can't diagnose a fleet with an instrument pinned at its maximum.<br><br><b>This doesn't falsify ensembles</b> — multi-model systems work in production, but most of them <b>route</b> (pick the right model) rather than fan out and vote. The durable output is the <b>instrument</b>: measure headroom, ties, ceiling saturation and whether the verdict is even resolved — for any query set or fleet, offline, for $0, <i>before</i> building a judge for it.</p>
+      </div>
+      <p style="font-size:15px; color:var(--ink); margin:0 0 10px;"><b>The judge-vs-judge number, for completeness.</b> Gemma scores 0.883 to the frontier's 1.000 (gap 0.117, 95% CI [0.045, 0.188], p≈0.003) — but see the caveat below: the frontier judge isn't really judging, so this comparison is on shakier ground than it looks.</p>
+      <p style="font-size:13px; color:var(--ink-muted); margin:0 0 10px;"><b>⚠️ The honest caveat, found by adversarial review.</b> The frontier judge <b>ignores the candidates and writes its own answer on 34 of 36 queries</b> (<code>chosen = −1</code>). So its perfect 1.00 is largely <i>"a frontier model answers an easy question that has a gold reference"</i> — not judging skill. It is pinned at the metric maximum, which means <b>Gemma cannot win</b>: "0 wins" is arithmetic, not a finding. The fix is to force both judges to <i>select</i> among the candidates rather than answer — already supported in the orchestrator, no extra cost.</p>
+      <p style="font-size:13px; color:var(--ink-muted); margin:0;"><b>What the rigor pass got wrong.</b> An earlier 18-query run showed 15/18 ties and read as "the small judge holds up". The rigor pass then over-corrected: its "trap questions discriminate 2.6× better" is <b>not statistically significant</b> (p=0.146), and the traps weren't traps (every specialist answered them correctly). Its "grader self-bias was refuted" is over-claimed — no self-bias was <i>detected</i>, but by an instrument with no resolution at the ceiling. Both the original result and its correction were quoted with more confidence than the data carried.</p>
     </div>
   </div>
 </section>
@@ -525,8 +537,8 @@
         <div><h3>Gateway + a 3-model fleet</h3><p class="pd">LiteLLM in front of three co-resident specialists on one GPU, each serving clean through the gateway, with per-model cost accounting and a GPU-utilization idle-stop metric. The 32B coder didn't fit three-way — dropped to 14B; it returns on its own GPU later.</p></div>
       </div>
       <div class="phase active">
-        <div><div class="pv">v3</div><span class="status done">thesis proven</span></div>
-        <div><h3>Ensemble + judge — the thesis</h3><p class="pd">Client-side orchestrator built and verified. Contention baseline captured (+30% → multi-GPU dismissed); the fleet boots clean on additive memory slices. Judge eval run: the in-fleet Gemma-9B judge ties a frontier judge on 15 of 18 queries — a small self-hosted judge holds up. The pedagogically interesting phase, done.</p></div>
+        <div><div class="pv">v3</div><span class="status done">built · measured</span></div>
+        <div><h3>Ensemble + judge — built, and the precondition measured</h3><p class="pd">Client-side orchestrator built and verified. Contention baseline captured (+30% → multi-GPU dismissed); the fleet boots clean on additive memory slices. Then the question nobody had asked: <b>does this fleet give a judge anything to arbitrate?</b> Measured <b>headroom = +0.028</b> — even a perfect judge barely beats always calling the single strongest model, because <b>28 of 36 queries are an exact tie</b> — the candidates are redundant. But the instrument is <b>saturated</b> (31/36 at the grader's max), so the verdict is <b>not yet settled</b>: harder queries come first. <b>Next: pick a fleet with real headroom</b> — comparable strength, genuinely different strengths — and vet it with the same $0 instrument before building a judge for it.</p></div>
       </div>
       <div class="phase">
         <div><div class="pv">v4</div><span class="status next">maybe</span></div>
@@ -539,6 +551,7 @@
 <footer>
   <div class="wrap">
     <p class="note"><b style="color:var(--ink-muted);">Conclave</b> — a learning lab for cloud GPU infrastructure, inference serving, and the "meta-reasoners over specialized outputs" pattern family. Open-weight models, self-hosted, Tailscale-only, ~$100/mo cap. The honest counter-argument stays on the record: OpenRouter is cheaper unless utilization is high — the justification is learning the infra and owning the stack, not saving money.</p>
+    <p class="note" style="margin-top:14px;">Source: <a href="https://github.com/lciacci/conclave">github.com/lciacci/conclave</a></p>
   </div>
 </footer>
 

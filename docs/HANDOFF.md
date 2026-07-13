@@ -1,7 +1,246 @@
 # HANDOFF — resume here
 
-Last updated: 2026-07-11 (end of session). Read this + `design.md` to resume cold.
-**v3 thesis is proven — v0.5→v3 all done. Next is a rigor pass on the judge eval, or v4 (MCP). No work in flight, nothing running, $0.**
+Last updated: **2026-07-12 (end of session).** Read this + `design.md` to resume cold.
+Nothing running. No instances. No live spend authorization. **$0.**
+
+> ## ⚠️ ALL OF THIS LIVES ON BRANCH `v3-judge-eval-rigor` — **NOT** ON `main` (PR #9, open)
+>
+> **`main` IS STALE AND WRONG.** Its `docs/HANDOFF.md` still says *"v3 thesis is proven — the
+> small self-hosted judge holds up"*, which was **retracted**, and `orchestrator/divergence.py`
+> (the instrument that produced the real result) **does not exist on `main` at all.**
+>
+> ```sh
+> git checkout v3-judge-eval-rigor   # <- do this FIRST. Do not trust main's docs.
+> ```
+>
+> PR #9 is mergeable and clean; it was deliberately left open because every one of the three
+> review rounds found real bugs (two of them introduced by the previous round's fixes).
+> Merge it when you're satisfied — or review once more first.
+
+**THE ONE NEXT ACTION: write HARDER QUERIES, then re-run `orchestrator/divergence.py`.**
+No GPU boot, no API key, ~$1. See the READ FIRST block below for why — the current measurement
+is *ceiling-limited* (31/36 queries are pinned at the grader's maximum), so **the verdict is
+not settled** and the fleet cannot yet be diagnosed. *Not* v4, *not* pairwise, *not* a new
+fleet — those are all downstream.
+
+**Verify the world still works in 10 seconds, for $0:**
+```sh
+python3 orchestrator/judge_eval.py --score      # replays the published run: 0.883 / 1.000, 0 live calls
+python3 orchestrator/divergence.py --demo       # self-checks (all 5 modules have one)
+```
+
+## 🔴 READ FIRST — the fleet has no HEADROOM for a judge. Fix the fleet, not the judge.
+
+Measured 2026-07-12 (`orchestrator/divergence.py`, frozen in `eval_divergence.json`,
+reproduces for **$0**). Nobody had asked the prior question: **does this fleet give a judge
+anything to arbitrate?**
+
+**Fan-out + judge only pays when candidates are *comparably strong* and *genuinely
+decorrelated*** — so different models win on different inputs. That is a property of the
+**fleet**, testable *before* building any judge. The metric:
+
+> ### HEADROOM = ORACLE (a perfect judge) − BEST SINGLE MODEL
+> The entire value the ensemble+judge pattern can *ever* buy on a fleet.
+> **Conclave's fleet: +0.028** (95% CI [+0.003, +0.052]).
+
+| policy | score | cost |
+|---|---|---|
+| ORACLE — a *perfect* judge, best-of-3 | 0.961 | 3× inference + perfect judgment |
+| **ALWAYS coder — one model, no judge** | **0.933** | **1× inference** |
+| Gemma-judged ensemble (the v3 design) | 0.883 | 3× inference + judge + ~30% contention |
+
+- Even a **perfect** judge buys **under 3 points** over one model. Every judge question
+  (select mode, pairwise, a neutral grader key) is competing for that sliver.
+- The real judge captures a **negative** fraction: **−0.050** vs always-coder
+  (CI [−0.107, +0.007]).
+
+**Why: the candidates are REDUNDANT, not hierarchical.** **28 of 36 queries are an exact TIE**
+at the top — no model wins them. **Strict (unique) wins: coder 4 / general 4 / reasoning 0.**
+There is simply very little disagreement to arbitrate.
+
+> ### ❌ RETRACTED: "the 14B coder is the best candidate on 31/36 queries"
+> A **config-ordering artifact**. `max()` returns the *first* maximum and
+> `EnsembleConfig.candidates` is `[coder, reasoning, general]`, so all 28 tied queries were
+> credited to coder. **Reverse the list and the same data says `general` wins 27.** The "one
+> strong model carrying two weaker ones" story is **withdrawn** — `coder` is not even
+> *significantly* better than `general` (margin CI [−0.014, +0.136] includes zero). Fixed in
+> `divergence.py` (`strict_win_counts`; ties belong to nobody, counts are order-invariant).
+
+### ⚠️ The measurement is CEILING-LIMITED — so the verdict is NOT settled
+- **31/36 queries have the top candidate already at the grader's maximum**, where headroom is
+  **0 by construction**. The entire +0.028 is earned on **5 queries**.
+- **The verdict is NOT RESOLVED at n=36:** the CI is [+0.003, +0.052] and the "not worth it"
+  threshold is 0.05 — the threshold sits *inside* the interval. "NOT WORTH IT" and "MARGINAL"
+  are **not distinguishable** with this data. (The CI's *lower* bound is vacuous: headroom is
+  ≥0 by construction, so "excludes zero" is guaranteed and is not evidence.)
+- Both real biases (winner's curse on the oracle; in-sample pick of best-single) make the
+  headroom **conservative**, not inflated — so the *direction* is trustworthy even if the
+  verdict is not.
+
+**This does NOT say ensembles don't work.** Multi-model systems work in production — but note
+what they mostly do: **route** (pick the right model per request), not fan-out-and-vote.
+`design.md` already called routing "the cheap sibling".
+
+### Next actions, in order
+1. **HARDER QUERIES FIRST — not a new fleet.** You cannot diagnose a fleet with an instrument
+   pinned at its maximum. 31/36 queries are at the grader's ceiling, so the models have almost
+   no room to *show* disagreement even if it exists. Write queries where the **best** candidate
+   still loses points, then re-run `divergence.py` (free, offline). **Only this can tell you
+   whether the fleet is genuinely redundant or the test is just too easy.**
+2. **Then judge the fleet.** If headroom stays ~0 on hard, unsaturated queries, the fleet
+   really is redundant → a different fleet (comparable strength, genuinely different
+   strengths/lineages) or a **router** instead of a judge.
+3. *Only then* judge metrics (select mode / pairwise, below). Downstream of both.
+
+### The judge-vs-judge numbers (secondary now — and three claims were RETRACTED)
+
+Kept because they are still the best judge-quality data we have, but they are **downstream**
+of the finding above: improving a judge cannot recover value that isn't there.
+
+**n=36, reference-graded:** Gemma **0.883** vs frontier **1.000**; paired gap **0.117, 95% CI
+[0.045, 0.188], p ≈ 0.003**. Real *under this rubric* — but see the three retractions:
+
+1. ❌ **RETRACTED: "the trap block discriminates 2.6× better."** **Not significant** (Fisher
+   p = 0.146; Welch p ≈ 0.40). And the traps aren't traps — **every specialist answered every
+   trap correctly**, so no fluent wrong answer was ever on the table.
+2. ❌ **RETRACTED: "the grader self-bias caveat was FALSE."** Over-claimed. Correct: *no
+   self-bias was **detected**, by an instrument with no resolution where it would show* — you
+   cannot measure upward inflation on a variable pinned at the ceiling. The n=10 Gemini grades
+   behind that claim are **not committed** and cannot be replayed.
+3. ❌ **RETRACTED: "± 0.010 is the resolution floor."** That is grader *replication* noise (33
+   of 36 items have stdev exactly 0). The statistic that bounds the claim is the **paired SEM
+   = 0.0366**; the real floor is ≈0.07. `--score` now prints it — quote that, not the ±.
+
+**Still standing:** the frontier judge sets `chosen == -1` on **34/36** — it ignores the
+candidates and **writes its own answer**, so its 1.000 is largely "a frontier model answers an
+easy question", not judging skill. **Gemma cannot win**; "0 wins" is arithmetic.
+
+**Replay is real and free:** `python3 orchestrator/judge_eval.py --score` — **no env, no keys**
+— reproduces 0.883/1.000 for **$0** from a fresh clone. (It previously crashed on a clean
+checkout; nothing read `eval_fixtures/`. Defaults are now the frozen run's config, so the safe
+path is the default and you must opt IN to spend.)
+
+### If you still want a judge metric (AFTER fixing the fleet) — `select` mode. No key, no boot.
+
+An adversarial review (2026-07-12, three independent reviewers) found the eval **does not
+measure judging**. The frontier judge sets `chosen == -1` on **34 of 36** queries — it
+**ignores the candidates and writes its own answer**. So its 1.000 is mostly *"Sonnet
+answers an easy question that has a gold reference"*, not judge quality — and since it is
+pinned at the metric maximum, **Gemma cannot win**. "0 wins / 25 ties / 11 losses" is a
+one-sided count, not a comparison.
+
+**The cure is already in the codebase and costs nothing:** `EnsembleConfig.mode` supports
+`"select"`. Run the eval with the judges forced to SELECT among the candidates (or grade
+`chosen` against a per-query best-candidate label). That makes both sides actually judge,
+removes the ceiling, and makes "which judge is better" answerable — **with no third-party
+key and no GPU boot** (candidates are frozen in `eval_fixtures/`).
+
+Do this BEFORE pairwise. Pairwise is a more sensitive instrument, but running it first
+would just measure the wrong thing more precisely.
+
+Other corrections a future session must not re-derive (full detail in
+`docs/chunk3-judge-eval-results.md`):
+- **The error bar was wrong.** `± 0.010` is grader *replication* noise. The statistic that
+  bounds the claim is the paired SEM over queries: gap **0.117, SEM 0.0366, 95% CI
+  [0.045, 0.188], p ≈ 0.003**. Real, but 3.2× its error bar — not 12×. `--score` now prints
+  this; quote it, not the ±.
+- **"Trap block discriminates 2.6× better" is NOT significant** (Fisher p = 0.146). And the
+  traps aren't traps: every specialist answered every trap correctly.
+- **"Self-bias was refuted" is over-claimed.** Correct: *no self-bias detected, by an
+  instrument with no resolution at the ceiling.* The n=10 Gemini grades supporting it are
+  **not committed** and cannot be replayed.
+- **Replay is now real.** `python3 orchestrator/judge_eval.py --score` — **no env, no keys**
+  — reproduces 0.883/1.000 for **$0** from a fresh clone. (It previously crashed on a clean
+  checkout: nothing read `eval_fixtures/`. The defaults are now the frozen run's config, so
+  the safe path is the default and you must opt IN to spend.)
+
+### (Demoted — NOT a blocker) an OpenAI API key, for pairwise on a FUTURE fleet
+
+**No longer the ask.** Pairwise was previously "the most valuable next step"; it isn't. On a
+fleet with **+0.028 headroom**, a sharper judge metric just measures the wrong thing more
+precisely. `PairwiseScorer` stays **built, tested, and unrun**. Escalation
+`esc-20260713-025337` is resolved as *superseded*. Pick this back up **only after** a fleet
+with real headroom exists — then the key below is genuinely useful (a third house, neutral to
+both Anthropic and Google). Details kept for that day:
+
+**Pairwise cannot run without a third-house grader key.** This is the last rigor item and
+now the most valuable one, and no amount of code fixes it. Escalation: `esc-20260713-025337`.
+
+**Why OpenAI specifically, and not just more Gemini quota.** The grader must be neutral to
+*both* contestants. The frontier judge is **Anthropic** (claude-sonnet-5) and the in-fleet
+judge is **Gemma — a GOOGLE model**. So Gemini is *not* an independent grader: it shares a
+house with the local judge and biases toward our own thesis, which is the direction a
+skeptic attacks first. **OpenAI is the only available third house**, neutral to both — it
+removes the `--bracket` bounds workaround entirely and gives a single clean number.
+(Billing on the Gemini key would lift the quota but would NOT fix the bias; it only buys
+the upper-bound arm of the bracket.)
+
+**When the key arrives — no boot needed, ~5 minutes, ~$0.10:**
+```sh
+# 1. store it (run in YOUR OWN terminal — do not paste a key into a Claude session)
+aws ssm put-parameter --name /conclave/grader-api-key --type SecureString --overwrite \
+  --value 'sk-...' --profile yeti-conclave
+
+# 2. run pairwise. GRADER_* = the neutral grader; JUDGE_* = the frontier judge being graded.
+export JUDGE_URL=https://api.anthropic.com JUDGE_MODEL=claude-sonnet-5 \
+  JUDGE_API_KEY=$(aws ssm get-parameter --name /conclave/judge-api-key --with-decryption \
+    --profile yeti-conclave --query Parameter.Value --output text)
+export GRADER_URL=https://api.openai.com GRADER_MODEL=gpt-5.2 \
+  GRADER_API_KEY=$(aws ssm get-parameter --name /conclave/grader-api-key --with-decryption \
+    --profile yeti-conclave --query Parameter.Value --output text)
+python3 orchestrator/judge_eval.py --score --pairwise --save
+```
+`_grader_bias()` will now return `None` (neutral), so `--pairwise` stops refusing. Candidates,
+judgments and the grader memo are all frozen in `eval_fixtures/` — **the GPU stays off.**
+
+**What pairwise is expected to settle:** the ceiling effect (#3 above). Reference grading
+pins the frontier at a saturated 1.000 and cannot measure its headroom over Gemma. Pairwise
+is blinded and grades BOTH orders, so position bias is cancelled and *reported* (any flip
+lands in `diagnostics.position_flips`) rather than hiding in the variance.
+
+### The ONE next action (pick)
+- **(a) Unblock pairwise** — see the blocked-on-the-human block above. Needs the OpenAI key.
+- **(b) v4 — MCP front-end.** An MCP server as the structured interface to the platform;
+  the OpenAI-compatible gateway already makes any such client first-class.
+
+### Judge-eval harness — what changed, and 3 landmines it defused
+`--generate` [boot] / `--frontier` [offline] / `--score [--pairwise|--bracket|--heuristic]`
+[offline]. **Re-scoring costs $0** — the grader memo (`GradeCache`) is committed, so
+`--score` replays from cache with zero API calls. Env: `JUDGE_*` = the frontier judge under
+comparison; `GRADER_*` = the grader; `GRADER_SAMPLES` = N samples (>1 gives error bars).
+
+Three **pre-existing bugs in committed code**, found only by running it rigorously:
+- **`claude-sonnet-5` now REJECTS `temperature`** ("deprecated for this model"). The old
+  `frontier_call` hardcoded `temperature=0` → **`--frontier` was already broken**. Now
+  retries without it on rejection.
+- **No retry anywhere.** A bracket run is 200–400 sequential calls; runs died at 4:41 and
+  5:26 to one transient 503/429 and lost everything. Now backs off honoring `Retry-After`
+  and **paces under RPM caps** — bursting into a per-minute cap and backing off is the
+  wrong shape.
+- **`judge_over_cache` re-judged everything** → growing the query set would have silently
+  **rewritten the frozen 18's judgments**, breaking comparability and voiding every cached
+  grade. Now incremental.
+
+**Grader bias is a VENDOR property, not a hostname one.** A `grader_host != judge_host`
+check waves through a Gemini grader even though Gemma is Google's. `_grader_bias()` encodes
+this; `--pairwise` **refuses** a colliding grader (open pairwise has no reference to anchor
+the bias against), and `--bracket` runs both biased graders as explicit **bounds**.
+Vendor matching is **suffix-based** (`*.googleapis.com` catches Gemini-via-Vertex too), and
+a host whose house cannot be established (a reseller) returns **`UNVERIFIED`** — *unknown is
+not unbiased*, and `--pairwise` refuses that as well. **`api.openai.com` reads as neutral**,
+so the OpenAI key above will pass the guard cleanly.
+
+### Two harness behaviours a future session WILL hit (from the PR #9 code review)
+- **A judge call that FAILS is not cached.** `run_judge` degrades to a raw specialist answer
+  on any exception (right for serving, catastrophic for an eval). If a phase prints
+  `JUDGE FAILED on <qid> ... not cached`, **re-run that phase** — the row is deliberately
+  absent so it gets retried, not frozen in as a fake judgment.
+- **`--score` only scores queries EVERY judge answered.** If you grow `QUERY_SET` and run
+  `--generate` but forget `--frontier`, the new queries are **skipped** (with a loud warning
+  and a `skipped_unjudged` list in the report) rather than scored 0.0 for the missing judge.
+  A shrinking `n=` in the report header is the tell: run the missing phase.
+- Swapping `JUDGE_MODEL` **drops** prior judgments from the old model and re-judges them, so
+  a judgments file never silently mixes two judges.
 
 ## Where we are
 
@@ -12,30 +251,21 @@ Last updated: 2026-07-11 (end of session). Read this + `design.md` to resume col
   LiteLLM gateway — reasoning had NO byte-marker leak (Qwen distill fix holds). Per-model cost
   accounting prints (`response_cost` matched configured $/token exactly). GPUUtil idle-stop metric
   flowed. Torn down, $0 spend. One landmine hit + fixed (see below), fixes committed.
-- **v3 (ensemble + judge):** ✅ **thesis proven (2026-07-11).** Chunk 1 fixed + Chunk 2 done
-  (2026-07-10) + Chunk 3 judge eval done (2026-07-11, below); Chunk 4 dismissed. The core v3 arc is
-  complete — remaining is optional rigor upgrades or v4 (MCP front-end).
+- **v3 (ensemble + judge):** ✅ **built, and now rigorously measured (2026-07-12).** Chunk 1 fixed +
+  Chunk 2 done (2026-07-10) + Chunk 3 judge eval (2026-07-11) + **rigor pass (2026-07-12, see the
+  READ FIRST block above — it revised the conclusion downward)**; Chunk 4 dismissed. The core v3 arc
+  is complete. Remaining: pairwise (quota-blocked) or v4 (MCP front-end).
 
-## The ONE next action
-
-**v3 is functionally done. Pick one:**
-- **(a) Rigor pass on the judge eval** (no boot needed for most of it): add a cross-vendor
-  independent grader to kill the self-bias (below), a `PairwiseScorer` (blinded + position-
-  randomized), N grader samples for variance, and a bigger query set. Then one boot to re-`--generate`
-  if the query set grows. This turns the demoable result into a defensible one.
-- **(b) v4 — MCP front-end.** An MCP server as the structured interface to the platform; the
-  OpenAI-compatible gateway already makes any such client first-class.
-
-### Chunk 3 result — judge eval (2026-07-11, the v3 thesis). Full writeup: `docs/chunk3-judge-eval-results.md`.
-"Does the in-fleet Gemma-9B judge hold up vs a frontier judge (Claude Sonnet 5)?" **Yes.** 18 queries
-(6/6/6), reference-anchored grading. **Gemma 0.89–0.91 vs frontier 1.00; tied on 15/18**, matching the
-frontier on general + reasoning, trailing only on code (0.77). The local heuristic (keyword) says
+### Chunk 3 result — judge eval (2026-07-11, the v3 thesis) — **SUPERSEDED, see READ FIRST above**
+Kept for the record. "Does the in-fleet Gemma-9B judge hold up vs a frontier judge (Claude Sonnet 5)?"
+The original answer was **"yes"**: 18 queries (6/6/6), reference-anchored grading, **Gemma 0.89–0.91
+vs frontier 1.00, tied on 15/18**, trailing only on code (0.77). **The rigor pass showed this was too
+generous** — the query set was too easy (the tie rate collapses to 25/36 on harder questions), and the
+"grader self-bias" caveat it leaned on turned out to be **false**. The local heuristic (keyword) says
 frontier 0.69 vs Gemma 0.37 — an ARTIFACT (it scores phrasing-overlap with the reference, not
-correctness); it's a CI backstop, not the number. **Caveats:** grader self-bias (Sonnet grades
-Sonnet's own judge → a non-discriminating 1.000, so the true gap is smaller than shown); single grader
-sample (re-run moved Gemma 0.911→0.889); n=18. These are the rigor-pass targets in (a).
+correctness); it's a CI backstop, not the number.
 
-**Harness (built + committed this chunk):** `orchestrator/eval_queryset.py` (18 labeled Qs),
+**Harness (built + committed this chunk):** `orchestrator/eval_queryset.py` (now 36 labeled Qs),
 `candidate_cache.py` (one boot caches candidates, eval iterates offline), `judge_eval.py` (pluggable
 Scorer: LocalHeuristic + ReferenceGrader; provider-agnostic keyed judge/grader; phases `--generate`
 [boot] / `--frontier` / `--score`). Frozen run + report in `orchestrator/eval_fixtures/` — re-score
@@ -78,9 +308,12 @@ built + **live-smoke-verified** 2026-07-08; live harness in `orchestrator/harnes
   `infra/variables.tf` + `user-data.sh.tftpl`. Sequential start kept (still needed).
 - **Chunk 2 — contention baseline. ✅ DONE 2026-07-10.** +30% tax → multi-GPU not justified (result
   block above).
-- **Chunk 3 — judge eval (the thesis payload). ✅ DONE 2026-07-11.** Gemma judge 0.89–0.91 vs frontier
-  1.00, tied 15/18 → a small self-hosted judge holds up. Full result + caveats above and in
-  `docs/chunk3-judge-eval-results.md`. Harness committed; frozen run in `orchestrator/eval_fixtures/`.
+- **Chunk 3 — judge eval (the thesis payload). ✅ DONE, then CORRECTED.** The 2026-07-11 claim
+  ("Gemma 0.89–0.91 vs frontier 1.00, tied 15/18 → a small self-hosted judge holds up") is
+  **WITHDRAWN** — see the READ FIRST block at the top. n=36 gives Gemma 0.883 vs 1.000, and the
+  **ensemble as a whole scores below a single model**, which is the finding that matters. Full
+  correction in `docs/chunk3-judge-eval-results.md`. Harness + frozen run in
+  `orchestrator/eval_fixtures/` (replays for $0).
 - **Chunk 4 — multi-GPU. ✗ DISMISSED by the Chunk 2 baseline (+30% ≠ worth 4× cost).** Not on the
   path unless a later need (32B coder headroom, failure isolation) reopens it — then: pick box
   (g5.12xlarge vs g6e.12xlarge), per-GPU placement (`CUDA_VISIBLE_DEVICES`/pinning), measure delta.

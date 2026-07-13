@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import time
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 
@@ -33,6 +34,23 @@ class EnsembleConfig:
 
     def resolved_judge_url(self) -> str:
         return self.judge_url or self.gateway_url
+
+
+def _endpoint(base_url: str) -> str:
+    """Resolve the chat-completions URL for an OpenAI-compatible base.
+
+    Most vendors mount the API at the host root, so base + /v1/chat/completions is
+    right (OpenAI, Anthropic's compat layer, our own LiteLLM gateway). Gemini does
+    NOT: its compat layer lives at /v1beta/openai/chat/completions — the version
+    segment comes BEFORE the compat prefix, so blindly appending /v1 gives a 404.
+
+    Rule: if the base already carries a path, the caller has pointed us at the compat
+    root themselves and we append only /chat/completions. A bare host gets the /v1."""
+    base = base_url.rstrip("/")
+    if base.endswith("/chat/completions"):        # caller passed the full endpoint
+        return base
+    has_path = urllib.parse.urlparse(base).path.strip("/")
+    return f"{base}/chat/completions" if has_path else f"{base}/v1/chat/completions"
 
 
 def http_call(base_url: str, model: str, messages: list[dict], timeout: float,
@@ -53,7 +71,7 @@ def http_call(base_url: str, model: str, messages: list[dict], timeout: float,
         payload["temperature"] = temperature
     body = json.dumps(payload).encode()
     req = urllib.request.Request(
-        f"{base_url}/v1/chat/completions",
+        _endpoint(base_url),
         data=body,
         headers={"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"},
     )
@@ -139,21 +157,39 @@ def run_judge(query: str, candidates: list[dict], cfg: EnsembleConfig, call=http
     except Exception as e:
         # Judge unreachable / rejected the request — degrade to the first valid
         # candidate rather than sink the whole ensemble (fan-out does the same).
+        #
+        # `error` is a STRUCTURED flag, and callers must branch on it, never on the
+        # wording of `rationale`. The returned `answer` here is NOT a judgment — it is
+        # some specialist's raw reply. That is right for serving (return something) and
+        # catastrophic for an eval (grading a candidate as if it were the judge's
+        # output). judge_eval keys off `error` to refuse to cache these; a caller that
+        # string-matched the rationale text would break the moment this message is
+        # reworded, silently restoring that bug.
         latency = round(time.monotonic() - t0, 3)
         fallback = next((c["content"] for c in candidates if c["content"]), None)
         return {"answer": fallback, "rationale": f"judge failed: {type(e).__name__}: {e}",
-                "chosen": -1, "model": cfg.judge_model, "latency_s": latency}
+                "error": f"{type(e).__name__}: {e}", "chosen": -1,
+                "model": cfg.judge_model, "latency_s": latency}
     latency = round(time.monotonic() - t0, 3)
     try:
         parsed = json.loads(raw)
         answer = parsed.get("answer") or raw
+        # A judge sometimes returns a STRUCTURED answer (e.g. {"Subject":..,"Body":..} for
+        # an email task). Left as a dict it gets str()-formatted into the grader prompt as
+        # a Python repr — the published run graded a dict repr for one query — and blows
+        # up the keyword scorer on .lower(). The answer must always be text.
+        if not isinstance(answer, str):
+            answer = json.dumps(answer, ensure_ascii=False) if isinstance(answer, (dict, list)) \
+                else str(answer)
         rationale = parsed.get("rationale", "")
         chosen = parsed.get("chosen", -1)
     except (ValueError, AttributeError):
         # Backend ignored json_object (older vLLM / non-guided judge) — degrade to
-        # the raw text as the answer rather than crash.
+        # the raw text as the answer rather than crash. NOT an error: the judge did
+        # reply, and the raw reply IS its answer, merely unstructured. So this row is
+        # a real (if degraded) judgment and is safe to cache.
         answer, rationale, chosen = raw, "unparsed judge output", -1
-    return {"answer": answer, "rationale": rationale, "chosen": chosen,
+    return {"answer": answer, "rationale": rationale, "chosen": chosen, "error": None,
             "model": cfg.judge_model, "latency_s": latency}
 
 
@@ -224,7 +260,15 @@ def demo() -> None:
     assert [c["model"] for c in par] == cfg.candidates, "order preserved"
     assert all(c["error"] is None for c in par), "no errors on the happy path"
     assert wall < 0.5, f"threads did not overlap: wall={wall}s"
-    print("ok — ensemble pipeline + judge parse + parallel fan-out verified offline")
+
+    # Endpoint resolution — a bare host takes /v1; a base that already carries the
+    # compat path does not (Gemini mounts at /v1beta/openai, so /v1 would 404).
+    assert _endpoint("http://localhost:4000") == "http://localhost:4000/v1/chat/completions"
+    assert _endpoint("https://api.anthropic.com") == "https://api.anthropic.com/v1/chat/completions"
+    assert _endpoint("https://generativelanguage.googleapis.com/v1beta/openai") == \
+        "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+    assert _endpoint("https://x.com/v1/chat/completions") == "https://x.com/v1/chat/completions"
+    print("ok — ensemble pipeline + judge parse + parallel fan-out + endpoint resolution verified offline")
 
 
 if __name__ == "__main__":

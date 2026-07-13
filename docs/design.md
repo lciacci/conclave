@@ -72,6 +72,44 @@ what's serving behind it. Also the natural seam for per-model token/cost account
 
 ## Judge architecture (v3 — the thesis)
 
+> ### 🔴 THE PRECONDITION (measured 2026-07-12): this pattern needs a fleet with HEADROOM.
+>
+> Fan-out + judge only pays when the candidates are **comparably strong** and **genuinely
+> decorrelated** — so different models win on different inputs. That is a property of the
+> **fleet**, and it is measurable *before* any judge is built, offline, for $0:
+>
+> **HEADROOM = ORACLE (a perfect judge) − BEST SINGLE MODEL** — the entire value this pattern
+> can *ever* buy on a given fleet. A real judge captures a fraction of it; a bad one captures a
+> negative fraction.
+>
+> | policy | score (n=36) | cost |
+> |---|---|---|
+> | ORACLE — a *perfect* judge, best-of-3 | 0.961 | 3× inference + perfect judgment |
+> | **ALWAYS coder — one model, no judge** | **0.933** | **1× inference** |
+> | Gemma-judged ensemble (this design) | 0.883 | 3× inference + judge + ~30% contention |
+>
+> **Conclave's fleet: headroom = +0.028** (95% CI [+0.003, +0.052]) — so even a *perfect* judge
+> beats one model by under 3 points, and the real judge lands **−0.050** below it. **The
+> candidates are REDUNDANT, not hierarchical: 28/36 queries are an exact TIE**; strict (unique)
+> wins are **coder 4 / general 4 / reasoning 0**, and no model is significantly the best.
+>
+> ⚠️ **CEILING-LIMITED, and the verdict is NOT SETTLED.** 31/36 queries have the top candidate
+> already at the grader's maximum, where headroom is 0 *by construction* — the whole result rests
+> on **5 queries**. The 0.05 decision threshold lies *inside* the CI, so "not worth it" vs
+> "marginal" is **not distinguishable at n=36**. **The next step is HARDER QUERIES, not (yet) a
+> different fleet:** you cannot diagnose a fleet with an instrument pinned at its maximum.
+>
+> ❌ **RETRACTED:** "the 14B coder is the best candidate on 31/36 queries" — a **config-ordering
+> artifact** (`max()` takes the first max; reverse the candidate list and `general` wins 27).
+>
+> **This does not falsify the pattern** — multi-model systems work in production. It says this
+> *instantiation* fails the precondition, and it hands you the instrument to check the next one:
+> `orchestrator/divergence.py`. **Vet any candidate fleet for headroom before building a judge
+> for it.** Note also what production multi-model systems mostly do: **route**, not fan-out-and-
+> vote. The "cheap sibling" named in the next paragraph now looks like the better bet on a fleet
+> this skewed, and "always pick the strongest model" is the baseline any future design must beat.
+> See `docs/chunk3-judge-eval-results.md`.
+
 Fan out a query to N models in parallel; a judge model selects the best response or synthesizes.
 Routing by task type is the cheap sibling (router picks one specialist; no fan-out cost).
 
@@ -269,12 +307,23 @@ Controls first, compute second.
       each minute; primary alarm watches it (notBreaching), CPU alarm kept as backstop. IAM gains
       scoped `cloudwatch:PutMetricData`.
     - Next launch verifies all three in one boot.
-- **v3 — ensemble + judge. ✅ thesis proven 2026-07-11.** Parallel fan-out, judge selection/synthesis,
-  judge evals separate from specialist evals. Chunk 1 (additive-util KV fix, pinned image, dev_mode
-  idle-stop) + Chunk 2 (contention baseline +30%, multi-GPU dismissed) done 2026-07-10; Chunk 3 (judge
-  eval) done 2026-07-11 — **the in-fleet Gemma judge holds up vs a frontier judge: 0.89–0.91 vs 1.00,
-  tied on 15/18 queries**, trailing only on code (self-bias + n=18 caveats, see
-  `docs/chunk3-judge-eval-results.md`). Remaining v3 = optional rigor upgrades. Chunk 4 dismissed.
+- **v3 — ensemble + judge. ✅ BUILT AND MEASURED 2026-07-12.** Parallel fan-out, judge
+  selection/synthesis, judge evals separate from specialist evals — all built and working.
+  Chunk 1 (additive-util KV fix, pinned image, dev_mode idle-stop) + Chunk 2 (contention baseline
+  +30%, multi-GPU dismissed) done 2026-07-10; Chunk 3 (judge eval) 2026-07-11, then a rigor pass
+  + three adversarial reviews 2026-07-12.
+  **Result: the fleet fails the pattern's PRECONDITION.** `HEADROOM = ORACLE − BEST SINGLE MODEL`
+  = **+0.028** (CI [+0.003, +0.052]) — even a *perfect* judge barely beats always calling the
+  strongest model alone (0.961 vs 0.933), and the real judge lands below it (0.883). Cause: the
+  candidates are **redundant** — 28/36 queries are an exact TIE; strict wins are coder 4 /
+  general 4 / reasoning 0. ⚠️ But the measurement is **ceiling-limited** (31/36 queries at the
+  grader's max, so the result rests on 5 queries) and the verdict is **NOT RESOLVED at n=36**.
+  **Next: HARDER QUERIES that de-saturate the grader, then re-run `orchestrator/divergence.py`
+  ($0) — only then can the fleet be judged.** An earlier "the 14B coder wins 31/36" claim was a
+  config-ordering artifact and is **retracted**. Also revisit the router ("cheap sibling" above).
+  An earlier "thesis proven / the small judge holds up" claim was **withdrawn** — see
+  `docs/chunk3-judge-eval-results.md` for the full correction and the three over-claims it retracts.
+  Chunk 4 dismissed.
 - **v4 (maybe) — MCP front-end.** Unpauses project #5: MCP server as the structured interface
   to the platform.
 

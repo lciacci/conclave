@@ -9,6 +9,9 @@ Thumbs.db
 # Tessera runtime
 .tessera/logs/*
 !.tessera/logs/README.md
+# Runtime journals, same class as the gate log: local state, not source.
+.tessera/escalations/
+.tessera/.spend-backstop-fires
 .mnemos/
 .icpg/
 .claude/.tdd-iteration-count
@@ -28,6 +31,10 @@ venv/
 # not source. Commit a specific run as a fixture later if reproducibility needs it.
 orchestrator/eval_candidates.json
 orchestrator/eval_judgments_*.json
+# Grader memo (judge_eval.py GradeCache). Live working copy; the frozen run is
+# committed under eval_fixtures/, which is what makes --score reproducible for $0.
+orchestrator/eval_grade_cache.json
+orchestrator/eval_report_*.json
 
 # --- add your stack below (build artifacts, deps, lockfiles you don't track) ---
 

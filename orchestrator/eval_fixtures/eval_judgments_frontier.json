@@ -3,108 +3,288 @@
     "answer": "```python\ndef remove_duplicates(lst):\n    return list(dict.fromkeys(lst))\n```\n\n**How it works:**\n- `dict.fromkeys(lst)` builds a dictionary using the elements of `lst` as keys (values default to `None`). Since dictionary keys must be unique, any duplicate elements are automatically collapsed to a single entry.\n- Since Python 3.7+, dictionaries preserve insertion order, so the keys retain the order of their first appearance in the original list.\n- Wrapping the result in `list(...)` converts the dictionary's keys back into a list, giving you the original elements in their original order, with duplicates removed.\n\n**Example:**\n```python\n>>> remove_duplicates([1, 2, 2, 3, 4, 4, 4, 5])\n[1, 2, 3, 4, 5]\n```\n\nThis is the most idiomatic and efficient (O(n)) one-liner for this task in modern Python.",
     "chosen": -1,
     "rationale": "Answer 0's solution is correct, concise, and clearly explained, while Answer 1 arrives at the same correct one-liner but with excessive rambling, and Answer 2 duplicates Answer 0 with a minor inaccuracy about dictionaries 'not handling order'.",
-    "model": "claude-sonnet-5"
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "70ad7148322baa29"
   },
   "coder-bug-mutable-default": {
     "answer": "**The Bug:**\n\nIn Python, default argument values are evaluated only **once**, at function definition time—not on every call. Since `acc=[]` creates a single list object at definition time, every call to `add()` that doesn't explicitly pass `acc` will share and mutate that *same* list.\n\nExample:\n```python\nadd(1)  # returns [1]\nadd(2)  # returns [1, 2]  <-- unexpected! not a fresh list\nadd(3)  # returns [1, 2, 3]\n```\nEach call appends to the same persistent list instead of starting fresh, which is rarely the intended behavior.\n\n**The Fix:**\n\nAvoid mutable default arguments. Use `None` as the default sentinel and create a new list inside the function body when needed:\n\n```python\ndef add(x, acc=None):\n    if acc is None:\n        acc = []\n    acc.append(x)\n    return acc\n```\n\nNow, each call without an explicit `acc` gets its own fresh list, while callers who intentionally pass their own list can still accumulate into it as expected:\n\n```python\nadd(1)          # [1]\nadd(2)          # [2]  (fresh list, no leftover state)\nmy_list = []\nadd(1, my_list) # [1]\nadd(2, my_list) # [1, 2]  (explicit accumulation still works)\n```",
     "chosen": -1,
     "rationale": "All answers correctly identify the mutable default argument bug and propose the same standard fix, but Answer 0 has a redundant duplicate 'Fix 2' that adds no value, so a merged clean version is best.",
-    "model": "claude-sonnet-5"
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "aad204980a4758df"
   },
   "coder-sql-param": {
     "answer": "Use parameterized queries so the database driver handles escaping, rather than concatenating strings directly into the SQL statement.\n\nIf using a driver with `%s`-style placeholders (e.g., psycopg2, MySQLdb):\n```python\ncur.execute(\"SELECT * FROM users WHERE name = %s\", (name,))\n```\n\nIf using a driver with `?`-style placeholders (e.g., sqlite3):\n```python\ncur.execute(\"SELECT * FROM users WHERE name = ?\", (name,))\n```\n\n**Why this is safe:** The placeholder (`%s` or `?`) is not part of the literal SQL string—the driver sends the query and the parameter value separately to the database, so `name` is always treated as data, never as executable SQL. This eliminates SQL injection risk regardless of what characters (quotes, semicolons, etc.) appear in `name`.\n\n**Do not** manually embed the value into the query string (e.g., via f-strings, `.format()`, or `%` placeholders inside quotes like `'%(name)s'`)—that reintroduces the same injection vulnerability since it's just string interpolation before execution, not true parameter binding.\n\nChoose the placeholder style (`%s`, `?`, or `%(name)s` with proper `cur.execute(query, {\"name\": name})` syntax *outside* of quotes) that matches your database driver's DB-API convention.",
     "chosen": -1,
     "rationale": "Answers 0 and 2 correctly use standard parameterized query placeholders (%s or ?), while Answer 1 incorrectly embeds a %(name)s placeholder inside quotes in the query string, which is a flawed/incorrect approach to parameterization.",
-    "model": "claude-sonnet-5"
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "eb09ccfd69fa05d3"
   },
   "coder-async-gather": {
     "answer": "To run three async coroutines concurrently in Python and collect all their results, use `asyncio.gather()`, which schedules all coroutines to run concurrently and returns their results in the same order they were passed in (regardless of completion order).\n\n```python\nimport asyncio\n\nasync def coroutine1():\n    print(\"Coroutine 1 starting...\")\n    await asyncio.sleep(1)  # Simulate async work\n    print(\"Coroutine 1 finished.\")\n    return \"Result from coroutine 1\"\n\nasync def coroutine2():\n    print(\"Coroutine 2 starting...\")\n    await asyncio.sleep(2)\n    print(\"Coroutine 2 finished.\")\n    return \"Result from coroutine 2\"\n\nasync def coroutine3():\n    print(\"Coroutine 3 starting...\")\n    await asyncio.sleep(3)\n    print(\"Coroutine 3 finished.\")\n    return \"Result from coroutine 3\"\n\nasync def main():\n    results = await asyncio.gather(\n        coroutine1(),\n        coroutine2(),\n        coroutine3()\n    )\n    print(\"All coroutines completed. Results:\")\n    for result in results:\n        print(result)\n\nif __name__ == \"__main__\":\n    asyncio.run(main())\n```\n\n**How it works:**\n\n1. Define each coroutine with `async def`, doing some asynchronous work (here simulated with `asyncio.sleep`) and returning a result.\n2. In an outer `async def main()` function, call `asyncio.gather(coroutine1(), coroutine2(), coroutine3())` and `await` it. `gather` starts all three coroutines essentially at once (they all begin running, and whichever hits an `await` yields control back to the event loop so others can proceed), rather than running them one after another sequentially.\n3. `asyncio.gather` waits until *all* coroutines finish, then returns a list of their results in the same order the coroutines were passed in—even though the coroutines may actually finish in a different order (e.g., the fastest one prints \"finished\" first).\n4. Finally, run the whole thing with `asyncio.run(main())`, which sets up and manages the event loop for you (the standard way to launch top-level asyncio programs since Python 3.7).\n\n**Example output** (exact interleaving of the \"starting\"/\"finished\" lines may vary, but total runtime is about 3 seconds—the time of the *longest* coroutine—rather than 1+2+3=6 seconds if run sequentially):\n\n```\nCoroutine 1 starting...\nCoroutine 2 starting...\nCoroutine 3 starting...\nCoroutine 1 finished.\nCoroutine 2 finished.\nCoroutine 3 finished.\nAll coroutines completed. Results:\nResult from coroutine 1\nResult from coroutine 2\nResult from coroutine 3\n```\n\nThis confirms all three coroutines ran concurrently, and their results were collected in the original order once everything completed.",
     "chosen": -1,
     "rationale": "Answers 0 and 2 both correctly use asyncio.gather, while Answer 1 invents a non-existent API (asyncio.run_coroutine_threadpool) and contains numerous errors, so the best synthesis combines the correct gather-based approach with clear explanation and example output.",
-    "model": "claude-sonnet-5"
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "6ec13a3a281f5844"
   },
   "coder-git-undo-commit": {
     "answer": "Since you haven't pushed yet, the simplest fix is:\n\n1. From your current (wrong) branch, create a new branch at the current commit — this carries the last commit with it:\n   ```bash\n   git checkout -b new-branch-name\n   ```\n\n2. Switch back to the original (wrong) branch:\n   ```bash\n   git checkout wrong-branch-name\n   ```\n\n3. Remove the last commit from that branch by resetting it back one commit (your changes stay safely on `new-branch-name`):\n   ```bash\n   git reset --hard HEAD~1\n   ```\n   (Use `--hard` to also discard the working-directory changes since they now live on the new branch; use a plain `git reset HEAD~1` if you want to keep the changes unstaged on the old branch too — but usually `--hard` is what you want here.)\n\n4. Verify:\n   ```bash\n   git log --oneline           # wrong-branch-name: commit gone\n   git log --oneline new-branch-name   # commit present\n   ```\n\n5. Switch to the new branch to keep working:\n   ```bash\n   git checkout new-branch-name\n   ```\n\n6. When ready, push as normal:\n   ```bash\n   git push origin new-branch-name\n   ```\n\nThis moves the commit cleanly to `new-branch-name` and removes it from the original branch, with no need for cherry-picking or any exotic commands — since nothing has been pushed, there's no remote history to worry about.",
     "chosen": 0,
     "rationale": "Answer 0 gives the standard, correct, and simplest Git workflow (branch, then reset), while Answer 1 is factually wrong with invented commands and Answer 2 unnecessarily complicates with cherry-pick and confusing branch switches.",
-    "model": "claude-sonnet-5"
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "32c1134b6ea00e85"
   },
   "coder-bigo-nested": {
     "answer": "Checking, for each of the n elements in the first list, whether it appears in the second list (also of size n) using Python's `in` operator on a list is O(n^2) overall. This is because `in` on a list performs a linear scan, which is O(n) per lookup, and you do this n times (once per element in the first list), giving O(n) * O(n) = O(n^2).\n\nTo speed this up, convert the second list into a set (or dict) before doing the lookups:\n\n```python\nlist1 = [...]  # first list\nlist2 = [...]  # second list\n\nset2 = set(list2)          # O(n) to build\n\nfor item in list1:         # O(n) iterations\n    if item in set2:       # O(1) average-case lookup\n        # do something\n```\n\nBecause Python sets (and dicts) are implemented as hash tables, membership testing is O(1) on average (though O(n) in the rare worst case of many hash collisions). Building the set from list2 costs O(n), and then performing n lookups costs O(n) on average, so the total time complexity drops from O(n^2) to O(n) on average. This is a substantial improvement for large lists. Note that converting to a set removes duplicates, which is fine if you only care about existence, and it does use additional O(n) memory for the set.",
     "chosen": -1,
     "rationale": "Answers 0 and 1 correctly identify O(n^2) for list-based 'in' checks and O(n) via set conversion, while Answer 2 incorrectly claims Python's list 'in' operator uses a hash table, which is factually wrong.",
-    "model": "claude-sonnet-5"
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "245b7bd917b5153d"
   },
   "reason-prime-337": {
     "answer": "Yes, 337 is a prime number.\n\nA prime number is a natural number greater than 1 whose only positive divisors are 1 and itself. To check whether 337 is prime, it suffices to test divisibility by all prime numbers up to its square root, since if 337 had a divisor larger than its square root, it would also have a corresponding divisor smaller than the square root.\n\n√337 ≈ 18.36, so we only need to check the primes 2, 3, 5, 7, 11, 13, and 17.\n\n1. **Divisibility by 2:** 337 is odd, so it is not divisible by 2.\n2. **Divisibility by 3:** Sum of digits = 3+3+7 = 13, which is not divisible by 3, so 337 is not divisible by 3.\n3. **Divisibility by 5:** 337 does not end in 0 or 5, so it is not divisible by 5.\n4. **Divisibility by 7:** 337 ÷ 7 ≈ 48.14, not an integer, so 337 is not divisible by 7.\n5. **Divisibility by 11:** Alternating digit sum = 3 − 3 + 7 = 7, not divisible by 11, so 337 is not divisible by 11.\n6. **Divisibility by 13:** 337 ÷ 13 ≈ 25.92, not an integer, so 337 is not divisible by 13.\n7. **Divisibility by 17:** 337 ÷ 17 ≈ 19.82, not an integer, so 337 is not divisible by 17.\n\nSince 337 is not divisible by any prime number up to its square root (≈18.36), it has no divisors other than 1 and itself.\n\n**Conclusion:** 337 is a prime number.",
     "chosen": -1,
     "rationale": "Answers 0 and 1 are both correct and thorough, but Answer 0 needlessly checks 19 and 23 beyond the sqrt(337)≈18.36 limit while Answer 1 correctly stops at 17, so a merged version keeps the complete, accurate check up to 17 only.",
-    "model": "claude-sonnet-5"
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "590b5fe3f00b3d91"
   },
   "reason-trains": {
     "answer": "Since the trains approach each other, their speeds add: 60 km/h + 90 km/h = 150 km/h combined speed. Time to meet = Distance / Speed = 300 km / 150 km/h = 2 hours.",
     "chosen": -1,
     "rationale": "All three answers are correct and essentially identical, so a merged concise version best represents the consensus solution.",
-    "model": "claude-sonnet-5"
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "29dc9d335f369cc6"
   },
   "reason-bat-ball": {
     "answer": "Let x be the cost of the ball in dollars. Since the bat costs $1.00 more than the ball, the bat costs x + 1 dollars. Their total cost is $1.10, so: x + (x + 1) = 1.10 → 2x + 1 = 1.10 → 2x = 0.10 → x = 0.05. Therefore, the ball costs $0.05 (5 cents), and the bat costs $1.05.",
     "chosen": -1,
     "rationale": "All three answers correctly solve the classic bat-and-ball problem with identical valid algebra, so the synthesized answer merges the clearest steps.",
-    "model": "claude-sonnet-5"
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "5e2e55238d9f4a90"
   },
   "reason-work-rate": {
     "answer": "Since 3 machines make 3 widgets in 3 minutes, each machine makes 1 widget every 3 minutes (a rate of 1/3 widget per minute per machine). With 100 machines working simultaneously, each machine independently produces its own widget in that same 3-minute span, so 100 machines produce 100 widgets in 3 minutes. The answer is 3 minutes.",
     "chosen": -1,
     "rationale": "All three answers correctly conclude 3 minutes with valid reasoning, so the clearest and most rigorous explanation (Answer 1's rate-based derivation) is synthesized as the final answer.",
-    "model": "claude-sonnet-5"
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "a283fd928737e85b"
   },
   "reason-logic-cards": {
     "answer": "To test 'if a card shows a vowel, its other side is even,' you must flip A and 7. Flip A because if a vowel is paired with an odd number, the rule is violated. Flip 7 because if an odd number is paired with a vowel, the rule is violated (this is the contrapositive check). K need not be flipped since the rule makes no claim about consonants, and 4 need not be flipped since the rule doesn't require even numbers to be paired with vowels—only vowels must be paired with even numbers, not the reverse.",
     "chosen": 1,
     "rationale": "Both Answer 0 and Answer 1 correctly identify A and 7 as the cards to flip using proper Wason selection task logic, while Answer 2 incorrectly omits 7; Answer 1 provides the clearest and most rigorous explanation including the contrapositive reasoning.",
-    "model": "claude-sonnet-5"
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "8f290787a7dfa72c"
   },
   "reason-compound": {
     "answer": "Using the compound interest formula A = P(1 + r/n)^(nt), with P = $1000, r = 0.10, n = 1, and t = 3: A = 1000 × (1.10)^3 = 1000 × 1.331 = **$1331.00**. After 3 years, the investment will be worth exactly $1331.00.",
     "chosen": -1,
     "rationale": "All three answers correctly apply the compound interest formula and arrive at the same accurate result, so the clearest, most concise version is synthesized.",
-    "model": "claude-sonnet-5"
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "2285f63a2b365b4f"
   },
   "gen-mutex-1sentence": {
     "answer": "A mutex (mutual exclusion) is a synchronization primitive that ensures only one thread or process can access a shared resource at a time, preventing race conditions and data corruption.",
     "chosen": -1,
     "rationale": "Combining the clarity and correctness of all answers into one concise sentence, omitting the reasoning model's exploratory text.",
-    "model": "claude-sonnet-5"
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "db4f6df2b6c8ea00"
   },
   "gen-tcp-udp": {
     "answer": "TCP is a connection-oriented protocol that guarantees reliable, ordered delivery of data through handshakes and acknowledgments, making it ideal for applications like web browsing, email, and file transfers where data integrity matters. UDP is connectionless and skips these reliability checks, making it faster and lower-latency, which suits real-time applications like video streaming, VoIP, and online gaming where speed matters more than perfect accuracy. Choose TCP when correctness and completeness are essential, and UDP when speed and low overhead are more important than occasional data loss.",
     "chosen": -1,
     "rationale": "Answer 0 is the most concise and accurate, while Answer 1 contains raw reasoning clutter and Answer 2 lacks the 'when to pick' guidance clearly, so a merged concise version is best.",
-    "model": "claude-sonnet-5"
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "0577f62021c1967f"
   },
   "gen-photosynthesis": {
     "answer": "Photosynthesis is like a magic recipe plants use to make their own food! Their leaves act like little solar panels that catch sunlight. Using that sunlight, plants combine water from the soil with carbon dioxide from the air (with help from a green pigment called chlorophyll) to make sugar, which gives them energy to grow. As a bonus, this process releases oxygen into the air—the same oxygen we breathe! So plants are basically tiny food factories that also keep our air fresh.",
     "chosen": -1,
     "rationale": "Combining the clear analogy and complete input/output details from Answers 0 and 1, while dropping Answer 1's confusing reasoning process and Answer 2's vague 'air' reference, yields the most accurate and kid-friendly explanation.",
-    "model": "claude-sonnet-5"
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "dd4536b65a420e20"
   },
   "gen-email-decline": {
     "answer": "Subject: Unable to Attend - Proposing an Async Follow-Up\n\nDear [Recipient's Name],\n\nThank you for the invitation to meet on [Date] at [Time]. I appreciate you setting this up.\n\nUnfortunately, I have a scheduling conflict at that time and won't be able to join. Rather than finding another slot, would you be open to following up asynchronously? I'm happy to share my thoughts via email, a shared doc, or a quick recorded update—whatever works best for covering [Topic].\n\nPlease let me know your preference, and I'll get back to you promptly. Thanks again for understanding, and I look forward to connecting soon.\n\nBest regards,\n[Your Full Name]\n[Your Position]\n[Your Contact Information]",
     "chosen": -1,
     "rationale": "Combining the concise, on-topic structure of Answer 2 with the polite, thorough tone of Answer 0 (which explicitly proposes async follow-up, unlike Answer 1 which mistakenly proposes rescheduling instead) yields the most accurate and complete response.",
-    "model": "claude-sonnet-5"
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "12723de312321b22"
   },
   "gen-analogy-cache": {
     "answer": "Think of a cache like the shelf in your fridge door where you keep the things you use most—milk, butter, juice. Instead of digging through the whole fridge every time you want one of these, you just grab it from that handy shelf. A cache works the same way for a computer: it keeps a small copy of the data or files you use most often in a spot that's quick to reach, so the computer doesn't have to search through everything each time. That's why a program or website often feels faster after you've used it once—it's pulling the info from the 'shelf' (cache) instead of fetching it from the back of the fridge (main storage).",
     "chosen": -1,
     "rationale": "Combining the clear, concise bookshelf/fridge-door analogy with the correct concept of frequently accessed data avoids the verbose, exposed reasoning of Answer 1 while merging the strongest points of Answers 0 and 2.",
-    "model": "claude-sonnet-5"
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "a77e29d305acf660"
   },
   "gen-summarize-pros-cons": {
     "answer": "Pros:\n- Flexibility in work hours and location\n- Reduced commuting time, costs, and stress\n\nCons:\n- Isolation and reduced in-person interaction with colleagues\n- Potential distractions and communication challenges affecting productivity",
     "chosen": -1,
     "rationale": "Answer 0 and 2 are clean and compact, while Answer 1 includes unwanted meta-reasoning/thinking process that violates the 'compact' requirement, so a synthesized concise version is best.",
-    "model": "claude-sonnet-5"
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "aa9c57cb4fb821d9"
+  },
+  "coder-float-equality": {
+    "answer": "`0.1 + 0.2 == 0.3` is `False` in Python because floating-point numbers are stored in binary (IEEE 754 double precision), and most decimal fractions—including 0.1, 0.2, and 0.3—cannot be represented exactly in binary. Each is stored as the closest representable binary approximation. When you add the approximations for 0.1 and 0.2, the tiny rounding errors combine to give a result like `0.30000000000000004`, which is not bit-for-bit identical to the stored approximation of `0.3`. This is not a Python bug—it's a consequence of the IEEE 754 floating-point standard used by virtually all modern languages.\n\n**How to compare floats safely**\n\n1. **Use `math.isclose()` (recommended)** — it's built into Python and handles both relative and absolute tolerances:\n\n```python\nimport math\n\nprint(math.isclose(0.1 + 0.2, 0.3))  # True\n```\n\nYou can tune `rel_tol` (relative tolerance, good for comparing numbers of similar magnitude) and `abs_tol` (absolute tolerance, useful when comparing against zero or very small numbers):\n\n```python\nmath.isclose(a, b, rel_tol=1e-9, abs_tol=0.0)\n```\n\n2. **Manual epsilon comparison** — if you need a dependency-free approach, you can check that the absolute difference is below a small threshold:\n\n```python\ndef compare_floats(a, b, epsilon=1e-9):\n    return abs(a - b) < epsilon\n```\n\nThis works but doesn't scale well across very large or very small magnitudes the way `math.isclose`'s relative tolerance does, so `math.isclose` is generally preferred.\n\n3. **Rounding** — for display or specific-precision needs, you can round before comparing:\n\n```python\nround(0.1 + 0.2, 3) == 0.3  # True\n```\n\nBe cautious with rounding, though—it can mask genuine precision issues in your calculations rather than properly accounting for them.\n\n**Bottom line:** Avoid direct `==` comparisons between floats. Prefer `math.isclose()` (or a similar tolerance-based check) to account for the inherent imprecision of binary floating-point representation.",
+    "chosen": -1,
+    "rationale": "Combines the clearest IEEE-754 explanation with the idiomatic math.isclose solution while noting the manual epsilon and rounding alternatives and their caveats.",
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "04e76bfc0a32a6ba"
+  },
+  "coder-mutate-while-iterating": {
+    "answer": "**Why it skips elements**\n\n`for x in xs:` uses an internal index into the *same* list object. Each time you call `xs.remove(x)`, every element after the removed one shifts down by one position, but the loop's internal index still advances by one. The net effect is that the element that shifted into the just-vacated slot gets skipped, because the loop moves past it without ever visiting it.\n\nExample:\n```python\nxs = [1, -2, -3, 4]\n# index 0: x=1 -> kept\n# index 1: x=-2 -> removed; list becomes [1, -3, 4]; the old index-2 element (-3) is now at index 1\n# index 2: loop now looks at index 2, which is now '4' -> so -3 is skipped!\n```\nSo `-3` never gets checked, even though it's negative.\n\n**Correct ways to do this**\n\n1. **List comprehension (most idiomatic — build a new list):**\n```python\nxs = [x for x in xs if x >= 0]\n```\n\n2. **`filter()` (equivalent, less common style):**\n```python\nxs = list(filter(lambda x: x >= 0, xs))\n```\n\n3. **Iterate over a copy, but modify the original in place** (useful if other references to `xs` must see the same list object):\n```python\nfor x in xs[:]:        # xs[:] makes a shallow copy to iterate over\n    if x < 0:\n        xs.remove(x)\n```\n\n4. **Iterate by index in reverse**, so removing an element doesn't affect indices you haven't processed yet:\n```python\nfor i in reversed(range(len(xs))):\n    if xs[i] < 0:\n        xs.pop(i)\n```\n\n5. **Manual index/while loop**, incrementing only when you *don't* remove:\n```python\ni = 0\nwhile i < len(xs):\n    if xs[i] < 0:\n        xs.pop(i)\n    else:\n        i += 1\n```\n\nIn general, prefer building a new filtered list (options 1 or 2) unless you specifically need to mutate the existing list object in place, in which case reverse iteration or the manual while-loop approach (options 3–5) are safe.",
+    "chosen": -1,
+    "rationale": "The synthesized answer gives the correct technical explanation (index shifting causes skipped elements) and offers the cleanest set of correct fixes, dropping the confused/incorrect reasoning found in Answer 1.",
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "cc2a1f4d66b3c365"
+  },
+  "coder-shallow-copy": {
+    "answer": "**Why this happens**\n\n`a.copy()` (like `list(a)` or `a[:]`) performs a *shallow copy*. It creates a new outer list object, but the elements inside it are not copied themselves—they're just references to the same objects as in `a`. Since `a` is a list of lists, each inner list is a mutable object that both `a` and `b` point to.\n\nSo when you do:\n```python\na = [[1, 2], [3, 4]]\nb = a.copy()\n```\n`b[0]` and `a[0]` are the *same* list object in memory. Changing `b[0][0]` modifies that shared inner list, so `a[0][0]` changes too—even though `a` and `b` are technically different list objects at the top level.\n\n**How to avoid it: use a deep copy**\n\nTo make `b` fully independent of `a`, including its nested lists, use `copy.deepcopy()`:\n\n```python\nimport copy\n\na = [[1, 2], [3, 4]]\nb = copy.deepcopy(a)\n\nb[0][0] = 99\n\nprint(a)  # [[1, 2], [3, 4]]  -- unchanged\nprint(b)  # [[99, 2], [3, 4]]\n```\n\n`deepcopy` recursively copies every nested object, so modifying `b` never affects `a`, no matter how deeply nested the structure is.\n\n**Key takeaway**\n\n- `copy.copy()` / `list.copy()` / `a[:]` → shallow copy (top-level only; nested mutable objects are shared).\n- `copy.deepcopy()` → deep copy (fully independent copy, including nested structures).\n\nFor a simple list of lists, you could also manually do `b = [row[:] for row in a]`, but this only works for one level of nesting—`copy.deepcopy()` is the safe, general solution for arbitrarily nested or complex structures.",
+    "chosen": -1,
+    "rationale": "All three answers correctly diagnose the shallow copy issue and recommend deepcopy, so I merged the clearest explanation and example into one concise, error-free answer.",
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "420fb9fedc42273f"
+  },
+  "coder-threads-vs-processes": {
+    "answer": "For a CPU-bound Python workload, prefer **processes** (e.g., via the `multiprocessing` module) over threads.\n\n**Why processes win here:**\n\n1. **The Global Interpreter Lock (GIL):** CPython's GIL allows only one thread to execute Python bytecode at a time, regardless of how many CPU cores you have. So multiple threads doing CPU-bound work don't run in true parallel — they just take turns, giving you concurrency but not parallelism.\n\n2. **Bypassing the GIL:** Each process gets its own Python interpreter and its own GIL, plus its own memory space. This lets separate processes run truly in parallel across multiple CPU cores, which is exactly what you need when the bottleneck is computation, not waiting.\n\n3. **Core utilization/scalability:** Because each process can be scheduled on a different core, throughput scales with the number of cores available — something threads can't do for CPU-bound code in CPython.\n\n**Trade-offs to keep in mind:**\n\n- Processes have higher overhead than threads: startup cost is higher, and since memory isn't shared, exchanging data between processes requires serialization (pickling) via pipes, queues, or shared memory. For CPU-bound work this overhead is usually small relative to the computation itself, but it matters if your tasks are very short-lived or need to pass large amounts of data back and forth — in which case you may want to batch work per process to amortize the cost.\n- Threads remain the right tool when your workload is I/O-bound (network calls, disk access, waiting on external systems), since threads can release the GIL while waiting on I/O, allowing other threads to make progress — this doesn't apply to compute-heavy code.\n\n**Bottom line:** for CPU-bound work, use `multiprocessing` (or higher-level tools like `concurrent.futures.ProcessPoolExecutor`) to get real parallel execution across cores; reserve threads for I/O-bound concurrency.",
+    "chosen": -1,
+    "rationale": "A synthesized answer combines the clear GIL explanation and multiprocessing recommendation from all three, while dropping the inaccurate suggestion that threads could still be efficient for short CPU-bound computations.",
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "4785b8fda52ff655"
+  },
+  "coder-bare-except": {
+    "answer": "Writing `try: ... except: pass` is considered bad practice in Python for several key reasons:\n\n1. **Silent Failures**: The bare `except:` clause catches *all* exceptions (including `KeyboardInterrupt` and `SystemExit`), and `pass` swallows them without any indication that something went wrong. Your program continues running as if nothing happened, even though an error actually occurred.\n\n2. **Loss of Diagnostic Information**: Exceptions carry valuable information—error type, message, and stack trace. By silently discarding this, you lose the ability to understand what failed and why, making debugging much harder later.\n\n3. **Masking Bugs**: Because the exception is caught and hidden, unrelated bugs can slip through unnoticed. A `NameError` or `TypeError` caused by a typo might get swallowed just as easily as an exception you actually expected, hiding real problems in your code.\n\n4. **Overly Broad Catching**: A bare `except:` doesn't discriminate between exception types. You might intend to catch a `FileNotFoundError`, but you'll also silently catch unrelated errors like `MemoryError` or `KeyboardInterrupt`, which should probably propagate.\n\n5. **Poor Readability/Maintainability**: Code with `except: pass` signals to other developers that errors are being deliberately ignored, which is often confusing and makes the code harder to trust or maintain.\n\n6. **Potential Security/Correctness Risks**: In some cases, exceptions indicate invalid input, unauthorized access, or other conditions that matter for correctness or security. Ignoring them can leave your application in an inconsistent or vulnerable state.\n\n### Better Alternatives\n\nInstead of blindly ignoring exceptions, handle them deliberately:\n\n```python\n# Catch specific exceptions you expect\ntry:\n    value = int(user_input)\nexcept ValueError:\n    print(\"Invalid input: not a number\")\n\n# Log unexpected exceptions rather than hiding them\nimport logging\n\ntry:\n    risky_operation()\nexcept Exception as e:\n    logging.error(f\"An error occurred: {e}\")\n    # optionally re-raise if you can't handle it\n    raise\n```\n\nAs a rule of thumb: catch only the exceptions you expect and know how to handle, and always do *something* meaningful in the except block—log it, alert the user, attempt recovery, or re-raise—rather than silently discarding it with `pass`.",
+    "chosen": -1,
+    "rationale": "Answer 0 and 2 provide accurate, well-organized explanations with correct code examples, while Answer 1 contains a factual error claiming pass allows exceptions to propagate, so a synthesized answer combining the correct points is best.",
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "36a91ded9e8904c4"
+  },
+  "coder-string-concat-loop": {
+    "answer": "**Why it's slow**\n\nIn Python (and most languages), strings are immutable — once created, a string object can't be changed in place. So every time you do `s += part`, Python doesn't append to the existing string; it allocates a brand-new string object big enough to hold `s + part`, copies all the old bytes plus the new ones into it, and then rebinds `s` to that new object. The old string becomes garbage.\n\nWith 100k iterations, each concatenation copies the entire string built so far. That means the total work is roughly 1 + 2 + 3 + ... + n character copies, which is O(n²) — quadratic time — instead of the O(n) you'd expect. On top of the copying cost, you also get a lot of memory churn: repeated allocation/deallocation of ever-larger string objects, which adds garbage-collection and memory-fragmentation overhead.\n\n(Note: CPython has a specific optimization where, if the string being concatenated has a reference count of 1, it may resize the buffer in place rather than copy — this can make `s += part` less bad than the theoretical worst case in some CPython versions. But this is an implementation detail you shouldn't rely on, it doesn't apply in other Python implementations like PyPy/Jython, and it disappears as soon as `s` has more than one reference.)\n\n**The fix**\n\nAvoid repeated concatenation. Instead, collect the parts in a list (which just stores pointers, not full copies) and join them once at the end. `str.join()` knows the total length up front (by scanning the list once) and allocates the final buffer exactly once, copying each part into it a single time — giving you O(n) behavior overall.\n\n```python\nparts = []\nfor part in source_of_parts:\n    parts.append(part)\ns = ''.join(parts)\n```\n\nOr more concisely with a list comprehension / generator:\n\n```python\ns = ''.join(str(part) for part in source_of_parts)\n```\n\nIf you're generating output incrementally (e.g., writing many small pieces of text) and don't want to hold every part in a list, `io.StringIO` is a good alternative — it acts like an in-memory file you can `write()` to repeatedly, and it's implemented to grow efficiently rather than reallocate on every write:\n\n```python\nfrom io import StringIO\n\nbuf = StringIO()\nfor part in source_of_parts:\n    buf.write(part)\ns = buf.getvalue()\n```\n\n**Takeaway:** the slowdown comes from immutable strings forcing a full copy on every `+=`, turning an O(n) job into O(n²). The fix is to defer the actual string construction to a single pass — via `list` + `''.join()` (most common and idiomatic) or `io.StringIO` for streaming scenarios — rather than repeatedly rebuilding the string in the loop.",
+    "chosen": -1,
+    "rationale": "Combines the correct immutability/quadratic-copy explanation with the standard fixes (list + join, StringIO), while dropping incorrect or irrelevant additions like array.array and textwrap.wrap.",
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "6ce8e360caaaa585"
+  },
+  "reason-monty-hall": {
+    "answer": "Yes, you should switch. This is the classic Monty Hall problem.\n\nWhen you first picked door 1, there was a 1/3 chance the car was behind it, and a 2/3 chance it was behind door 2 or door 3 combined. The host, who knows where the car is, will always open a door that has a goat and is not your chosen door. This action doesn't change the original 1/3 probability that your door (door 1) has the car—but it does concentrate the remaining 2/3 probability onto the one door he didn't open.\n\nSince he opened door 3, all of that 2/3 probability now sits on door 2. So:\n- P(car behind door 1) = 1/3 (unchanged)\n- P(car behind door 2) = 2/3\n\nSwitching to door 2 doubles your chances of winning the car (2/3 vs 1/3 if you stay). This can also be verified by enumerating the three equally likely scenarios for where the car actually is and checking what happens in each case: switching wins in 2 out of 3 scenarios, while staying wins in only 1 out of 3. So yes—switch.",
+    "chosen": -1,
+    "rationale": "Answer 0 is concise and fully correct, while Answer 1 has excessive irrelevant reasoning-trace clutter and Answer 2 contains a confusing/incorrect explanation of why probability shifts, so a clean synthesis is best.",
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "7265e325f7abc1d6"
+  },
+  "reason-avg-speed": {
+    "answer": "Average speed is total distance divided by total time, not the arithmetic mean of the two speeds.\n\nLet the one-way distance be d km.\n- Time uphill = d/60\n- Time downhill = d/30\n- Total distance = 2d\n- Total time = d/60 + d/30 = d/60 + 2d/60 = 3d/60 = d/20\n\nAverage speed = 2d ÷ (d/20) = 40 km/h.\n\nThis matches the harmonic mean formula for two equal distances traveled at different speeds: \nAverage speed = 2·v1·v2/(v1+v2) = 2·60·30/(60+30) = 3600/90 = 40 km/h.\n\nSo the average speed for the round trip is **40 km/h**, not 45 km/h — because more time is spent traveling at the slower speed, which pulls the average down.",
+    "chosen": -1,
+    "rationale": "All answers correctly compute 40 km/h via harmonic mean, but Answer 1 adds valuable generalization and intuition without errors, making it the best base to synthesize a concise, complete response.",
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "89c7d374c5ee897c"
+  },
+  "reason-lily-pad": {
+    "answer": "Since the lily pads double in coverage every day, the day before they cover the whole lake they must cover exactly half. As they cover the whole lake on day 48, they covered half the lake on day 47.",
+    "chosen": -1,
+    "rationale": "All three answers correctly and consistently conclude day 47 using the same doubling logic, so any can represent the synthesized answer, but a concise merged version is clearest.",
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "b963421ead79c63b"
+  },
+  "reason-handshakes": {
+    "answer": "Each handshake corresponds to a unique pair of people, so the total number of handshakes equals the number of ways to choose 2 people out of 10, given by the combination formula C(n, 2) = n(n-1)/2. For n = 10: C(10, 2) = 10 × 9 / 2 = 90 / 2 = 45. Thus, the total number of handshakes is 45.",
+    "chosen": -1,
+    "rationale": "All three answers correctly compute 45 via the combination formula C(10,2), so the best response merges the concise combinatorial reasoning without redundant repetition.",
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "9b2657cba001d013"
+  },
+  "reason-clock-angle": {
+    "answer": "At 3:15, the minute hand points at the 3, which is 90° from 12 (15 min × 6°/min = 90°). The hour hand, starting at 90° at 3:00, moves 0.5° per minute, so after 15 minutes it is at 90° + 15×0.5° = 97.5°. The angle between the hands is |97.5° − 90°| = 7.5°. This can be confirmed with the formula |30H − 5.5M| = |30×3 − 5.5×15| = |90 − 82.5| = 7.5°. Thus, the angle between the hour and minute hands at exactly 3:15 is 7.5°.",
+    "chosen": -1,
+    "rationale": "All three answers correctly compute 7.5°, but Answer 0 is the clearest and most concise derivation without extraneous rambling.",
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "f5ddadb05938cb27"
+  },
+  "reason-socks-pigeonhole": {
+    "answer": "You must take out 3 socks. With only two colors available (black and white), the worst case is that the first two socks you pull are one of each color—no match yet. The third sock, however, must be either black or white, so it necessarily matches one of the first two. Thus 3 socks guarantees at least one matching pair, regardless of how many socks of each color are in the drawer.",
+    "chosen": -1,
+    "rationale": "All three answers correctly reach 3 via the pigeonhole principle, so the clearest and most concise explanation should be synthesized as the final answer.",
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "e61c8d6d0949acd6"
+  },
+  "gen-https-explain": {
+    "answer": "HTTPS (HTTP over TLS/SSL) protects the confidentiality and integrity of data exchanged between your browser and a website: it encrypts the traffic so that eavesdroppers on the network can't read or silently alter passwords, form data, cookies, or other content in transit, and it uses the site's certificate to cryptographically verify that you're talking to the server that holds the private key for that domain (guarding against simple impersonation or tampering in transit). What HTTPS does *not* do is guarantee that the website itself is trustworthy, honest, or safe—an attacker can still register a valid HTTPS certificate for a phishing site that looks legitimate. It also doesn't protect against malware on your device or the server, vulnerabilities in the underlying software/hardware, weak or stolen passwords, social engineering, or verify who the *user* is (authentication of the person, not just the server). In short, HTTPS secures the pipe between client and server, not the trustworthiness of either endpoint or the behavior of the humans using them.",
+    "chosen": -1,
+    "rationale": "Combining the accurate points from all answers while omitting the reasoning model's confused claims about MITM and certificate mechanics gives the most correct and complete summary.",
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "c1abac981afd2479"
+  },
+  "gen-api-vs-library": {
+    "answer": "**Library:** A collection of pre-written code (functions, classes, tools) that you include directly in your program to reuse without writing it yourself. You call the code directly, and it runs within your own program. Example: Python's `math` library for calculations, or a UI library for building buttons.\n\n**API (Application Programming Interface):** A defined set of rules for how one piece of software can request services or data from another—without needing to know how that other software works internally. Example: a weather API lets your app request weather data from a remote server; you send a request and get a response back.\n\n**Simple analogy:**\n- A **library** is like a toolbox: you pick up a tool (function) and use it yourself, directly, inside your own project.\n- An **API** is like a restaurant waiter: you place an order (request), and the kitchen (another system) prepares it and hands back the result (response)—you don't see or control how it's made.\n\n**Key differences:**\n- *Where the code runs:* Library code runs inside your own program; an API call often goes to a separate system or service (though not always—APIs can also be local).\n- *How you use it:* With a library, you call functions directly in your code. With an API, you send a request and receive a response, without direct access to the underlying implementation.\n- *Overlap:* Libraries themselves often expose an API—the set of functions/methods you're allowed to call is technically the library's API. So a library *has* an API, but not every API is a library (e.g., web APIs connect entirely separate applications/services).\n\n**In short:** A library is reusable code you plug into your own program, while an API is the interface/contract that lets separate pieces of software talk to each other.",
+    "chosen": -1,
+    "rationale": "Combining the clear conceptual distinction and analogy from Answer 2 with the accurate technical explanation and correct note about overlap (libraries can expose APIs) from Answers 0/1 gives the most complete and error-free response.",
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "c49dbff29d5333cb"
+  },
+  "gen-recursion-analogy": {
+    "answer": "Think of recursion like a set of Russian nesting dolls. You open the big doll and find a smaller doll inside, open that one and find an even smaller doll, and so on. Each doll is handled the same way — open it, look inside, repeat — just like a recursive function calling itself on a smaller version of the problem.\n\nBut eventually you reach the smallest doll, the one that doesn't open to reveal another doll inside. That's the base case: a stopping condition that doesn't call itself again, but instead gives a direct answer. \n\nWithout that smallest, solid doll, you'd keep expecting another doll inside forever — you'd never actually finish. In code, this is exactly what happens without a base case: the function keeps calling itself infinitely, eventually crashing the program (a stack overflow) because there's no point where it stops and starts returning answers back up the chain. The base case is what lets all those nested calls resolve, one level at a time, back to a final result.",
+    "chosen": -1,
+    "rationale": "Combining the clear, error-free Russian nesting dolls analogy with a concise explanation of the base case yields the clearest and most accurate explanation, avoiding the exposed reasoning clutter and paper-airplane physical impossibility issues in the other answers.",
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "f794a1e64b4ffa63"
+  },
+  "gen-inflation-explain": {
+    "answer": "Inflation is simply the general rise in prices over time, which means your money buys a little less than it used to.\n\nImagine you have $10 today, and it buys you 10 cookies. A year later, because of inflation, those same cookies now cost $11 total. Your $10 doesn't stretch as far anymore. That's inflation in a nutshell: the slow decline in the purchasing power of money as prices rise.\n\nWhy is a *little* inflation (economists often target around 2%) considered healthy rather than something to eliminate entirely?\n\n1. **It encourages spending and investment.** If people expect prices to rise slightly over time, they're more motivated to spend or invest money now rather than hoard it, which keeps the economy active.\n\n2. **It supports wage growth.** Modest inflation often comes paired with businesses raising wages to keep pace, so people's incomes tend to rise alongside prices, keeping their real purchasing power stable.\n\n3. **It gives central banks room to maneuver.** Central banks (like the Federal Reserve) manage the economy partly through interest rates. Having a bit of inflation gives them room to lower rates when the economy slows, without the risk of tipping into deflation.\n\n4. **It helps avoid deflation.** Deflation—when prices fall over time—sounds appealing, but it's actually dangerous. If people expect prices to keep dropping, they delay purchases, hoping for an even better deal later. This reduces demand, causes businesses to cut back production and lay off workers, and can spiral into a broader economic slowdown.\n\nSo a little inflation acts like gentle forward motion for the economy—encouraging activity, supporting wage growth, and avoiding the pitfalls of deflation. But if inflation gets too high, it erodes savings, makes planning difficult, and can destabilize the economy—which is why central banks work to keep it at a low, steady level rather than eliminating it completely or letting it run wild.",
+    "chosen": -1,
+    "rationale": "The best response combines the clear cookie/bread analogy and concise structure from Answers 0 and 2 while dropping the confused/incorrect reasoning in Answer 1 (e.g., muddled natural rate of unemployment claims and unclear causal logic).",
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "7d88a83c2249dd34"
+  },
+  "gen-apology-email": {
+    "answer": "Subject: Apology for Missing the Agreed Deadline\n\nDear [Client's Name],\n\nI want to sincerely apologize for missing the agreed deadline for [project/deliverable]. I understand this may have caused inconvenience, and I take full responsibility for the delay.\n\nThe new delivery date is [new date], and I am fully committed to meeting this timeline without further disruption.\n\nThank you for your patience and continued trust. Please let me know if you have any questions or concerns.\n\nBest regards,\n[Your Full Name]\n[Your Position]\n[Your Contact Information]\n[Company Name]",
+    "chosen": -1,
+    "rationale": "Answer 1 includes an excuse ('difficult situation at work'), violating the no-excuses instruction, while Answers 0 and 2 comply but Answer 0 is more complete and professional, so merging the best structure from 0 with the conciseness of 2 yields the strongest result.",
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "7f9b86e4e5e7a4cc"
+  },
+  "gen-ev-vs-gas": {
+    "answer": "**Electric Cars:**\n1. **Environmentally Friendly:** Zero tailpipe emissions mean less air pollution and lower greenhouse gas output, especially beneficial in urban areas.\n2. **Lower Running Costs:** Electricity is generally cheaper than petrol, and EVs have fewer moving parts, leading to reduced maintenance costs over time.\n\n**Petrol Cars:**\n1. **Longer Range & Refueling Speed:** Petrol cars typically offer greater range per tank and can be refueled in minutes, making them well-suited for long trips.\n2. **Established Infrastructure:** A vast, mature network of petrol stations, repair shops, and parts suppliers makes refueling and servicing quick and convenient almost anywhere.",
+    "chosen": -1,
+    "rationale": "Answer 1 contains a factual error claiming EVs have better range than petrol cars, so the best result merges the accurate points from Answers 0 and 2 into a clean, error-free comparison.",
+    "model": "claude-sonnet-5",
+    "judge_url": "https://api.anthropic.com",
+    "candidates_sha": "8f9ce882f68132cc"
   }
 }

@@ -1,0 +1,983 @@
+{
+  "reference_grader": {
+    "scorer": "reference_grader",
+    "judges": [
+      "gemma",
+      "frontier"
+    ],
+    "n": 36,
+    "aggregate": {
+      "gemma": 0.883,
+      "frontier": 1.0
+    },
+    "by_category": {
+      "coder": {
+        "gemma": 0.789,
+        "frontier": 1.0
+      },
+      "reasoning": {
+        "gemma": 0.911,
+        "frontier": 1.0
+      },
+      "general": {
+        "gemma": 0.95,
+        "frontier": 1.0
+      }
+    },
+    "per_query": [
+      {
+        "id": "coder-dedupe-order",
+        "category": "coder",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "coder-bug-mutable-default",
+        "category": "coder",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "coder-sql-param",
+        "category": "coder",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "coder-async-gather",
+        "category": "coder",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "coder-git-undo-commit",
+        "category": "coder",
+        "scores": {
+          "gemma": 0.333,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.115,
+            "samples": [
+              0.4,
+              0.2,
+              0.4
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "coder-bigo-nested",
+        "category": "coder",
+        "scores": {
+          "gemma": 0.333,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.115,
+            "samples": [
+              0.4,
+              0.4,
+              0.2
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "reason-prime-337",
+        "category": "reasoning",
+        "scores": {
+          "gemma": 0.8,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              0.8,
+              0.8,
+              0.8
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "reason-trains",
+        "category": "reasoning",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "reason-bat-ball",
+        "category": "reasoning",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "reason-work-rate",
+        "category": "reasoning",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "reason-logic-cards",
+        "category": "reasoning",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "reason-compound",
+        "category": "reasoning",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "gen-mutex-1sentence",
+        "category": "general",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "gen-tcp-udp",
+        "category": "general",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "gen-photosynthesis",
+        "category": "general",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "gen-email-decline",
+        "category": "general",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "gen-analogy-cache",
+        "category": "general",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "gen-summarize-pros-cons",
+        "category": "general",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "coder-float-equality",
+        "category": "coder",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "coder-mutate-while-iterating",
+        "category": "coder",
+        "scores": {
+          "gemma": 0.4,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              0.4,
+              0.4,
+              0.4
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "coder-shallow-copy",
+        "category": "coder",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "coder-threads-vs-processes",
+        "category": "coder",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "coder-bare-except",
+        "category": "coder",
+        "scores": {
+          "gemma": 0.4,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              0.4,
+              0.4,
+              0.4
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "coder-string-concat-loop",
+        "category": "coder",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "reason-monty-hall",
+        "category": "reasoning",
+        "scores": {
+          "gemma": 0.4,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              0.4,
+              0.4,
+              0.4
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "reason-avg-speed",
+        "category": "reasoning",
+        "scores": {
+          "gemma": 0.8,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              0.8,
+              0.8,
+              0.8
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "reason-lily-pad",
+        "category": "reasoning",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "reason-handshakes",
+        "category": "reasoning",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "reason-clock-angle",
+        "category": "reasoning",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "reason-socks-pigeonhole",
+        "category": "reasoning",
+        "scores": {
+          "gemma": 0.933,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.115,
+            "samples": [
+              0.8,
+              1.0,
+              1.0
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "gen-https-explain",
+        "category": "general",
+        "scores": {
+          "gemma": 0.8,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              0.8,
+              0.8,
+              0.8
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "gen-api-vs-library",
+        "category": "general",
+        "scores": {
+          "gemma": 0.8,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              0.8,
+              0.8,
+              0.8
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "gen-recursion-analogy",
+        "category": "general",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "gen-inflation-explain",
+        "category": "general",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "gen-apology-email",
+        "category": "general",
+        "scores": {
+          "gemma": 0.8,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              0.8,
+              0.8,
+              0.8
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": "gen-ev-vs-gas",
+        "category": "general",
+        "scores": {
+          "gemma": 1.0,
+          "frontier": 1.0
+        },
+        "detail": {
+          "gemma": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          },
+          "frontier": {
+            "stdev": 0.0,
+            "samples": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      }
+    ],
+    "mean_grader_stdev": {
+      "gemma": 0.01,
+      "frontier": 0.0
+    },
+    "grader_samples": 3,
+    "head_to_head": {
+      "gemma": 0,
+      "frontier": 11,
+      "tie": 25
+    },
+    "grader": {
+      "model": "claude-sonnet-5",
+      "host": "api.anthropic.com",
+      "vendor": "anthropic",
+      "favors": "frontier",
+      "independent": false
+    }
+  }
+}
