@@ -1,8 +1,33 @@
 # HANDOFF — resume here
 
-Last updated: 2026-07-12 (end of session). Read this + `design.md` to resume cold.
-**v0.5→v3 all done, and the judge eval has now had its rigor pass. Nothing running, $0.
-Next is v4 (MCP), or unblock the one remaining rigor item (pairwise — needs grader quota).**
+Last updated: **2026-07-12 (end of session).** Read this + `design.md` to resume cold.
+Nothing running. No instances. No live spend authorization. **$0.**
+
+> ## ⚠️ ALL OF THIS LIVES ON BRANCH `v3-judge-eval-rigor` — **NOT** ON `main` (PR #9, open)
+>
+> **`main` IS STALE AND WRONG.** Its `docs/HANDOFF.md` still says *"v3 thesis is proven — the
+> small self-hosted judge holds up"*, which was **retracted**, and `orchestrator/divergence.py`
+> (the instrument that produced the real result) **does not exist on `main` at all.**
+>
+> ```sh
+> git checkout v3-judge-eval-rigor   # <- do this FIRST. Do not trust main's docs.
+> ```
+>
+> PR #9 is mergeable and clean; it was deliberately left open because every one of the three
+> review rounds found real bugs (two of them introduced by the previous round's fixes).
+> Merge it when you're satisfied — or review once more first.
+
+**THE ONE NEXT ACTION: write HARDER QUERIES, then re-run `orchestrator/divergence.py`.**
+No GPU boot, no API key, ~$1. See the READ FIRST block below for why — the current measurement
+is *ceiling-limited* (31/36 queries are pinned at the grader's maximum), so **the verdict is
+not settled** and the fleet cannot yet be diagnosed. *Not* v4, *not* pairwise, *not* a new
+fleet — those are all downstream.
+
+**Verify the world still works in 10 seconds, for $0:**
+```sh
+python3 orchestrator/judge_eval.py --score      # replays the published run: 0.883 / 1.000, 0 live calls
+python3 orchestrator/divergence.py --demo       # self-checks (all 5 modules have one)
+```
 
 ## 🔴 READ FIRST — the fleet has no HEADROOM for a judge. Fix the fleet, not the judge.
 
