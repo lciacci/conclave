@@ -113,7 +113,14 @@ Other corrections a future session must not re-derive (full detail in
   checkout: nothing read `eval_fixtures/`. The defaults are now the frozen run's config, so
   the safe path is the default and you must opt IN to spend.)
 
-### ⚠️ ALSO BLOCKED ON THE HUMAN — an OpenAI API key (for pairwise, AFTER select mode)
+### (Demoted — NOT a blocker) an OpenAI API key, for pairwise on a FUTURE fleet
+
+**No longer the ask.** Pairwise was previously "the most valuable next step"; it isn't. On a
+fleet with **+0.028 headroom**, a sharper judge metric just measures the wrong thing more
+precisely. `PairwiseScorer` stays **built, tested, and unrun**. Escalation
+`esc-20260713-025337` is resolved as *superseded*. Pick this back up **only after** a fleet
+with real headroom exists — then the key below is genuinely useful (a third house, neutral to
+both Anthropic and Google). Details kept for that day:
 
 **Pairwise cannot run without a third-house grader key.** This is the last rigor item and
 now the most valuable one, and no amount of code fixes it. Escalation: `esc-20260713-025337`.
