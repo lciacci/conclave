@@ -26,15 +26,45 @@ The Chunk 3 headline ("Gemma ties the frontier on 15/18 — the small judge hold
    of its scale. **Pairwise (blinded, both-orders) is the fix — it is BUILT AND TESTED but
    UNRUN**, blocked only on grader quota (below).
 
+### ⚠️ BLOCKED ON THE HUMAN — an OpenAI API key (the one outstanding ask)
+
+**Pairwise cannot run without a third-house grader key.** This is the last rigor item and
+now the most valuable one, and no amount of code fixes it. Escalation: `esc-20260713-025337`.
+
+**Why OpenAI specifically, and not just more Gemini quota.** The grader must be neutral to
+*both* contestants. The frontier judge is **Anthropic** (claude-sonnet-5) and the in-fleet
+judge is **Gemma — a GOOGLE model**. So Gemini is *not* an independent grader: it shares a
+house with the local judge and biases toward our own thesis, which is the direction a
+skeptic attacks first. **OpenAI is the only available third house**, neutral to both — it
+removes the `--bracket` bounds workaround entirely and gives a single clean number.
+(Billing on the Gemini key would lift the quota but would NOT fix the bias; it only buys
+the upper-bound arm of the bracket.)
+
+**When the key arrives — no boot needed, ~5 minutes, ~$0.10:**
+```sh
+# 1. store it (run in YOUR OWN terminal — do not paste a key into a Claude session)
+aws ssm put-parameter --name /conclave/grader-api-key --type SecureString --overwrite \
+  --value 'sk-...' --profile yeti-conclave
+
+# 2. run pairwise. GRADER_* = the neutral grader; JUDGE_* = the frontier judge being graded.
+export JUDGE_URL=https://api.anthropic.com JUDGE_MODEL=claude-sonnet-5 \
+  JUDGE_API_KEY=$(aws ssm get-parameter --name /conclave/judge-api-key --with-decryption \
+    --profile yeti-conclave --query Parameter.Value --output text)
+export GRADER_URL=https://api.openai.com GRADER_MODEL=gpt-5.2 \
+  GRADER_API_KEY=$(aws ssm get-parameter --name /conclave/grader-api-key --with-decryption \
+    --profile yeti-conclave --query Parameter.Value --output text)
+python3 orchestrator/judge_eval.py --score --pairwise --save
+```
+`_grader_bias()` will now return `None` (neutral), so `--pairwise` stops refusing. Candidates,
+judgments and the grader memo are all frozen in `eval_fixtures/` — **the GPU stays off.**
+
+**What pairwise is expected to settle:** the ceiling effect (#3 above). Reference grading
+pins the frontier at a saturated 1.000 and cannot measure its headroom over Gemma. Pairwise
+is blinded and grades BOTH orders, so position bias is cancelled and *reported* (any flip
+lands in `diagnostics.position_flips`) rather than hiding in the variance.
+
 ### The ONE next action (pick)
-- **(a) Unblock pairwise** — the last rigor item, and now the most valuable one. Needs
-  either **billing on the Gemini key** (free tier is ~20 requests/**day**/model — a daily
-  quota, *not* a rate limit, so **no pacing fixes it**; the pairwise arm needs 72+ calls),
-  or **an OpenAI key**, which is strictly better: a third house, neutral to *both*
-  Anthropic (frontier judge) and Google (**Gemma is a Google model**) — that removes the
-  `--bracket` workaround entirely. Then: `judge_eval.py --score --pairwise`. **No boot
-  needed** — candidates + judgments + grader memo are all frozen in `eval_fixtures/`.
-  Escalation: `esc-20260713-025337`.
+- **(a) Unblock pairwise** — see the blocked-on-the-human block above. Needs the OpenAI key.
 - **(b) v4 — MCP front-end.** An MCP server as the structured interface to the platform;
   the OpenAI-compatible gateway already makes any such client first-class.
 
