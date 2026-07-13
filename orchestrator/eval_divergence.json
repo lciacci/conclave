@@ -1,10 +1,6 @@
 {
   "headroom": {
     "value": 0.0278,
-    "ci95": [
-      0.0031,
-      0.0524
-    ],
     "oracle": 0.9611,
     "best_single_model": "coder",
     "best_single_score": 0.9334,
@@ -13,10 +9,30 @@
       "general": 0.8722,
       "reasoning": 0.7741
     },
-    "verdict": "ENSEMBLE NOT WORTH IT \u2014 no judge can beat one model here; route or cascade instead",
-    "note": "headroom = ORACLE (perfect judge) - BEST SINGLE MODEL. The entire value the ensemble+judge pattern can ever buy on this fleet. A real judge captures a fraction of it \u2014 possibly a negative fraction."
+    "verdict": "ENSEMBLE NOT WORTH IT \u2014 no judge can beat one model here; route or cascade  [NOT RESOLVED at n=36: the 0.05 threshold lies inside the 95% CI, so NOT-WORTH-IT vs MARGINAL is not distinguishable. More queries needed to settle it.]",
+    "verdict_resolved": false,
+    "queries_at_grader_ceiling": 31,
+    "queries_with_live_headroom": 5,
+    "ceiling_note": "31/36 queries have the best candidate already at the grader's maximum, where headroom is 0 BY CONSTRUCTION. The headroom is earned on only 5 queries.",
+    "note": "headroom = ORACLE (perfect judge) - BEST SINGLE MODEL. The entire value the ensemble+judge pattern can ever buy on this fleet. A real judge captures a fraction of it \u2014 possibly a negative fraction.",
+    "ci95": [
+      0.0031,
+      0.0524
+    ],
+    "ci_note": "Lower bound is vacuous: headroom >= 0 by construction, so 'excludes 0' is guaranteed and is NOT evidence. Judge the UPPER bound against the verdict threshold.",
+    "best_single_is_significant": false,
+    "best_single_margin_ci95": [
+      -0.0136,
+      0.1359
+    ],
+    "runner_up": "general"
   },
   "n": 36,
+  "query_set": "base",
+  "queries_in_set": 36,
+  "missing_candidates": [],
+  "skipped_incomplete": [],
+  "skipped_ungraded": [],
   "meaningful_spread_threshold": 0.1,
   "divergent": 24,
   "degenerate": 12,
@@ -40,11 +56,17 @@
       "mean_spread": 0.272
     }
   },
-  "best_candidate_counts": {
-    "coder": 31,
+  "strict_win_counts": {
+    "coder": 4,
     "general": 4,
-    "reasoning": 1
+    "reasoning": 0
   },
+  "tied_at_top_counts": {
+    "coder": 27,
+    "general": 23,
+    "reasoning": 18
+  },
+  "queries_tied_at_top": 28,
   "per_query": [
     {
       "id": "coder-dedupe-order",
@@ -54,11 +76,17 @@
         "reasoning": 0.867,
         "general": 1.0
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
       "best_score": 1.0,
       "spread": 0.133,
       "all_correct": false,
-      "divergent": true
+      "divergent": true,
+      "at_ceiling": true
     },
     {
       "id": "coder-bug-mutable-default",
@@ -68,11 +96,17 @@
         "reasoning": 1.0,
         "general": 0.867
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder",
+        "reasoning"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
       "best_score": 1.0,
       "spread": 0.133,
       "all_correct": false,
-      "divergent": true
+      "divergent": true,
+      "at_ceiling": true
     },
     {
       "id": "coder-sql-param",
@@ -82,11 +116,17 @@
         "reasoning": 0.4,
         "general": 1.0
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
       "best_score": 1.0,
       "spread": 0.6,
       "all_correct": false,
-      "divergent": true
+      "divergent": true,
+      "at_ceiling": true
     },
     {
       "id": "coder-async-gather",
@@ -96,11 +136,17 @@
         "reasoning": 0.0,
         "general": 1.0
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
       "best_score": 1.0,
       "spread": 1.0,
       "all_correct": false,
-      "divergent": true
+      "divergent": true,
+      "at_ceiling": true
     },
     {
       "id": "coder-git-undo-commit",
@@ -110,11 +156,16 @@
         "reasoning": 0.0,
         "general": 0.6
       },
-      "best_candidate": "general",
+      "best_candidates": [
+        "general"
+      ],
+      "strict_winner": "general",
+      "tied_at_top": false,
       "best_score": 0.6,
       "spread": 0.6,
       "all_correct": false,
-      "divergent": true
+      "divergent": true,
+      "at_ceiling": false
     },
     {
       "id": "coder-bigo-nested",
@@ -124,11 +175,17 @@
         "reasoning": 1.0,
         "general": 0.2
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder",
+        "reasoning"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
       "best_score": 1.0,
       "spread": 0.8,
       "all_correct": false,
-      "divergent": true
+      "divergent": true,
+      "at_ceiling": true
     },
     {
       "id": "reason-prime-337",
@@ -138,11 +195,17 @@
         "reasoning": 1.0,
         "general": 0.6
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder",
+        "reasoning"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
       "best_score": 1.0,
       "spread": 0.4,
       "all_correct": false,
-      "divergent": true
+      "divergent": true,
+      "at_ceiling": true
     },
     {
       "id": "reason-trains",
@@ -152,11 +215,18 @@
         "reasoning": 1.0,
         "general": 1.0
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder",
+        "reasoning",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
       "best_score": 1.0,
       "spread": 0.0,
       "all_correct": true,
-      "divergent": false
+      "divergent": false,
+      "at_ceiling": true
     },
     {
       "id": "reason-bat-ball",
@@ -166,11 +236,18 @@
         "reasoning": 1.0,
         "general": 1.0
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder",
+        "reasoning",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
       "best_score": 1.0,
       "spread": 0.0,
       "all_correct": true,
-      "divergent": false
+      "divergent": false,
+      "at_ceiling": true
     },
     {
       "id": "reason-work-rate",
@@ -180,11 +257,18 @@
         "reasoning": 1.0,
         "general": 1.0
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder",
+        "reasoning",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
       "best_score": 1.0,
       "spread": 0.0,
       "all_correct": true,
-      "divergent": false
+      "divergent": false,
+      "at_ceiling": true
     },
     {
       "id": "reason-logic-cards",
@@ -194,11 +278,17 @@
         "reasoning": 1.0,
         "general": 0.2
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder",
+        "reasoning"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
       "best_score": 1.0,
       "spread": 0.8,
       "all_correct": false,
-      "divergent": true
+      "divergent": true,
+      "at_ceiling": true
     },
     {
       "id": "reason-compound",
@@ -208,11 +298,18 @@
         "reasoning": 1.0,
         "general": 1.0
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder",
+        "reasoning",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
       "best_score": 1.0,
       "spread": 0.0,
       "all_correct": true,
-      "divergent": false
+      "divergent": false,
+      "at_ceiling": true
     },
     {
       "id": "gen-mutex-1sentence",
@@ -222,11 +319,17 @@
         "reasoning": 0.8,
         "general": 1.0
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
       "best_score": 1.0,
       "spread": 0.2,
       "all_correct": false,
-      "divergent": true
+      "divergent": true,
+      "at_ceiling": true
     },
     {
       "id": "gen-tcp-udp",
@@ -236,11 +339,17 @@
         "reasoning": 0.8,
         "general": 1.0
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
       "best_score": 1.0,
       "spread": 0.2,
       "all_correct": false,
-      "divergent": true
+      "divergent": true,
+      "at_ceiling": true
     },
     {
       "id": "gen-photosynthesis",
@@ -250,11 +359,16 @@
         "reasoning": 0.667,
         "general": 0.8
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder"
+      ],
+      "strict_winner": "coder",
+      "tied_at_top": false,
       "best_score": 1.0,
       "spread": 0.333,
       "all_correct": false,
-      "divergent": true
+      "divergent": true,
+      "at_ceiling": true
     },
     {
       "id": "gen-email-decline",
@@ -264,11 +378,17 @@
         "reasoning": 0.4,
         "general": 1.0
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
       "best_score": 1.0,
       "spread": 0.6,
       "all_correct": false,
-      "divergent": true
+      "divergent": true,
+      "at_ceiling": true
     },
     {
       "id": "gen-analogy-cache",
@@ -278,11 +398,17 @@
         "reasoning": 0.867,
         "general": 1.0
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
       "best_score": 1.0,
       "spread": 0.133,
       "all_correct": false,
-      "divergent": true
+      "divergent": true,
+      "at_ceiling": true
     },
     {
       "id": "gen-summarize-pros-cons",
@@ -292,11 +418,16 @@
         "reasoning": 0.8,
         "general": 0.8
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder"
+      ],
+      "strict_winner": "coder",
+      "tied_at_top": false,
       "best_score": 1.0,
       "spread": 0.2,
       "all_correct": false,
-      "divergent": true
+      "divergent": true,
+      "at_ceiling": true
     },
     {
       "id": "coder-float-equality",
@@ -306,11 +437,17 @@
         "reasoning": 1.0,
         "general": 1.0
       },
-      "best_candidate": "reasoning",
+      "best_candidates": [
+        "reasoning",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
       "best_score": 1.0,
       "spread": 0.2,
       "all_correct": false,
-      "divergent": true
+      "divergent": true,
+      "at_ceiling": true
     },
     {
       "id": "coder-mutate-while-iterating",
@@ -320,11 +457,16 @@
         "reasoning": 0.467,
         "general": 1.0
       },
-      "best_candidate": "general",
+      "best_candidates": [
+        "general"
+      ],
+      "strict_winner": "general",
+      "tied_at_top": false,
       "best_score": 1.0,
       "spread": 0.533,
       "all_correct": false,
-      "divergent": true
+      "divergent": true,
+      "at_ceiling": true
     },
     {
       "id": "coder-shallow-copy",
@@ -334,11 +476,18 @@
         "reasoning": 1.0,
         "general": 1.0
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder",
+        "reasoning",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
       "best_score": 1.0,
       "spread": 0.0,
       "all_correct": true,
-      "divergent": false
+      "divergent": false,
+      "at_ceiling": true
     },
     {
       "id": "coder-threads-vs-processes",
@@ -348,11 +497,18 @@
         "reasoning": 1.0,
         "general": 1.0
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder",
+        "reasoning",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
       "best_score": 1.0,
       "spread": 0.0,
       "all_correct": true,
-      "divergent": false
+      "divergent": false,
+      "at_ceiling": true
     },
     {
       "id": "coder-bare-except",
@@ -362,11 +518,16 @@
         "reasoning": 0.2,
         "general": 0.533
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder"
+      ],
+      "strict_winner": "coder",
+      "tied_at_top": false,
       "best_score": 0.6,
       "spread": 0.4,
       "all_correct": false,
-      "divergent": true
+      "divergent": true,
+      "at_ceiling": false
     },
     {
       "id": "coder-string-concat-loop",
@@ -376,11 +537,17 @@
         "reasoning": 1.0,
         "general": 0.6
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder",
+        "reasoning"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
       "best_score": 1.0,
       "spread": 0.4,
       "all_correct": false,
-      "divergent": true
+      "divergent": true,
+      "at_ceiling": true
     },
     {
       "id": "reason-monty-hall",
@@ -390,11 +557,17 @@
         "reasoning": 0.8,
         "general": 1.0
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
       "best_score": 1.0,
       "spread": 0.2,
       "all_correct": false,
-      "divergent": true
+      "divergent": true,
+      "at_ceiling": true
     },
     {
       "id": "reason-avg-speed",
@@ -404,11 +577,18 @@
         "reasoning": 1.0,
         "general": 1.0
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder",
+        "reasoning",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
       "best_score": 1.0,
       "spread": 0.0,
       "all_correct": true,
-      "divergent": false
+      "divergent": false,
+      "at_ceiling": true
     },
     {
       "id": "reason-lily-pad",
@@ -418,11 +598,18 @@
         "reasoning": 1.0,
         "general": 1.0
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder",
+        "reasoning",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
       "best_score": 1.0,
       "spread": 0.0,
       "all_correct": true,
-      "divergent": false
+      "divergent": false,
+      "at_ceiling": true
     },
     {
       "id": "reason-handshakes",
@@ -432,11 +619,18 @@
         "reasoning": 1.0,
         "general": 1.0
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder",
+        "reasoning",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
       "best_score": 1.0,
       "spread": 0.0,
       "all_correct": true,
-      "divergent": false
+      "divergent": false,
+      "at_ceiling": true
     },
     {
       "id": "reason-clock-angle",
@@ -446,11 +640,18 @@
         "reasoning": 1.0,
         "general": 1.0
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder",
+        "reasoning",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
       "best_score": 1.0,
       "spread": 0.0,
       "all_correct": true,
-      "divergent": false
+      "divergent": false,
+      "at_ceiling": true
     },
     {
       "id": "reason-socks-pigeonhole",
@@ -460,11 +661,18 @@
         "reasoning": 1.0,
         "general": 1.0
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder",
+        "reasoning",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
       "best_score": 1.0,
       "spread": 0.0,
       "all_correct": true,
-      "divergent": false
+      "divergent": false,
+      "at_ceiling": true
     },
     {
       "id": "gen-https-explain",
@@ -474,11 +682,16 @@
         "reasoning": 0.6,
         "general": 0.8
       },
-      "best_candidate": "general",
+      "best_candidates": [
+        "general"
+      ],
+      "strict_winner": "general",
+      "tied_at_top": false,
       "best_score": 0.8,
       "spread": 0.2,
       "all_correct": false,
-      "divergent": true
+      "divergent": true,
+      "at_ceiling": false
     },
     {
       "id": "gen-api-vs-library",
@@ -488,11 +701,18 @@
         "reasoning": 0.8,
         "general": 0.8
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder",
+        "reasoning",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
       "best_score": 0.8,
       "spread": 0.0,
       "all_correct": false,
-      "divergent": false
+      "divergent": false,
+      "at_ceiling": false
     },
     {
       "id": "gen-recursion-analogy",
@@ -502,11 +722,16 @@
         "reasoning": 0.8,
         "general": 0.8
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder"
+      ],
+      "strict_winner": "coder",
+      "tied_at_top": false,
       "best_score": 1.0,
       "spread": 0.2,
       "all_correct": false,
-      "divergent": true
+      "divergent": true,
+      "at_ceiling": true
     },
     {
       "id": "gen-inflation-explain",
@@ -516,11 +741,17 @@
         "reasoning": 0.733,
         "general": 1.0
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
       "best_score": 1.0,
       "spread": 0.267,
       "all_correct": false,
-      "divergent": true
+      "divergent": true,
+      "at_ceiling": true
     },
     {
       "id": "gen-apology-email",
@@ -530,11 +761,17 @@
         "reasoning": 0.6,
         "general": 0.8
       },
-      "best_candidate": "coder",
+      "best_candidates": [
+        "coder",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
       "best_score": 0.8,
       "spread": 0.2,
       "all_correct": false,
-      "divergent": true
+      "divergent": true,
+      "at_ceiling": false
     },
     {
       "id": "gen-ev-vs-gas",
@@ -544,11 +781,16 @@
         "reasoning": 0.267,
         "general": 1.0
       },
-      "best_candidate": "general",
+      "best_candidates": [
+        "general"
+      ],
+      "strict_winner": "general",
+      "tied_at_top": false,
       "best_score": 1.0,
       "spread": 0.733,
       "all_correct": false,
-      "divergent": true
+      "divergent": true,
+      "at_ceiling": true
     }
   ],
   "grader": {

@@ -23,6 +23,8 @@ weak judge will happily pick — because n=18 discriminated less than we wanted.
 """
 from __future__ import annotations
 
+import os
+
 QUERY_SET: list[dict] = [
     # ---------- coder: code-writing / debugging (Qwen-Coder expected strongest) ----------
     {"id": "coder-dedupe-order", "category": "coder",
@@ -151,6 +153,30 @@ QUERY_SET: list[dict] = [
      "prompt": "Give a balanced, compact comparison of electric vs petrol cars — two points in favor of each.",
      "reference": "EV: much lower running/fuel and maintenance cost; no tailpipe emissions (cleaner in use, cleaner still on a low-carbon grid). Petrol: fast refuelling and dense refuelling network; lower purchase price and no range/charging anxiety on long trips. Balanced, no advocacy."},
 ]
+
+
+def active_set_name() -> str:
+    """base (default) | hard | all — selected by $CONCLAVE_QUERYSET.
+
+    Defaults to `base` so every existing command keeps replaying the frozen, published
+    run for $0. You must opt IN to the hard set."""
+    name = os.environ.get("CONCLAVE_QUERYSET", "base").strip().lower()
+    if name not in ("base", "hard", "all"):
+        raise SystemExit(f"CONCLAVE_QUERYSET must be base|hard|all, got {name!r}")
+    return name
+
+
+def active_query_set(name: str | None = None) -> list[dict]:
+    """The query set the eval tools should run against.
+
+    `hard` is the UNSATURATED set (eval_queryset_hard.py): the base 36 pinned 31 of their
+    best candidates at the grader's ceiling, where headroom is 0 by construction, so the
+    fleet could not be diagnosed with them."""
+    name = name or active_set_name()
+    if name == "base":
+        return QUERY_SET
+    from eval_queryset_hard import HARD_QUERY_SET
+    return HARD_QUERY_SET if name == "hard" else QUERY_SET + HARD_QUERY_SET
 
 
 def by_category() -> dict[str, list[dict]]:
