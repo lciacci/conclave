@@ -44,6 +44,29 @@
 #   IDLE_MIN         — idle-stop window, default 20.
 set -euo pipefail
 
+# RunPod injects the pod's env vars into PID 1 ONLY. An SSH session gets a fresh
+# environment from sshd and inherits NONE of them — so RUNPOD_API_KEY, HF_TOKEN and
+# RUNPOD_POD_ID are all empty when this script is run over SSH, even though they are
+# correctly configured on the pod. Without this, the kill-switch check below fails
+# closed and refuses to boot a perfectly good pod. Pull anything missing from PID 1.
+for v in RUNPOD_API_KEY RUNPOD_POD_ID HF_TOKEN MAX_LIFETIME_MIN IDLE_MIN; do
+  eval "cur=\${$v:-}"
+  if [ -z "$cur" ] && [ -r /proc/1/environ ]; then
+    val=$(tr '\0' '\n' < /proc/1/environ | grep "^$v=" | cut -d= -f2- || true)
+    [ -n "$val" ] && export "$v=$val"
+  fi
+done
+
+# A pod's environment is FIXED AT CONTAINER START: editing the RunPod secret does not
+# reach a running pod. So a bad/underscoped key cannot be rotated without rebuilding
+# the pod — unless there is an override. /workspace/.runpod_key is that override, and
+# it WINS over the env var. (It lives on the persistent volume, mode 0600.)
+if [ -r /workspace/.runpod_key ]; then
+  RUNPOD_API_KEY="$(tr -d '[:space:]' < /workspace/.runpod_key)"
+  export RUNPOD_API_KEY
+  echo "using RUNPOD_API_KEY from /workspace/.runpod_key (overrides pod env)"
+fi
+
 MAX_LIFETIME_MIN="${MAX_LIFETIME_MIN:-120}"
 IDLE_MIN="${IDLE_MIN:-20}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
