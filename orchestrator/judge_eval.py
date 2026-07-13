@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import functools
 import hashlib
+import ipaddress
 import json
 import os
 import re
@@ -483,13 +484,24 @@ def judge_over_cache(cache: dict[str, list[dict]], judge_cfg: EnsembleConfig,
         catastrophe for an eval: a stale key 401s, every "judge" row becomes the coder's
         raw answer, and we would grade and PUBLISH that as the judge's output). Failed
         rows are NOT cached, so they are retried instead of frozen in."""
-    keep = {} if refresh else {
-        qid: j for qid, j in (prior or {}).items()
-        if j.get("model") == judge_cfg.judge_model
-    }
-    dropped = len(prior or {}) - len(keep) if not refresh else 0
-    if dropped:
-        print(f"  {dropped} prior judgment(s) from a different judge model — re-judging")
+    mismatched = [qid for qid, j in (prior or {}).items()
+                  if j.get("model") != judge_cfg.judge_model]
+    if mismatched and not refresh:
+        # REFUSE, do not "announce and proceed". Silently re-judging these would REWRITE
+        # a published artifact and spend real money — and the way you get here is by
+        # simply forgetting to set JUDGE_MODEL, since _frontier_from_env() defaults to
+        # gpt-5.2 while the frozen run is claude-sonnet-5. A destructive default must be
+        # a refusal, not a warning (this repo's gate convention).
+        was = sorted({(prior or {})[q].get("model") for q in mismatched})
+        sys.exit(
+            f"REFUSING to re-judge: {len(mismatched)} existing judgment(s) were made by "
+            f"{was}, but the configured judge is '{judge_cfg.judge_model}'.\n"
+            f"Carrying them over would mix two judges in one file; re-judging them would "
+            f"overwrite a frozen result and cost real API calls.\n"
+            f"  - Meant to keep the existing run? Set JUDGE_MODEL={was[0]!r}.\n"
+            f"  - Meant to re-judge everything with '{judge_cfg.judge_model}'? "
+            f"Re-run with --refresh.")
+    keep = {} if refresh else dict(prior or {})
     out: dict[str, dict] = dict(keep)
     failed = 0
     for qid, cands in cache.items():
@@ -499,11 +511,14 @@ def judge_over_cache(cache: dict[str, list[dict]], judge_cfg: EnsembleConfig,
         if not q:
             continue
         j = run_judge(q["prompt"], cands, judge_cfg, call)
-        if j.get("rationale", "").startswith("judge failed:"):
+        if j.get("error"):
             # Do NOT cache. run_judge's fallback answer is a raw candidate, not a
             # judgment — caching it would publish a specialist's answer as the judge's,
             # and the incremental carry-over would never retry it.
-            print(f"  JUDGE FAILED on {qid}: {j['rationale']} — not cached", file=sys.stderr)
+            # Branch on the STRUCTURED `error` field, never on the rationale wording:
+            # a string sentinel would break silently the moment ensemble.py rewords its
+            # message, quietly restoring exactly this bug.
+            print(f"  JUDGE FAILED on {qid}: {j['error']} — not cached", file=sys.stderr)
             failed += 1
             continue
         out[qid] = {k: j[k] for k in ("answer", "chosen", "rationale", "model")}
@@ -798,12 +813,42 @@ def demo() -> None:
     out_failed = judge_over_cache(cache, EnsembleConfig(judge_model="general"), dead_judge)
     assert out_failed == {}, f"a failed judge must NOT be cached, got {out_failed}"
 
-    # (3) A prior row judged by a DIFFERENT model must not be silently carried over.
+    # The guard branches on the STRUCTURED `error` field, not on rationale wording — a
+    # string sentinel would break silently the moment ensemble.py rewords its message.
+    # Pin the contract in both directions.
+    from ensemble import run_judge as _rj
+    _cands = [{"model": "coder", "content": "RAW CANDIDATE", "latency_s": 0.1, "error": None}]
+    _failed = _rj("q", _cands, EnsembleConfig(), dead_judge)
+    assert _failed["error"], "run_judge must flag a failed judge in `error`"
+    assert _failed["answer"] == "RAW CANDIDATE", \
+        "the fallback answer IS a raw candidate — which is exactly why it must not be cached"
+
+    # ...but an UNPARSED judge reply is NOT an error: the judge did answer, just not as
+    # JSON. That row is a real (degraded) judgment and MUST still be cached, or a
+    # non-guided backend would score as if the judge never replied.
+    def prose_judge(base_url, model, messages, timeout, response_format=None):
+        return "I prefer answer 1, it is more precise."
+    _prose = _rj("q", _cands, EnsembleConfig(), prose_judge)
+    assert _prose["error"] is None, "an unparsed-but-real reply is not an error"
+    kept = judge_over_cache(cache, EnsembleConfig(judge_model="general"), prose_judge)
+    assert len(kept) == len(cache), "unparsed-but-real judgments are still cached"
+
+    # (3) A prior row judged by a DIFFERENT model must not be silently carried over — and
+    # must not be silently RE-judged either. Re-judging would overwrite a frozen result
+    # and spend real money, and you reach it just by forgetting JUDGE_MODEL (whose default
+    # is gpt-5.2 while the frozen run is claude-sonnet-5). It must REFUSE.
     stale = {qs[0]["id"]: {"answer": "old", "chosen": 0, "rationale": "r", "model": "gpt-5.2"}}
-    mixed = judge_over_cache(cache, EnsembleConfig(judge_model="general"), counting_judge,
-                             prior=stale)
-    assert {j["model"] for j in mixed.values()} == {"general"}, \
-        "prior rows from another judge model must be dropped and re-judged, not mixed in"
+    try:
+        judge_over_cache(cache, EnsembleConfig(judge_model="general"), counting_judge,
+                         prior=stale)
+        raise AssertionError("a judge-model mismatch must REFUSE, not silently re-judge")
+    except SystemExit:
+        pass
+    # ...and --refresh is the explicit opt-in that re-judges everything.
+    forced = judge_over_cache(cache, EnsembleConfig(judge_model="general"), counting_judge,
+                              prior=stale, refresh=True)
+    assert {j["model"] for j in forced.values()} == {"general"}, "--refresh re-judges with the new model"
+    assert len(forced) == len(cache)
 
     # (2) A query MISSING from one judge's file must be SKIPPED, not scored 0.0. This is
     # the documented growth path: expand QUERY_SET, --generate, then score without
@@ -828,6 +873,25 @@ def demo() -> None:
         raise AssertionError("pairwise must refuse a grader whose house is unverifiable")
     except SystemExit:
         pass
+
+    # THE LOCAL GATEWAY IS GEMMA'S HOUSE. An earlier fix classified it as a neutral
+    # "local" vendor, which made the guard certify Gemma-grading-its-own-judgments — the
+    # most self-biased config that exists, and a tempting one because it is free — as
+    # INDEPENDENT. Regression-guard it hard.
+    for gw in ("http://100.87.121.89:4000", "http://localhost:4000", "http://127.0.0.1:4000"):
+        assert _vendor(gw) == GEMMA_VENDOR, f"the local fleet serves Gemma: {gw}"
+        assert _grader_bias(_ANTH, gw) == "gemma", f"an in-fleet grader is NOT neutral: {gw}"
+        try:
+            _assert_independent(_ANTH, gw, strict=True)
+            raise AssertionError(f"pairwise must refuse an in-fleet grader: {gw}")
+        except SystemExit:
+            pass
+    # ...but "100." is a RANGE (Tailscale CGNAT 100.64/10), not a string prefix: a real
+    # public host must not be mistaken for our fleet.
+    assert _vendor("https://100.datacenter-isp.net") == UNVERIFIED, \
+        "a public host starting '100.' is not our Tailscale fleet"
+    assert not _is_local_fleet("100.200.1.1"), "100.200.x is outside CGNAT 100.64/10"
+    assert _is_local_fleet("100.87.121.89"), "100.87.x IS inside CGNAT 100.64/10"
 
     # (5) The cache key covers base_url and the REFERENCE, not just the query id. Edit a
     # gold answer while keeping its id and the stale grade must not be reused.
@@ -1018,9 +1082,31 @@ def _vendor(url: str) -> str:
     for suffix, vendor in _VENDOR_SUFFIXES:
         if h.endswith(suffix) or h == suffix.lstrip("."):
             return vendor
-    if h.startswith("localhost") or h.startswith("127.") or h.startswith("100."):
-        return "local"  # our own Tailscale gateway / vLLM
+    if _is_local_fleet(h):
+        # THE LOCAL GATEWAY IS WHAT SERVES GEMMA. An earlier version of this returned a
+        # neutral "local" here, which made _grader_bias certify the single most
+        # self-biased config that exists — GRADER_URL=<gateway> GRADER_MODEL=general is
+        # Gemma grading its own judgments — as independent. A free in-fleet grader is a
+        # tempting cost saving, which is exactly why the guard must refuse it. The local
+        # fleet IS Gemma's house.
+        return GEMMA_VENDOR
     return UNVERIFIED
+
+
+def _is_local_fleet(host: str) -> bool:
+    """Our own gateway: localhost, loopback, or the Tailscale CGNAT range 100.64.0.0/10.
+
+    Range-checked, not prefix-matched: `host.startswith("100.")` is a string test that
+    also swallows a real public host like 100.datacenter-isp.net, silently classifying
+    a stranger's endpoint as our fleet."""
+    h = host.split(":")[0]  # strip :4000
+    if h == "localhost" or h.endswith(".local"):
+        return True
+    try:
+        ip = ipaddress.ip_address(h)
+    except ValueError:
+        return False
+    return ip.is_loopback or ip in ipaddress.ip_network("100.64.0.0/10")
 
 
 # The in-fleet judge is Gemma — a GOOGLE model. That is not visible from any URL (it
@@ -1107,7 +1193,8 @@ if __name__ == "__main__":
         cfg = EnsembleConfig(gateway_url=gw, judge_model="general")  # Gemma
         cache = candidate_cache.populate(cfg)          # skips already-cached queries
         prior = _load(GEMMA_JUDGMENTS) if os.path.exists(GEMMA_JUDGMENTS) else {}
-        gemma = judge_over_cache(cache, cfg, prior=prior)  # judges only the NEW ones
+        gemma = judge_over_cache(cache, cfg, prior=prior,  # judges only the NEW ones
+                                 refresh="--refresh" in sys.argv)
         _save(gemma, GEMMA_JUDGMENTS)
         print(f"cached {len(cache)} candidate sets + {len(gemma)} gemma judgments "
               f"({len(gemma) - len(prior)} new, {len(prior)} carried over)")
@@ -1120,7 +1207,8 @@ if __name__ == "__main__":
         cfg = EnsembleConfig(judge_url=base, judge_model=model)
         call = functools.partial(frontier_call, api_key=key)
         prior = _load(FRONTIER_JUDGMENTS) if os.path.exists(FRONTIER_JUDGMENTS) else {}
-        frontier = judge_over_cache(cache, cfg, call, prior=prior)  # only the NEW ones
+        frontier = judge_over_cache(cache, cfg, call, prior=prior,  # only the NEW ones
+                                    refresh="--refresh" in sys.argv)
         _save(frontier, FRONTIER_JUDGMENTS)
         print(f"cached {len(frontier)} frontier judgments ({model}) "
               f"({len(frontier) - len(prior)} new, {len(prior)} carried over)")
@@ -1196,8 +1284,11 @@ if __name__ == "__main__":
             print(f"\nsaved -> {out}")
 
     else:
-        sys.exit("usage: judge_eval.py [--demo | --generate | --frontier | "
-                 "--score [--heuristic] [--pairwise] [--bracket] [--save]]\n"
+        sys.exit("usage: judge_eval.py [--demo | --generate [--refresh] | "
+                 "--frontier [--refresh] | --score [--heuristic] [--pairwise] "
+                 "[--bracket] [--save]]\n"
+                 "  --refresh: re-judge EVERY query (overwrites frozen judgments; costs "
+                 "real calls). Required to change JUDGE_MODEL on an existing run.\n"
                  "  env: JUDGE_*   = the frontier judge under comparison (anthropic)\n"
                  "       GRADER_*  = the grader. A vendor that is NEITHER the frontier\n"
                  "                   judge's NOR google (Gemma's house) is neutral; anything\n"

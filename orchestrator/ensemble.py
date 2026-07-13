@@ -157,10 +157,19 @@ def run_judge(query: str, candidates: list[dict], cfg: EnsembleConfig, call=http
     except Exception as e:
         # Judge unreachable / rejected the request — degrade to the first valid
         # candidate rather than sink the whole ensemble (fan-out does the same).
+        #
+        # `error` is a STRUCTURED flag, and callers must branch on it, never on the
+        # wording of `rationale`. The returned `answer` here is NOT a judgment — it is
+        # some specialist's raw reply. That is right for serving (return something) and
+        # catastrophic for an eval (grading a candidate as if it were the judge's
+        # output). judge_eval keys off `error` to refuse to cache these; a caller that
+        # string-matched the rationale text would break the moment this message is
+        # reworded, silently restoring that bug.
         latency = round(time.monotonic() - t0, 3)
         fallback = next((c["content"] for c in candidates if c["content"]), None)
         return {"answer": fallback, "rationale": f"judge failed: {type(e).__name__}: {e}",
-                "chosen": -1, "model": cfg.judge_model, "latency_s": latency}
+                "error": f"{type(e).__name__}: {e}", "chosen": -1,
+                "model": cfg.judge_model, "latency_s": latency}
     latency = round(time.monotonic() - t0, 3)
     try:
         parsed = json.loads(raw)
@@ -169,9 +178,11 @@ def run_judge(query: str, candidates: list[dict], cfg: EnsembleConfig, call=http
         chosen = parsed.get("chosen", -1)
     except (ValueError, AttributeError):
         # Backend ignored json_object (older vLLM / non-guided judge) — degrade to
-        # the raw text as the answer rather than crash.
+        # the raw text as the answer rather than crash. NOT an error: the judge did
+        # reply, and the raw reply IS its answer, merely unstructured. So this row is
+        # a real (if degraded) judgment and is safe to cache.
         answer, rationale, chosen = raw, "unparsed judge output", -1
-    return {"answer": answer, "rationale": rationale, "chosen": chosen,
+    return {"answer": answer, "rationale": rationale, "chosen": chosen, "error": None,
             "model": cfg.judge_model, "latency_s": latency}
 
 
