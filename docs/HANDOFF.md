@@ -1,27 +1,98 @@
 # HANDOFF — resume here
 
-Last updated: **2026-07-12 (end of session).** Read this + `design.md` to resume cold.
-Nothing running. No instances. No live spend authorization. **$0.**
+Last updated: **2026-07-13 (end of session).** Read this + `design.md` to resume cold.
+Nothing running. No instances. **$0 spent this session.**
 
-> ## ⚠️ ALL OF THIS LIVES ON BRANCH `v3-judge-eval-rigor` — **NOT** ON `main` (PR #9, open)
+> ## ✅ PR #9 IS MERGED. `main` is now CORRECT and current. Work continues on `v3-hard-queries`.
 >
-> **`main` IS STALE AND WRONG.** Its `docs/HANDOFF.md` still says *"v3 thesis is proven — the
-> small self-hosted judge holds up"*, which was **retracted**, and `orchestrator/divergence.py`
-> (the instrument that produced the real result) **does not exist on `main` at all.**
+> The old warning that "main is stale and wrong" is **resolved** — PR #9 merged 2026-07-13, so
+> `divergence.py` and the corrected docs are on `main`. Current branch: **`v3-hard-queries`**
+> (branched off `origin/main`, one commit: `2e03a0c`).
 >
-> ```sh
-> git checkout v3-judge-eval-rigor   # <- do this FIRST. Do not trust main's docs.
-> ```
->
-> PR #9 is mergeable and clean; it was deliberately left open because every one of the three
-> review rounds found real bugs (two of them introduced by the previous round's fixes).
-> Merge it when you're satisfied — or review once more first.
+> **Local-git oddity, already diagnosed, NOT a problem:** local `main` and `origin/main` have
+> **no common ancestor** (git refuses to fast-forward). The remote history was rewritten at some
+> point — same commit messages, same author dates, different SHAs. `origin/main` is a content
+> superset of local main. If local `main` annoys you: `git reset --hard origin/main` (back it up
+> first). Nothing is lost.
 
-**THE ONE NEXT ACTION: write HARDER QUERIES, then re-run `orchestrator/divergence.py`.**
-No GPU boot, no API key, ~$1. See the READ FIRST block below for why — the current measurement
-is *ceiling-limited* (31/36 queries are pinned at the grader's maximum), so **the verdict is
-not settled** and the fleet cannot yet be diagnosed. *Not* v4, *not* pairwise, *not* a new
-fleet — those are all downstream.
+**THE ONE NEXT ACTION: BOOT THE FLEET and generate candidates for the HARD query set.**
+Everything else is done, committed, and verified offline. **You are blocked ONLY on GPU
+capacity** — see the escalation block below.
+
+> ### ⛔ CORRECTION — the previous HANDOFF was WRONG about this step's cost.
+> It said *"write HARDER QUERIES, then re-run divergence.py. **No GPU boot, no API key, ~$1.**"*
+> **That is false.** New queries have **no cached candidates**, and candidates come only from the
+> **self-hosted fleet**. There is no offline path: grading the hard set **REQUIRES A GPU BOOT.**
+> Realistic cost: **~$3–5** (~45–75 min on a g6e + ~270 small grader calls). Budget accordingly.
+
+### ⛔ BLOCKED ON CAPACITY — escalation `esc-20260713-201140` (2026-07-13)
+Tried to boot and **could not**. g6e (the L40S 48GB box) is **exhausted in us-east-1**:
+- `g6e.xlarge` **on-demand** — `InsufficientInstanceCapacity` in **all four** AZs (1c/1a/1d/1b).
+- `g6e.2xlarge` **on-demand** (different pool, same single L40S, mem_utils unchanged) — **all four dry.**
+- `g6e.xlarge` **spot** (a genuinely different pool) — dry too, then the documented silent stall.
+
+**Smaller boxes are ruled out by physics, not preference:** quota is **G+VT = 8 vCPU**, and the
+3-model fleet needs **~35 GiB**, so only the **48 GB L40S** fits. Every `g5.*`/`g6.*` is a 24 GB
+A10G/L4 and **cannot hold the fleet**. Shrinking the fleet would change the very thing being
+measured (fleet decorrelation *is* the experiment).
+
+**What to do:** g6e capacity is **day-volatile** — dry in all AZs on 2026-07-09, then 1c launched
+in ~20s the next morning. **Just retry on another day:**
+```sh
+aws sso login --profile yeti-conclave
+python3 scripts/spend/authorize.py grant --usd 5 --ttl 2h --note "hard-set boot"   # RUN FROM THE REPO ROOT
+scripts/sweep-gpu-capacity.sh g6e.xlarge us-east-1c us-east-1a us-east-1d us-east-1b
+```
+Then, **on the same boot** (a second boot doubles the GPU spend for the same information):
+```sh
+CONCLAVE_QUERYSET=hard CONCLAVE_GW=<ts-ip>:4000 python3 orchestrator/candidate_cache.py   # 30 x 3 = 90 calls
+CONCLAVE_QUERYSET=hard CONCLAVE_GW=<ts-ip>:4000 python3 orchestrator/judge_eval.py --generate
+cd infra && terraform apply -var enable_gpu=false     # TEAR DOWN before grading — grading is offline
+CONCLAVE_QUERYSET=hard python3 orchestrator/divergence.py    # the headroom number
+```
+
+### 🐛 A LANDMINE FIXED THIS SESSION — `divergence.py` was CRASHING, so the "one next action" was impossible
+`print_report()` read `best_candidate_counts`, a key the round-3 fix had renamed to
+`strict_win_counts`. So `python3 orchestrator/divergence.py` died with `KeyError` **before**
+`json.dump` — the report never saved. `--demo` never called the renderer, which is how three
+review rounds missed it. Fixed; the demo now renders into a buffer so a missing key fails the
+self-check. The committed `eval_divergence.json` **could not have been written by that code**;
+regenerating it reproduces the numbers exactly (+0.0278, 31/36 at ceiling) and adds the round-3
+fields the crash had prevented from ever being written.
+
+### 🧪 THE HARD QUERY SET — `orchestrator/eval_queryset_hard.py` (n=30, 10/category)
+The instrument that replaces the ceiling-limited base 36. **PRE-REGISTERED: written and frozen
+BEFORE any candidate was generated.** Do **not** re-word a query after seeing which model wins —
+that selects for disagreement and *manufactures* the headroom this exists to measure. If a query
+is broken, **delete** it and say so.
+
+Why the base 36 can't settle anything: **31 of them pin the best candidate at the grader's
+maximum**, where headroom is 0 *by construction*. Their references are single-point facts
+($0.05; 3 minutes), so a model that lands the point scores 5/5 and saturates. Every hard
+reference instead enumerates **several independently checkable components**, giving the grader
+resolution in the range these models actually occupy.
+
+**Both outcomes are informative:** headroom still ~0 on *unsaturated* queries ⇒ the fleet is
+genuinely **REDUNDANT** (route or cascade, don't judge). Headroom appears ⇒ the ceiling was
+hiding real disagreement and the ensemble+judge question is live again.
+
+Two gold references were **factually wrong** and were fixed before any candidate existed (both
+would have marked *correct* answers down): `functools.lru_cache` is **not** built on
+`OrderedDict`, and RFC 9110 defines **four** safe methods (TRACE was missing).
+
+### ⚠️ Select the query set with `$CONCLAVE_QUERYSET=base|hard|all` (default `base`)
+All candidate/judgment/report/divergence paths are now **scoped per set**. They were fixed at the
+base filenames, so a hard-set `--generate` would have **overwritten the frozen published run**.
+The base set keeps its historical filenames and still replays byte-for-byte for **$0**.
+`judge_eval.py` and `divergence.py` both honour the selector; a query the fleet never answered is
+now reported **loudly** instead of silently vanishing from `n`.
+
+### 🐞 Known bug, not yet fixed: the spend guard's `AUTH_PATH` is relative to CWD
+`scripts/spend/authorize.py` writes `.tessera/spend-auth.json` **relative to wherever you are**.
+Grant from `~` and it lands in `~/.tessera/` and the guard (which also resolves relative to cwd)
+never sees it. Fails *closed* there, which is safe — but it can also fail **OPEN**: run an agent
+from a directory holding a stale grant and it is authorized by accident. **Resolve `AUTH_PATH`
+against the repo root.** Always run the grant **from the repo root** until this is fixed.
 
 **Verify the world still works in 10 seconds, for $0:**
 ```sh
