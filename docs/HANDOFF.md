@@ -1,7 +1,65 @@
 # HANDOFF — resume here
 
-Last updated: 2026-07-11 (end of session). Read this + `design.md` to resume cold.
-**v3 thesis is proven — v0.5→v3 all done. Next is a rigor pass on the judge eval, or v4 (MCP). No work in flight, nothing running, $0.**
+Last updated: 2026-07-12 (end of session). Read this + `design.md` to resume cold.
+**v0.5→v3 all done, and the judge eval has now had its rigor pass. Nothing running, $0.
+Next is v4 (MCP), or unblock the one remaining rigor item (pairwise — needs grader quota).**
+
+## READ FIRST — the rigor pass CHANGED the v3 conclusion (2026-07-12)
+
+The Chunk 3 headline ("Gemma ties the frontier on 15/18 — the small judge holds up") was
+**too generous, and one of its caveats was flat wrong.** Full writeup:
+`docs/chunk3-judge-eval-results.md`. The three things a future session must not re-derive:
+
+1. **The old query set was too easy.** Expanded 18 → 36 with trap questions (Monty Hall,
+   the 40-vs-45 average-speed trap, bare `except`). The new block discriminates **2.6×
+   better** — Gemma loses 44% of trap queries vs 17% of the originals. Much of the
+   original "tie" rate was the *questions* failing to separate the judges, not the judges
+   being equal. **n=36 result: Gemma 0.883 ± 0.010 vs frontier 1.000, 0 win / 25 tie /
+   11 loss**, weakness concentrated in **coder (0.789)**.
+2. **The "grader self-bias" caveat was FALSE.** We assumed Sonnet's perfect 1.000 for its
+   own judge was self-flattery. It is not: an out-of-house Gemini grader also scores the
+   frontier judge **1.000** (inflation **+0.000**, n=10), and barely flatters Gemma either
+   (+0.013). Cross-vendor graders agree → reference grading is *robust*, and Gemma's gap
+   is **real**. Do not "correct" for a self-bias that does not exist.
+3. **The real flaw is a CEILING EFFECT.** The frontier saturates at 1.000 for *both*
+   graders on all 36 queries with zero variance. Reference grading cannot resolve the top
+   of its scale. **Pairwise (blinded, both-orders) is the fix — it is BUILT AND TESTED but
+   UNRUN**, blocked only on grader quota (below).
+
+### The ONE next action (pick)
+- **(a) Unblock pairwise** — the last rigor item, and now the most valuable one. Needs
+  either **billing on the Gemini key** (free tier is ~20 requests/**day**/model — a daily
+  quota, *not* a rate limit, so **no pacing fixes it**; the pairwise arm needs 72+ calls),
+  or **an OpenAI key**, which is strictly better: a third house, neutral to *both*
+  Anthropic (frontier judge) and Google (**Gemma is a Google model**) — that removes the
+  `--bracket` workaround entirely. Then: `judge_eval.py --score --pairwise`. **No boot
+  needed** — candidates + judgments + grader memo are all frozen in `eval_fixtures/`.
+  Escalation: `esc-20260713-025337`.
+- **(b) v4 — MCP front-end.** An MCP server as the structured interface to the platform;
+  the OpenAI-compatible gateway already makes any such client first-class.
+
+### Judge-eval harness — what changed, and 3 landmines it defused
+`--generate` [boot] / `--frontier` [offline] / `--score [--pairwise|--bracket|--heuristic]`
+[offline]. **Re-scoring costs $0** — the grader memo (`GradeCache`) is committed, so
+`--score` replays from cache with zero API calls. Env: `JUDGE_*` = the frontier judge under
+comparison; `GRADER_*` = the grader; `GRADER_SAMPLES` = N samples (>1 gives error bars).
+
+Three **pre-existing bugs in committed code**, found only by running it rigorously:
+- **`claude-sonnet-5` now REJECTS `temperature`** ("deprecated for this model"). The old
+  `frontier_call` hardcoded `temperature=0` → **`--frontier` was already broken**. Now
+  retries without it on rejection.
+- **No retry anywhere.** A bracket run is 200–400 sequential calls; runs died at 4:41 and
+  5:26 to one transient 503/429 and lost everything. Now backs off honoring `Retry-After`
+  and **paces under RPM caps** — bursting into a per-minute cap and backing off is the
+  wrong shape.
+- **`judge_over_cache` re-judged everything** → growing the query set would have silently
+  **rewritten the frozen 18's judgments**, breaking comparability and voiding every cached
+  grade. Now incremental.
+
+**Grader bias is a VENDOR property, not a hostname one.** A `grader_host != judge_host`
+check waves through a Gemini grader even though Gemma is Google's. `_grader_bias()` encodes
+this; `--pairwise` **refuses** a colliding grader (open pairwise has no reference to anchor
+the bias against), and `--bracket` runs both biased graders as explicit **bounds**.
 
 ## Where we are
 
@@ -12,30 +70,21 @@ Last updated: 2026-07-11 (end of session). Read this + `design.md` to resume col
   LiteLLM gateway — reasoning had NO byte-marker leak (Qwen distill fix holds). Per-model cost
   accounting prints (`response_cost` matched configured $/token exactly). GPUUtil idle-stop metric
   flowed. Torn down, $0 spend. One landmine hit + fixed (see below), fixes committed.
-- **v3 (ensemble + judge):** ✅ **thesis proven (2026-07-11).** Chunk 1 fixed + Chunk 2 done
-  (2026-07-10) + Chunk 3 judge eval done (2026-07-11, below); Chunk 4 dismissed. The core v3 arc is
-  complete — remaining is optional rigor upgrades or v4 (MCP front-end).
+- **v3 (ensemble + judge):** ✅ **built, and now rigorously measured (2026-07-12).** Chunk 1 fixed +
+  Chunk 2 done (2026-07-10) + Chunk 3 judge eval (2026-07-11) + **rigor pass (2026-07-12, see the
+  READ FIRST block above — it revised the conclusion downward)**; Chunk 4 dismissed. The core v3 arc
+  is complete. Remaining: pairwise (quota-blocked) or v4 (MCP front-end).
 
-## The ONE next action
-
-**v3 is functionally done. Pick one:**
-- **(a) Rigor pass on the judge eval** (no boot needed for most of it): add a cross-vendor
-  independent grader to kill the self-bias (below), a `PairwiseScorer` (blinded + position-
-  randomized), N grader samples for variance, and a bigger query set. Then one boot to re-`--generate`
-  if the query set grows. This turns the demoable result into a defensible one.
-- **(b) v4 — MCP front-end.** An MCP server as the structured interface to the platform; the
-  OpenAI-compatible gateway already makes any such client first-class.
-
-### Chunk 3 result — judge eval (2026-07-11, the v3 thesis). Full writeup: `docs/chunk3-judge-eval-results.md`.
-"Does the in-fleet Gemma-9B judge hold up vs a frontier judge (Claude Sonnet 5)?" **Yes.** 18 queries
-(6/6/6), reference-anchored grading. **Gemma 0.89–0.91 vs frontier 1.00; tied on 15/18**, matching the
-frontier on general + reasoning, trailing only on code (0.77). The local heuristic (keyword) says
+### Chunk 3 result — judge eval (2026-07-11, the v3 thesis) — **SUPERSEDED, see READ FIRST above**
+Kept for the record. "Does the in-fleet Gemma-9B judge hold up vs a frontier judge (Claude Sonnet 5)?"
+The original answer was **"yes"**: 18 queries (6/6/6), reference-anchored grading, **Gemma 0.89–0.91
+vs frontier 1.00, tied on 15/18**, trailing only on code (0.77). **The rigor pass showed this was too
+generous** — the query set was too easy (the tie rate collapses to 25/36 on harder questions), and the
+"grader self-bias" caveat it leaned on turned out to be **false**. The local heuristic (keyword) says
 frontier 0.69 vs Gemma 0.37 — an ARTIFACT (it scores phrasing-overlap with the reference, not
-correctness); it's a CI backstop, not the number. **Caveats:** grader self-bias (Sonnet grades
-Sonnet's own judge → a non-discriminating 1.000, so the true gap is smaller than shown); single grader
-sample (re-run moved Gemma 0.911→0.889); n=18. These are the rigor-pass targets in (a).
+correctness); it's a CI backstop, not the number.
 
-**Harness (built + committed this chunk):** `orchestrator/eval_queryset.py` (18 labeled Qs),
+**Harness (built + committed this chunk):** `orchestrator/eval_queryset.py` (now 36 labeled Qs),
 `candidate_cache.py` (one boot caches candidates, eval iterates offline), `judge_eval.py` (pluggable
 Scorer: LocalHeuristic + ReferenceGrader; provider-agnostic keyed judge/grader; phases `--generate`
 [boot] / `--frontier` / `--score`). Frozen run + report in `orchestrator/eval_fixtures/` — re-score

@@ -16,8 +16,10 @@ Each item:
   reference — concise gold answer / the key points a correct answer must contain.
               Used by a reference-based scorer; harmless to a pairwise scorer.
 
-~6 per category. Kept deliberately short so a boot generates all candidates fast
-and a human can eyeball the judge's picks.
+12 per category (n=36, expanded from 18 in the rigor pass). Kept deliberately short
+so a boot generates all candidates fast and a human can eyeball the judge's picks.
+The second block of 12 leans on TRAP questions — ones with a fluent wrong answer a
+weak judge will happily pick — because n=18 discriminated less than we wanted.
 """
 from __future__ import annotations
 
@@ -81,6 +83,73 @@ QUERY_SET: list[dict] = [
     {"id": "gen-summarize-pros-cons", "category": "general",
      "prompt": "Give two pros and two cons of remote work, in a compact bulleted list.",
      "reference": "Pros: flexibility/no commute, wider talent/focus time. Cons: isolation/collaboration friction, blurred work-life boundaries. Balanced, concise."},
+
+    # ======================= RIGOR PASS: n 18 -> 36 =======================
+    # Second block, added for the rigor pass. Same 6-per-category balance. These
+    # lean harder on TRAPS — questions with a plausible wrong answer a weak model
+    # reaches for (bare `except`, 45 km/h, 1/2 on Monty Hall). A judge that can
+    # only pattern-match fluency picks the trap; a judge that reasons rejects it.
+    # That is the discrimination the first 18 were light on.
+
+    # ---------- coder ----------
+    {"id": "coder-float-equality", "category": "coder",
+     "prompt": "Why does `0.1 + 0.2 == 0.3` return False in Python, and how should I compare floats instead?",
+     "reference": "Binary floating point cannot represent 0.1/0.2/0.3 exactly, so the sum is 0.30000000000000004. Compare with math.isclose(a, b) (or an explicit tolerance), never ==."},
+    {"id": "coder-mutate-while-iterating", "category": "coder",
+     "prompt": "This skips elements: `for x in xs: if x < 0: xs.remove(x)`. Why, and what's the correct way?",
+     "reference": "Removing during iteration shifts subsequent elements left while the internal index advances, so items are skipped. Build a new list instead: xs = [x for x in xs if x >= 0] (or iterate over a copy, xs[:])."},
+    {"id": "coder-shallow-copy", "category": "coder",
+     "prompt": "I did `b = a.copy()` on a list of lists, then changed `b[0][0]` and `a` changed too. Why, and how do I avoid it?",
+     "reference": "list.copy() is shallow — the outer list is new but the inner lists are the same objects. Use copy.deepcopy(a) for an independent nested copy."},
+    {"id": "coder-threads-vs-processes", "category": "coder",
+     "prompt": "For a CPU-bound Python workload, should I use threads or processes? Why?",
+     "reference": "Processes (multiprocessing / ProcessPoolExecutor). The GIL lets only one thread execute Python bytecode at a time, so threads give no CPU parallelism; they only help I/O-bound work, where the GIL is released while waiting."},
+    {"id": "coder-bare-except", "category": "coder",
+     "prompt": "What's wrong with writing `try: ... except: pass` in Python?",
+     "reference": "A bare except catches BaseException — including KeyboardInterrupt and SystemExit — so it swallows Ctrl-C and shutdown, and `pass` hides real bugs. Catch the specific exception, or `except Exception` at minimum, and log it."},
+    {"id": "coder-string-concat-loop", "category": "coder",
+     "prompt": "Building a big string by doing `s += part` inside a loop over 100k parts is slow. Why, and what's the fix?",
+     "reference": "Strings are immutable, so each += allocates a new string and copies everything so far — O(n^2) total. Collect the parts in a list and use ''.join(parts), which is O(n)."},
+
+    # ---------- reasoning ----------
+    {"id": "reason-monty-hall", "category": "reasoning",
+     "prompt": "On a game show there are 3 doors, a car behind one and goats behind the other two. You pick door 1. The host, who knows what's behind each door, opens door 3 to reveal a goat and offers you the switch to door 2. Should you switch?",
+     "reference": "Yes, switch. Your first pick wins 1/3 of the time; switching wins 2/3. The host's knowing choice moves that 2/3 onto the one remaining door. It is NOT 50/50."},
+    {"id": "reason-avg-speed", "category": "reasoning",
+     "prompt": "You drive up a hill at 60 km/h and back down the same road at 30 km/h. What is your average speed for the round trip?",
+     "reference": "40 km/h — the harmonic mean, 2*60*30/(60+30). Not 45: you spend twice as long on the slow leg, so the two speeds are not weighted equally."},
+    {"id": "reason-lily-pad", "category": "reasoning",
+     "prompt": "A patch of lily pads doubles in size every day and covers the whole lake on day 48. On what day did it cover half the lake?",
+     "reference": "Day 47. It doubles daily, so the day before it is full it is exactly half. Not day 24."},
+    {"id": "reason-handshakes", "category": "reasoning",
+     "prompt": "Ten people are at a party and each person shakes hands exactly once with every other person. How many handshakes happen in total?",
+     "reference": "45. C(10,2) = 10*9/2 = 45 — divide by 2 because each handshake involves two people and would otherwise be counted twice."},
+    {"id": "reason-clock-angle", "category": "reasoning",
+     "prompt": "What is the angle between the hour and minute hands of a clock at exactly 3:15?",
+     "reference": "7.5 degrees. The minute hand is at 90 degrees; the hour hand has moved past 3 by 15 minutes' worth: 3*30 + 15*0.5 = 97.5. Difference = 7.5. Not 0 — the hour hand does not sit on the 3."},
+    {"id": "reason-socks-pigeonhole", "category": "reasoning",
+     "prompt": "A drawer holds an unknown number of black socks and white socks, mixed at random in the dark. How many socks must you take out to be certain you have a matching pair?",
+     "reference": "3. With only 2 colors, any 3 socks must contain two of the same color (pigeonhole principle). Two socks is not enough — they could be one of each."},
+
+    # ---------- general ----------
+    {"id": "gen-https-explain", "category": "general",
+     "prompt": "In a few sentences, explain what HTTPS actually protects and what it does not.",
+     "reference": "HTTPS encrypts the traffic between browser and server and authenticates the server's identity, so an eavesdropper cannot read or tamper with the contents. It does NOT make the site itself trustworthy or safe — a phishing site can have a valid certificate; it also does not hide which site you visited."},
+    {"id": "gen-api-vs-library", "category": "general",
+     "prompt": "What's the difference between an API and a library? Explain simply.",
+     "reference": "A library is code you pull into your own program and call directly. An API is an interface/contract for talking to something else — often over a network, on someone else's machine. A library ships to you; an API is something you call out to. (A library also has an API — its public surface.)"},
+    {"id": "gen-recursion-analogy", "category": "general",
+     "prompt": "Give a simple everyday analogy that explains recursion, including why it needs a base case.",
+     "reference": "Like standing in a line and asking the person ahead 'how many people are in front of you?', each passing the question forward until someone at the front says 'zero' and the answers come back +1 each. The base case is the front of the line — without it the question passes forever (infinite recursion / stack overflow)."},
+    {"id": "gen-inflation-explain", "category": "general",
+     "prompt": "Explain inflation, and why a little is considered healthy, to someone with no economics background.",
+     "reference": "Inflation is prices rising over time, so each unit of money buys less. A low, steady rate (~2%) is considered healthy: it encourages spending/investing rather than hoarding cash, and gives central banks room to cut rates in a downturn. Deflation (falling prices) is worse — people delay purchases and the economy stalls."},
+    {"id": "gen-apology-email", "category": "general",
+     "prompt": "Write a short, professional email apologizing to a client for missing an agreed deadline, giving a new date and not making excuses.",
+     "reference": "Short, takes clear ownership without blaming or over-explaining, states the concrete new delivery date, says what is being done to hold it, offers to talk. Professional and direct, not grovelling."},
+    {"id": "gen-ev-vs-gas", "category": "general",
+     "prompt": "Give a balanced, compact comparison of electric vs petrol cars — two points in favor of each.",
+     "reference": "EV: much lower running/fuel and maintenance cost; no tailpipe emissions (cleaner in use, cleaner still on a low-carbon grid). Petrol: fast refuelling and dense refuelling network; lower purchase price and no range/charging anxiety on long trips. Balanced, no advocacy."},
 ]
 
 
@@ -100,6 +169,7 @@ def demo() -> None:
     for q in QUERY_SET:
         assert q["prompt"].strip() and q["reference"].strip(), f"empty field in {q['id']}"
     counts = {c: len(v) for c, v in by_category().items()}
+    assert len(set(counts.values())) == 1, f"categories not balanced: {counts}"
     print(f"ok — {len(QUERY_SET)} queries, balanced: {counts}")
 
 

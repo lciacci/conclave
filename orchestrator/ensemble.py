@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import time
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 
@@ -33,6 +34,23 @@ class EnsembleConfig:
 
     def resolved_judge_url(self) -> str:
         return self.judge_url or self.gateway_url
+
+
+def _endpoint(base_url: str) -> str:
+    """Resolve the chat-completions URL for an OpenAI-compatible base.
+
+    Most vendors mount the API at the host root, so base + /v1/chat/completions is
+    right (OpenAI, Anthropic's compat layer, our own LiteLLM gateway). Gemini does
+    NOT: its compat layer lives at /v1beta/openai/chat/completions — the version
+    segment comes BEFORE the compat prefix, so blindly appending /v1 gives a 404.
+
+    Rule: if the base already carries a path, the caller has pointed us at the compat
+    root themselves and we append only /chat/completions. A bare host gets the /v1."""
+    base = base_url.rstrip("/")
+    if base.endswith("/chat/completions"):        # caller passed the full endpoint
+        return base
+    has_path = urllib.parse.urlparse(base).path.strip("/")
+    return f"{base}/chat/completions" if has_path else f"{base}/v1/chat/completions"
 
 
 def http_call(base_url: str, model: str, messages: list[dict], timeout: float,
@@ -53,7 +71,7 @@ def http_call(base_url: str, model: str, messages: list[dict], timeout: float,
         payload["temperature"] = temperature
     body = json.dumps(payload).encode()
     req = urllib.request.Request(
-        f"{base_url}/v1/chat/completions",
+        _endpoint(base_url),
         data=body,
         headers={"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"},
     )
@@ -224,7 +242,15 @@ def demo() -> None:
     assert [c["model"] for c in par] == cfg.candidates, "order preserved"
     assert all(c["error"] is None for c in par), "no errors on the happy path"
     assert wall < 0.5, f"threads did not overlap: wall={wall}s"
-    print("ok — ensemble pipeline + judge parse + parallel fan-out verified offline")
+
+    # Endpoint resolution — a bare host takes /v1; a base that already carries the
+    # compat path does not (Gemini mounts at /v1beta/openai, so /v1 would 404).
+    assert _endpoint("http://localhost:4000") == "http://localhost:4000/v1/chat/completions"
+    assert _endpoint("https://api.anthropic.com") == "https://api.anthropic.com/v1/chat/completions"
+    assert _endpoint("https://generativelanguage.googleapis.com/v1beta/openai") == \
+        "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+    assert _endpoint("https://x.com/v1/chat/completions") == "https://x.com/v1/chat/completions"
+    print("ok — ensemble pipeline + judge parse + parallel fan-out + endpoint resolution verified offline")
 
 
 if __name__ == "__main__":
