@@ -4,29 +4,7 @@ Last updated: 2026-07-12 (end of session). Read this + `design.md` to resume col
 **v0.5→v3 all done, and the judge eval has now had its rigor pass. Nothing running, $0.
 Next is v4 (MCP), or unblock the one remaining rigor item (pairwise — needs grader quota).**
 
-## READ FIRST — the rigor pass CHANGED the v3 conclusion (2026-07-12)
-
-The Chunk 3 headline ("Gemma ties the frontier on 15/18 — the small judge holds up") was
-**too generous, and one of its caveats was flat wrong.** Full writeup:
-`docs/chunk3-judge-eval-results.md`. The three things a future session must not re-derive:
-
-1. **The old query set was too easy.** Expanded 18 → 36 with trap questions (Monty Hall,
-   the 40-vs-45 average-speed trap, bare `except`). The new block discriminates **2.6×
-   better** — Gemma loses 44% of trap queries vs 17% of the originals. Much of the
-   original "tie" rate was the *questions* failing to separate the judges, not the judges
-   being equal. **n=36 result: Gemma 0.883 ± 0.010 vs frontier 1.000, 0 win / 25 tie /
-   11 loss**, weakness concentrated in **coder (0.789)**.
-2. **The "grader self-bias" caveat was FALSE.** We assumed Sonnet's perfect 1.000 for its
-   own judge was self-flattery. It is not: an out-of-house Gemini grader also scores the
-   frontier judge **1.000** (inflation **+0.000**, n=10), and barely flatters Gemma either
-   (+0.013). Cross-vendor graders agree → reference grading is *robust*, and Gemma's gap
-   is **real**. Do not "correct" for a self-bias that does not exist.
-3. **The real flaw is a CEILING EFFECT.** The frontier saturates at 1.000 for *both*
-   graders on all 36 queries with zero variance. Reference grading cannot resolve the top
-   of its scale. **Pairwise (blinded, both-orders) is the fix — it is BUILT AND TESTED but
-   UNRUN**, blocked only on grader quota (below).
-
-### 🔴🔴 READ FIRST — THE ENSEMBLE DOES NOT PAY. The v3 thesis has a negative result.
+## 🔴🔴 READ FIRST — THE ENSEMBLE DOES NOT PAY. The v3 thesis has a negative result.
 
 Measured 2026-07-12 (`orchestrator/divergence.py`, frozen in `eval_divergence.json`,
 reproduce for $0). Nobody had ever run the baseline: **is a judged ensemble better than
@@ -63,7 +41,35 @@ This is a genuine negative result and it is *worth having* — it is the kind of
 lab exists to find. It does NOT say "meta-reasoners over specialised outputs is a bad
 pattern"; it says **this fleet has almost no diversity for a judge to exploit.**
 
-### The ONE next action, if you still want a judge metric — `select` mode. No key, no boot.
+### The judge-vs-judge numbers (secondary now — and three claims were RETRACTED)
+
+Kept because they are still the best judge-quality data we have, but they are **downstream**
+of the finding above: improving a judge cannot recover value that isn't there.
+
+**n=36, reference-graded:** Gemma **0.883** vs frontier **1.000**; paired gap **0.117, 95% CI
+[0.045, 0.188], p ≈ 0.003**. Real *under this rubric* — but see the three retractions:
+
+1. ❌ **RETRACTED: "the trap block discriminates 2.6× better."** **Not significant** (Fisher
+   p = 0.146; Welch p ≈ 0.40). And the traps aren't traps — **every specialist answered every
+   trap correctly**, so no fluent wrong answer was ever on the table.
+2. ❌ **RETRACTED: "the grader self-bias caveat was FALSE."** Over-claimed. Correct: *no
+   self-bias was **detected**, by an instrument with no resolution where it would show* — you
+   cannot measure upward inflation on a variable pinned at the ceiling. The n=10 Gemini grades
+   behind that claim are **not committed** and cannot be replayed.
+3. ❌ **RETRACTED: "± 0.010 is the resolution floor."** That is grader *replication* noise (33
+   of 36 items have stdev exactly 0). The statistic that bounds the claim is the **paired SEM
+   = 0.0366**; the real floor is ≈0.07. `--score` now prints it — quote that, not the ±.
+
+**Still standing:** the frontier judge sets `chosen == -1` on **34/36** — it ignores the
+candidates and **writes its own answer**, so its 1.000 is largely "a frontier model answers an
+easy question", not judging skill. **Gemma cannot win**; "0 wins" is arithmetic.
+
+**Replay is real and free:** `python3 orchestrator/judge_eval.py --score` — **no env, no keys**
+— reproduces 0.883/1.000 for **$0** from a fresh clone. (It previously crashed on a clean
+checkout; nothing read `eval_fixtures/`. Defaults are now the frozen run's config, so the safe
+path is the default and you must opt IN to spend.)
+
+### If you still want a judge metric (AFTER fixing the fleet) — `select` mode. No key, no boot.
 
 An adversarial review (2026-07-12, three independent reviewers) found the eval **does not
 measure judging**. The frontier judge sets `chosen == -1` on **34 of 36** queries — it
@@ -244,9 +250,12 @@ built + **live-smoke-verified** 2026-07-08; live harness in `orchestrator/harnes
   `infra/variables.tf` + `user-data.sh.tftpl`. Sequential start kept (still needed).
 - **Chunk 2 — contention baseline. ✅ DONE 2026-07-10.** +30% tax → multi-GPU not justified (result
   block above).
-- **Chunk 3 — judge eval (the thesis payload). ✅ DONE 2026-07-11.** Gemma judge 0.89–0.91 vs frontier
-  1.00, tied 15/18 → a small self-hosted judge holds up. Full result + caveats above and in
-  `docs/chunk3-judge-eval-results.md`. Harness committed; frozen run in `orchestrator/eval_fixtures/`.
+- **Chunk 3 — judge eval (the thesis payload). ✅ DONE, then CORRECTED.** The 2026-07-11 claim
+  ("Gemma 0.89–0.91 vs frontier 1.00, tied 15/18 → a small self-hosted judge holds up") is
+  **WITHDRAWN** — see the READ FIRST block at the top. n=36 gives Gemma 0.883 vs 1.000, and the
+  **ensemble as a whole scores below a single model**, which is the finding that matters. Full
+  correction in `docs/chunk3-judge-eval-results.md`. Harness + frozen run in
+  `orchestrator/eval_fixtures/` (replays for $0).
 - **Chunk 4 — multi-GPU. ✗ DISMISSED by the Chunk 2 baseline (+30% ≠ worth 4× cost).** Not on the
   path unless a later need (32B coder headroom, failure isolation) reopens it — then: pick box
   (g5.12xlarge vs g6e.12xlarge), per-GPU placement (`CUDA_VISIBLE_DEVICES`/pinning), measure delta.
