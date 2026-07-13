@@ -21,51 +21,132 @@ re-run of it. Grading: **3 samples per answer** with variance. Frozen in
 `orchestrator/eval_fixtures/`; re-score for **$0** with `judge_eval.py --score` (the
 grader memo is committed, so no API calls).
 
+> ## ⚠️ READ THIS BEFORE QUOTING ANY NUMBER BELOW
+>
+> A later adversarial review (2026-07-12, three independent reviewers) found that **this
+> eval does not measure what its headline says it measures.** The number reproduces; the
+> *interpretation* was wrong in three ways. Corrections are inline below and summarized
+> in "What the evidence actually supports". The short version:
+>
+> 1. **The two judges are not doing the same task.** The frontier judge sets
+>    `chosen == -1` on **34 of 36** queries — it *ignores the candidates and writes its
+>    own answer*. Its 1.000 is substantially "Claude Sonnet 5 answers an easy question
+>    that has a gold reference", **not** judging skill. **Gemma therefore cannot win**;
+>    "0 wins" is arithmetic, not a finding.
+> 2. **The error bar was the wrong statistic**, overstating precision ~4×.
+> 3. **The "2.6× discrimination" headline is not statistically significant** (p = 0.146),
+>    and the trap questions did not function as traps.
+
 ## Result — n=36, reference-graded (grader: Claude Sonnet 5)
 
 | | Gemma judge | frontier judge |
 |---|---|---|
-| **reference-grade (0–1)** | **0.883 ± 0.010** | **1.000 ± 0.000** |
-| — coder | 0.789 | 1.000 |
-| — reasoning | 0.911 | 1.000 |
-| — general | 0.950 | 1.000 |
-| head-to-head | **0 win / 25 tie / 11 loss** | |
+| **reference-grade (0–1)** | **0.883** | **1.000** |
+| — coder | 0.789 ± 0.090 | 1.000 |
+| — reasoning | 0.911 ± 0.051 | 1.000 |
+| — general | 0.950 ± 0.026 | 1.000 |
+| head-to-head | 0 win / 25 tie / 11 loss — **but see the ceiling caveat** | |
 
-`±` is the mean per-item grader stdev over 3 samples. **A gap smaller than ±0.010 is
-not resolved by this eval.** The 0.117 gap is ~12× that, so it is real signal, not noise.
+**The error bar that bounds the claim** (paired over the 36 items, which is the sample
+that matters — the queries are a sample from a population of possible queries):
 
-## What the rigor pass actually changed
+| | |
+|---|---|
+| paired gap (frontier − gemma) | **0.117** |
+| SEM | **0.0366** |
+| 95% CI on the gap | **[0.045, 0.188]** |
+| t (35 df), p | 3.19, **p ≈ 0.003** |
 
-**1. The query set was too easy, and that inflated the original result.** Splitting
-n=36 by block:
+**The gap is real — but it is 3.2× its error bar, not 12×, and the CI admits a gap as
+small as 0.045.** An earlier version of this doc quoted `± 0.010` as the resolution floor.
+That is the *grader replication noise* (how much one grader wobbles when asked twice —
+and 33 of 36 items have stdev exactly 0.000), which says nothing about sampling error
+across queries. The real resolution floor is ≈0.07 (2 SEM), ~7× larger. `judge_eval.py`
+now prints the paired SEM alongside, precisely so this is not misread again.
+
+## What the rigor pass changed — and where it over-claimed
+
+**1. THE DEEPEST FLAW: the two judges are not performing the same task.** This was missed
+by the rigor pass and found by a later adversarial review. It undercuts the whole
+comparison:
+
+| | frontier (sonnet-5) | gemma |
+|---|---|---|
+| `chosen == -1` — synthesized, **ignored the candidates** | **34/36** | 2/36 |
+| mean answer length | 995 chars | 491 chars |
+
+The frontier judge **writes its own fresh answer on 34 of 36 items.** So its 1.000
+substantially measures *"Claude Sonnet 5 answers an easy question that has a gold
+reference"* — not judging skill. Its perfect score is over-determined, and **this, not the
+0–5 scale, is the real mechanism behind the ceiling.**
+
+The consequence is severe: with the frontier pinned at the metric maximum on all 36 items,
+the head-to-head collapses to *"count of items where Gemma < 1.0."* **Gemma cannot win.**
+Reporting "0 wins / 25 ties / 11 losses" as a two-sided comparison is misleading — it is a
+one-sided count.
+
+**The single highest-leverage fix is not pairwise.** `EnsembleConfig.mode` already supports
+`"select"`. Running the eval in *select* mode — or grading `chosen` against a per-query
+best-candidate label — would force both judges to actually **judge**, removing the ceiling
+**without needing any third-party grader key at all**. That reframes the open work below.
+
+**2. "The query set was too easy" — DIRECTIONALLY RIGHT, but the headline number is NOT
+SIGNIFICANT.**
 
 | block | Gemma mean | Gemma loses |
 |---|---|---|
 | original 18 | 0.915 | 3/18 (17%) |
-| new 18 (traps) | 0.852 | **8/18 (44%)** |
+| new 18 (traps) | 0.852 | 8/18 (44%) |
 
-The trap block discriminates **2.6× better**. The Chunk 3 headline — "ties the frontier
-on 15 of 18" — was substantially a statement about the *questions*, not the judge: a
-query both judges answer correctly cannot tell them apart. Under questions that actually
-separate them, Gemma's deficit widens and its tie rate collapses. **This is the single
-most important finding of the rigor pass**, and it cuts against the thesis.
+An earlier version of this doc called this "**2.6× better discrimination**" and "the single
+most important finding". **It does not survive a significance test:** Fisher exact on 3/18
+vs 8/18 gives **p = 0.146**; Welch on the block means gives **p ≈ 0.40**. The "2.6×" is
+8/3 on raw counts, with a risk-ratio CI spanning roughly [0.8, 9] — entirely
+noise-compatible at n=18 vs n=18. It is also confounded: the blocks differ in question
+*form* (the new coder items are "why?" explanation questions).
 
-**2. The "grader self-bias" caveat was FALSE.** Chunk 3 assumed Sonnet's perfect 1.000
-for its own judge was self-flattery, and that the true gap was therefore *smaller* than
-shown. It is not. An **out-of-house grader (Gemini, no stake in Claude)** scores the
-frontier judge **1.000 as well** — self-bias inflation **+0.000** (n=10 subsample). It
-barely flatters Gemma either (0.860 vs Anthropic's 0.847, +0.013). Two graders from
-different houses agree closely, which is a **validity signal for reference-anchored
-grading**: the instrument is robust across vendors, and Gemma's deficit is real, not a
-grading artifact. The gap is not smaller than shown. If anything it was understated,
-because the questions were easy.
+**And the traps are not traps.** All three specialists answered *every* trap question
+correctly (checked: avg-speed, Monty Hall, lily-pad, work-rate, clock-angle, socks,
+bat-ball). No fluent wrong answer was ever on the table for a judge to fall for, so the
+queryset's stated premise was never exercised. What the trap block actually measured was
+whether the judge's *write-up* was complete enough to earn 5/5 against a more explanatory
+reference — e.g. Gemma's Monty Hall answer, *"Yes, you should switch."*, is **correct** and
+scored 2/5 for terseness.
 
-**3. The real instrument flaw is a CEILING EFFECT, not bias.** The frontier judge
-saturates at 1.000 **for both graders**, on every one of 36 queries, with zero variance.
-Reference-anchored 0–5 grading cannot resolve the top of its own scale — it can show
-*that* Gemma trails but not *how far*, and it can never show the frontier improving.
-**Pairwise (blinded, both-orders) is the instrument that fixes this.** It is built and
-tested, and it is blocked only on grader quota (below).
+**3. "The grader self-bias caveat was FALSE" — OVER-CLAIMED. Correct wording: *no
+self-bias was detected, by an instrument that cannot detect it where it would show.***
+
+- *Gemma side:* sound in kind. Gemma sits well below the ceiling, so a grader had room to
+  move it and didn't (Gemini 0.860 vs Anthropic 0.847, +0.013). Real, if weak (n=10),
+  evidence that reference grading is robust across vendors.
+- *Frontier side (+0.000):* **not a refutation.** The frontier is pinned at the top of the
+  scale for *both* graders. **You cannot measure upward inflation on a variable that
+  cannot go up.** A self-biased Sonnet and a lenient Gemini produce the identical
+  observation; the test does not discriminate the hypotheses. This is in direct tension
+  with the ceiling finding — both can be literally true, but "the caveat was FALSE" is an
+  inference the ceiling *forbids*.
+- **The n=10 Gemini grades are not committed.** All 216 entries in the grade cache key to
+  `api.anthropic.com`. The claim that overturned a published caveat has **no committed
+  artifact and cannot be replayed.** Treat it as an unreplicated note, not a result.
+
+**4. Data hygiene, in the published run.** `gen-apology-email`'s Gemma answer is a JSON
+*object*, not a string; it was `str()`-formatted into the grader prompt as a **Python dict
+repr** and graded 0.8. `reason-socks-pigeonhole`'s Gemma answer contains a literal
+`<h1>3</h1>`. Fixed at the boundary in code (`_as_text`), but the **published 0.883 includes
+that dict-repr grade** — it is one item of 36 and does not move the conclusion, but it is a
+blemish on the frozen artifact and is recorded here rather than quietly re-graded.
+
+**5. "Concentrated in code (0.789)" — suggestive, not established.** Per-category SEMs at
+n=12: coder 0.789 ± 0.090, reasoning 0.911 ± 0.051, general 0.950 ± 0.026. Coder's 95% CI
+is roughly [0.61, 0.97] and **overlaps reasoning's.**
+
+**6. "Losing 11 of 36" reads as 11 judging failures. The data support about 4.**
+2 genuine correctness failures (`coder-bigo-nested` — "O(n) … due to the hash table", flatly
+wrong; `coder-git-undo-commit` — a recipe that leaves the commit on the wrong branch),
+2 genuine incompleteness on "why?" questions, and **7 are 4/5-vs-5/5 nits on answers that
+are substantively correct.** The grader rubric asks for "correct **and complete**" against
+references containing full derivations, while the judge prompt asks only for "the single
+best answer" — a rubric mismatch that penalizes terseness, not error.
 
 ## Bias control — the design, and why it is not the usual one
 
@@ -184,12 +265,39 @@ about judge quality; it remains a CI/smoke backstop only.
 3. ~~n=18, reference-anchored not pairwise.~~ **HALF-FIXED** — n=36 now, and the harder
    queries changed the conclusion. Pairwise remains blocked on grader quota.
 
-## Standing conclusion
+## Standing conclusion — what the evidence actually supports
 
-Gemma trails the frontier judge by **~0.12 absolute, losing 11 of 36 and winning none** —
-a real gap, concentrated in **code** (0.789). That is a **weaker** result than Chunk 3
-claimed. Whether it is *good enough* is a product call, not a measurement: a self-hosted
-judge that ties a frontier judge on 25 of 36 queries at zero marginal cost may still be
-the right default, and frontier remains the **baseline to beat**, never a runtime
-dependency. But "the small judge holds up" should not be stated without the coder number
-and the ceiling caveat next to it.
+> Over 36 queries, a Sonnet grader anchored to gold references scores Gemma's judged
+> answers **0.883**; the frontier judge's answers score **1.000 on every item** — but it
+> reaches that by **writing its own answer rather than judging** (`chosen == -1` on 34/36),
+> so the metric is **saturated and cannot rank the two judges**. The gap of **0.117 (95% CI
+> [0.045, 0.188], p ≈ 0.003)** is real *under this rubric*, but it mixes ~4 genuine judging
+> failures with ~7 completeness deductions on substantively correct answers. The trap block
+> did not function as a trap (every specialist answered every trap correctly), and its
+> apparent extra discrimination (p = 0.146) is not distinguishable from noise. Self-bias
+> was **not detected — by an instrument that cannot detect it at the ceiling** — and the
+> out-of-house grades supporting that claim are not committed.
+
+**So: is the self-hosted judge good enough?** *This eval cannot answer that*, and neither
+the original "the small judge holds up" nor the rigor pass's "a real 0.12 gap" should be
+quoted as if it did. What can be said honestly: Gemma produces materially shorter answers
+that a completeness-weighted rubric marks down, it has **two demonstrable correctness
+failures on code** out of 36, and it never beats a frontier judge that isn't actually
+judging. Frontier remains the **baseline to beat**, never a runtime dependency.
+
+## The fix, and it is not the one we thought
+
+The open work was "run pairwise, blocked on a grader key". That is **no longer the highest
+-leverage step.** The ceiling is caused by the frontier judge *answering instead of
+judging*, and the cure is already in the codebase:
+
+- **Run the eval in `mode="select"`** (`EnsembleConfig.mode` supports it today), or grade
+  `chosen` against a per-query best-candidate label. Either forces both judges to actually
+  **judge**, which removes the ceiling and makes "who is the better judge" answerable —
+  **with no third-party grader key and no GPU boot.**
+- Pairwise (blinded, both-orders) is still built, tested, and worth running afterwards — it
+  is the more sensitive instrument once both sides are doing the same task. It remains
+  blocked on a neutral grader key (see below).
+
+Doing pairwise *first*, on a task where one judge doesn't judge, would produce a
+more precise measurement of the wrong thing.

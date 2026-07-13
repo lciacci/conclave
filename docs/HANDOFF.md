@@ -26,7 +26,41 @@ The Chunk 3 headline ("Gemma ties the frontier on 15/18 — the small judge hold
    of its scale. **Pairwise (blinded, both-orders) is the fix — it is BUILT AND TESTED but
    UNRUN**, blocked only on grader quota (below).
 
-### ⚠️ BLOCKED ON THE HUMAN — an OpenAI API key (the one outstanding ask)
+### 🔴 THE ONE NEXT ACTION CHANGED — run the eval in `select` mode. No key, no boot, no spend.
+
+An adversarial review (2026-07-12, three independent reviewers) found the eval **does not
+measure judging**. The frontier judge sets `chosen == -1` on **34 of 36** queries — it
+**ignores the candidates and writes its own answer**. So its 1.000 is mostly *"Sonnet
+answers an easy question that has a gold reference"*, not judge quality — and since it is
+pinned at the metric maximum, **Gemma cannot win**. "0 wins / 25 ties / 11 losses" is a
+one-sided count, not a comparison.
+
+**The cure is already in the codebase and costs nothing:** `EnsembleConfig.mode` supports
+`"select"`. Run the eval with the judges forced to SELECT among the candidates (or grade
+`chosen` against a per-query best-candidate label). That makes both sides actually judge,
+removes the ceiling, and makes "which judge is better" answerable — **with no third-party
+key and no GPU boot** (candidates are frozen in `eval_fixtures/`).
+
+Do this BEFORE pairwise. Pairwise is a more sensitive instrument, but running it first
+would just measure the wrong thing more precisely.
+
+Other corrections a future session must not re-derive (full detail in
+`docs/chunk3-judge-eval-results.md`):
+- **The error bar was wrong.** `± 0.010` is grader *replication* noise. The statistic that
+  bounds the claim is the paired SEM over queries: gap **0.117, SEM 0.0366, 95% CI
+  [0.045, 0.188], p ≈ 0.003**. Real, but 3.2× its error bar — not 12×. `--score` now prints
+  this; quote it, not the ±.
+- **"Trap block discriminates 2.6× better" is NOT significant** (Fisher p = 0.146). And the
+  traps aren't traps: every specialist answered every trap correctly.
+- **"Self-bias was refuted" is over-claimed.** Correct: *no self-bias detected, by an
+  instrument with no resolution at the ceiling.* The n=10 Gemini grades supporting it are
+  **not committed** and cannot be replayed.
+- **Replay is now real.** `python3 orchestrator/judge_eval.py --score` — **no env, no keys**
+  — reproduces 0.883/1.000 for **$0** from a fresh clone. (It previously crashed on a clean
+  checkout: nothing read `eval_fixtures/`. The defaults are now the frozen run's config, so
+  the safe path is the default and you must opt IN to spend.)
+
+### ⚠️ ALSO BLOCKED ON THE HUMAN — an OpenAI API key (for pairwise, AFTER select mode)
 
 **Pairwise cannot run without a third-house grader key.** This is the last rigor item and
 now the most valuable one, and no amount of code fixes it. Escalation: `esc-20260713-025337`.
