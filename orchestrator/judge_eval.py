@@ -119,8 +119,12 @@ def frontier_call(base_url, model, messages, timeout, response_format=None, api_
             if e.code == 400 and temp is not None:
                 body = e.read().decode("utf-8", "replace")
                 if "temperature" in body.lower():
+                    # Permanent, not transient: retry immediately WITHOUT consuming an
+                    # attempt. Using `continue` here would burn one, and on the final
+                    # attempt would fall out of the loop into the "unreachable" raise.
                     temp = None
-                    continue
+                    return frontier_call(base_url, model, messages, timeout,
+                                         response_format, api_key, temperature=None)
                 raise
             if e.code not in _TRANSIENT or attempt == _RETRIES - 1:
                 raise
@@ -335,9 +339,15 @@ class ReferenceGrader:
 
         if self.cache is None:
             return go()
-        # sample index `i` is in the key: N samples of the same answer are N DISTINCT
-        # cache entries, or we would memoize the variance away to zero.
-        k = GradeCache.key("ref", self.model, self.temperature, query["id"], answer, i)
+        # Everything that can change the grade is in the key:
+        #  - base_url: --bracket shares ONE cache across two graders. Two vendors can
+        #    expose the same model string, and without the URL their grades collide.
+        #  - reference: edit a gold answer in eval_queryset.py while keeping its id and
+        #    every stale grade for it would be silently reused. The id is not the query.
+        #  - sample index i: N samples of one answer must be N DISTINCT entries, or the
+        #    variance we went to the trouble of measuring memoizes away to a fake 0.0.
+        k = GradeCache.key("ref", self.base_url, self.model, self.temperature,
+                           query["id"], query["reference"], answer, i)
         return self.cache.call_cached(k, go)
 
     def score_detail(self, query: dict, answer: str | None) -> dict:
@@ -402,7 +412,10 @@ class PairwiseScorer:
         # (tie/unparseable) and would be indistinguishable from a cache miss.
         if self.cache is None:
             return _extract_winner(go())
-        k = GradeCache.key("pair", self.model, query["id"], first, second)
+        # base_url + reference in the key, same reasoning as ReferenceGrader: one cache
+        # is shared across graders, and the reference is part of the question asked.
+        k = GradeCache.key("pair", self.base_url, self.model, query["id"],
+                           query["reference"], first, second)
         return _extract_winner(self.cache.call_cached(k, go))
 
     def score_all(self, query: dict, answers: dict[str, str | None]) -> dict[str, float]:
@@ -458,8 +471,27 @@ def judge_over_cache(cache: dict[str, list[dict]], judge_cfg: EnsembleConfig,
     we are trying to extend — the n=36 numbers would no longer be a superset of the
     published n=18 ones, and every cached grade for them would be invalidated. Growing
     the query set must ADD rows, not disturb existing ones. Pass refresh=True to
-    deliberately re-judge everything."""
-    out: dict[str, dict] = {} if refresh else dict(prior or {})
+    deliberately re-judge everything.
+
+    Two ways a carried-over row would POISON the result, both guarded here:
+      - A row judged by a DIFFERENT model. Swap JUDGE_MODEL and the prior file still
+        holds the old model's rows; they would be carried over silently and the report
+        labelled with the new model only — a file of mixed judges reported as one.
+        Prior rows whose `model` disagrees are dropped and re-judged.
+      - A row where the judge actually FAILED. run_judge degrades to a raw specialist
+        answer on any exception (sane for serving — never sink the ensemble — but a
+        catastrophe for an eval: a stale key 401s, every "judge" row becomes the coder's
+        raw answer, and we would grade and PUBLISH that as the judge's output). Failed
+        rows are NOT cached, so they are retried instead of frozen in."""
+    keep = {} if refresh else {
+        qid: j for qid, j in (prior or {}).items()
+        if j.get("model") == judge_cfg.judge_model
+    }
+    dropped = len(prior or {}) - len(keep) if not refresh else 0
+    if dropped:
+        print(f"  {dropped} prior judgment(s) from a different judge model — re-judging")
+    out: dict[str, dict] = dict(keep)
+    failed = 0
     for qid, cands in cache.items():
         if qid in out:
             continue
@@ -467,8 +499,19 @@ def judge_over_cache(cache: dict[str, list[dict]], judge_cfg: EnsembleConfig,
         if not q:
             continue
         j = run_judge(q["prompt"], cands, judge_cfg, call)
+        if j.get("rationale", "").startswith("judge failed:"):
+            # Do NOT cache. run_judge's fallback answer is a raw candidate, not a
+            # judgment — caching it would publish a specialist's answer as the judge's,
+            # and the incremental carry-over would never retry it.
+            print(f"  JUDGE FAILED on {qid}: {j['rationale']} — not cached", file=sys.stderr)
+            failed += 1
+            continue
         out[qid] = {k: j[k] for k in ("answer", "chosen", "rationale", "model")}
         print(f"  judged {qid} ({judge_cfg.judge_model})")
+    if failed:
+        print(f"  WARNING: {failed} judge call(s) failed and were NOT cached — re-run to "
+              f"retry them. The eval will refuse to score an incomplete judgment set.",
+              file=sys.stderr)
     return out
 
 
@@ -492,10 +535,29 @@ def evaluate(cache: dict, judgments: dict[str, dict[str, dict]], scorer,
     judges = list(judgments)
     per_query, by_cat = [], {}
     stdevs = {jn: [] for jn in judges}
-    for qid in cache:
-        q = QUERY_BY_ID.get(qid)
-        if not q:
-            continue
+
+    # A query MISSING from a judge's file is not a wrong answer — it is no answer, and
+    # scoring it 0.0 (or forfeiting the pairwise point) would fabricate a result. This
+    # is not hypothetical: it is exactly what happens on the documented growth path if
+    # you expand QUERY_SET, run --generate (candidates + gemma), and score WITHOUT
+    # re-running --frontier. Frontier would take a 0.0 on every new query and Gemma
+    # would "win" a comparison it never actually had. Score only queries every judge
+    # answered, and say loudly what was dropped.
+    scorable = [qid for qid in cache
+                if QUERY_BY_ID.get(qid) and all(judgments[jn].get(qid, {}).get("answer")
+                                                for jn in judges)]
+    skipped = [qid for qid in cache if QUERY_BY_ID.get(qid) and qid not in scorable]
+    if skipped:
+        missing = {jn: [q for q in skipped if not judgments[jn].get(q, {}).get("answer")]
+                   for jn in judges}
+        print(f"WARNING — {len(skipped)} query(s) NOT scored: absent from a judge's "
+              f"judgments, so no comparison exists. Missing per judge: "
+              f"{ {jn: len(v) for jn, v in missing.items()} }. "
+              f"Re-run the missing judge phase (--generate / --frontier) for a full n.",
+              file=sys.stderr)
+
+    for qid in scorable:
+        q = QUERY_BY_ID[qid]
         answers = {jn: judgments[jn].get(qid, {}).get("answer") for jn in judges}
 
         if hasattr(scorer, "score_all"):          # pairwise: needs both answers at once
@@ -527,6 +589,8 @@ def evaluate(cache: dict, judgments: dict[str, dict[str, dict]], scorer,
     report = {"scorer": scorer.name, "judges": judges, "n": len(per_query),
               "aggregate": aggregate, "by_category": by_category,
               "per_query": per_query}
+    if skipped:  # n shrank — that must be visible in the artifact, not just on stderr
+        report["skipped_unjudged"] = sorted(skipped)
     if any(stdevs[jn] for jn in judges):
         report["mean_grader_stdev"] = {jn: mean(stdevs[jn]) for jn in judges}
         report["grader_samples"] = getattr(scorer, "samples", 1)
@@ -710,8 +774,10 @@ def demo() -> None:
     def counting_judge(base_url, model, messages, timeout, response_format=None):
         judged.append(1)
         return json.dumps({"chosen": 0, "rationale": "r", "answer": "fresh answer"})
+    # model must match judge_cfg.judge_model, else the new same-model guard drops it —
+    # the real gemma judgments carry model="general" (the gateway's name for Gemma).
     frozen = {qs[0]["id"]: {"answer": "ORIGINAL", "chosen": 1, "rationale": "old",
-                            "model": "gemma"}}
+                            "model": "general"}}
     grown = judge_over_cache(cache, EnsembleConfig(judge_model="general"),
                              counting_judge, prior=frozen)
     assert grown[qs[0]["id"]]["answer"] == "ORIGINAL", "existing judgment NOT rewritten"
@@ -720,6 +786,73 @@ def demo() -> None:
     refreshed = judge_over_cache(cache, EnsembleConfig(judge_model="general"),
                                  counting_judge, prior=frozen, refresh=True)
     assert refreshed[qs[0]["id"]]["answer"] == "fresh answer", "refresh=True re-judges"
+
+    # ---- code-review regressions (PR #9). All six are "silent wrong number" bugs. ----
+
+    # (1) A FAILED judge must not be cached. run_judge degrades to a raw specialist
+    # answer on any exception — fine for serving, catastrophic for an eval: a stale key
+    # 401s and every "judge" row becomes the coder's raw answer, which we would then
+    # grade and publish as the judge's output. And the carry-over would never retry it.
+    def dead_judge(base_url, model, messages, timeout, response_format=None):
+        raise ConnectionError("401 unauthorized")
+    out_failed = judge_over_cache(cache, EnsembleConfig(judge_model="general"), dead_judge)
+    assert out_failed == {}, f"a failed judge must NOT be cached, got {out_failed}"
+
+    # (3) A prior row judged by a DIFFERENT model must not be silently carried over.
+    stale = {qs[0]["id"]: {"answer": "old", "chosen": 0, "rationale": "r", "model": "gpt-5.2"}}
+    mixed = judge_over_cache(cache, EnsembleConfig(judge_model="general"), counting_judge,
+                             prior=stale)
+    assert {j["model"] for j in mixed.values()} == {"general"}, \
+        "prior rows from another judge model must be dropped and re-judged, not mixed in"
+
+    # (2) A query MISSING from one judge's file must be SKIPPED, not scored 0.0. This is
+    # the documented growth path: expand QUERY_SET, --generate, then score without
+    # re-running --frontier. Scoring the absent judge 0.0 fabricates a Gemma "win".
+    partial = {k: v for k, v in list(strong.items())[:2]}          # gemma missing 2 of 4
+    rep_gap = evaluate(cache, {"gemma": partial, "frontier": weak}, sc)
+    assert rep_gap["n"] == 2, f"unjudged queries must not be scored, got n={rep_gap['n']}"
+    assert len(rep_gap["skipped_unjudged"]) == 2, "the skipped ids are recorded in the report"
+    assert all(pq["scores"]["gemma"] > 0 for pq in rep_gap["per_query"]), \
+        "a missing judgment must never appear as a 0.0 score"
+
+    # (4) Vendor matching is SUFFIX-based, and an unknown host is UNVERIFIED, not neutral.
+    assert _vendor("https://us-central1-aiplatform.googleapis.com/v1beta1/openai") == "google", \
+        "Gemini via Vertex is still Google — exact-host matching missed this"
+    assert _vendor("https://openrouter.ai/api/v1") == UNVERIFIED, \
+        "a reseller's host cannot establish the vendor — must not read as neutral"
+    _ANTH = "https://api.anthropic.com"
+    assert _grader_bias(_ANTH, "https://us-central1-aiplatform.googleapis.com") == "gemma"
+    assert _grader_bias(_ANTH, "https://openrouter.ai/api/v1") == UNVERIFIED
+    try:
+        _assert_independent(_ANTH, "https://openrouter.ai/api/v1", strict=True)
+        raise AssertionError("pairwise must refuse a grader whose house is unverifiable")
+    except SystemExit:
+        pass
+
+    # (5) The cache key covers base_url and the REFERENCE, not just the query id. Edit a
+    # gold answer while keeping its id and the stale grade must not be reused.
+    kb = GradeCache.key("ref", "http://a", "m", 0, "qid", "REF-1", "ans", 0)
+    assert kb != GradeCache.key("ref", "http://b", "m", 0, "qid", "REF-1", "ans", 0), "base_url in key"
+    assert kb != GradeCache.key("ref", "http://a", "m", 0, "qid", "REF-2", "ans", 0), "reference in key"
+
+    # (6) A temperature rejection on the FINAL attempt must not fall through to the
+    # "unreachable" raise — it is permanent, so it retries without consuming an attempt.
+    hostile_calls = []
+    def always_temp_hostile(base_url, model, messages, timeout, response_format=None,
+                            api_key="none", temperature=None):
+        hostile_calls.append(temperature)
+        if temperature is not None:
+            raise urllib.error.HTTPError(
+                base_url, 400, "Bad Request", {},
+                io.BytesIO(b'{"error":{"message":"`temperature` is deprecated"}}'))
+        return "score: 3"
+    g["http_call"] = always_temp_hostile
+    try:
+        assert frontier_call("https://x", "m", [{"role": "user", "content": "x"}], 10,
+                             temperature=0.3) == "score: 3"
+        assert hostile_calls == [0.3, None], f"retried without temp, no attempt burned: {hostile_calls}"
+    finally:
+        g["http_call"] = real_http
 
     # GradeCache: resumability. The subtle trap is that N samples of the SAME answer
     # must stay N distinct entries — memoize on (answer) alone and the variance we
@@ -853,16 +986,41 @@ def _host(url: str) -> str:
 
 # Which house does an endpoint belong to? Grader bias is a VENDOR/LINEAGE property,
 # not a hostname one — comparing hosts alone is the trap this table exists to close.
-_VENDORS = {
-    "api.anthropic.com": "anthropic",
-    "api.openai.com": "openai",
-    "generativelanguage.googleapis.com": "google",
-}
+# SUFFIX-matched, not exact: Gemini is also served from *.googleapis.com (Vertex, e.g.
+# us-central1-aiplatform.googleapis.com), and an exact-match table would call that
+# "independent" of Gemma and wave it straight through --pairwise. Same class of hole
+# the table was written to close, one layer down.
+_VENDOR_SUFFIXES = (
+    (".anthropic.com", "anthropic"),
+    (".openai.com", "openai"),
+    (".googleapis.com", "google"),
+    (".google.com", "google"),
+)
+
+# Hosts that RESELL other vendors' models (openrouter, together, ...). The vendor is a
+# property of the MODEL served, not the host, so the host cannot answer the question —
+# refuse to guess rather than silently return "neutral".
+_RESELLERS = ("openrouter.ai", "together.xyz", "together.ai", "fireworks.ai",
+              "groq.com", "replicate.com", "huggingface.co")
+
+UNVERIFIED = "unverified"
 
 
 def _vendor(url: str) -> str:
+    """The house behind an endpoint, or UNVERIFIED when the host cannot settle it.
+
+    An unknown host is NOT evidence of neutrality — a reseller can serve a Gemini model
+    (Gemma's house) from a domain that looks like nobody's. Returning the raw host there
+    would make the bias guard silently pass. UNVERIFIED makes it speak up instead."""
     h = _host(url)
-    return _VENDORS.get(h, h)  # unknown host: treat the host itself as the vendor
+    if any(h == r or h.endswith("." + r) for r in _RESELLERS):
+        return UNVERIFIED
+    for suffix, vendor in _VENDOR_SUFFIXES:
+        if h.endswith(suffix) or h == suffix.lstrip("."):
+            return vendor
+    if h.startswith("localhost") or h.startswith("127.") or h.startswith("100."):
+        return "local"  # our own Tailscale gateway / vLLM
+    return UNVERIFIED
 
 
 # The in-fleet judge is Gemma — a GOOGLE model. That is not visible from any URL (it
@@ -881,8 +1039,15 @@ def _grader_bias(judge_url: str, grader_url: str) -> str | None:
       - grader == Gemma's vendor (google)  -> inflates GEMMA, which is the direction
         that flatters our own thesis and is therefore the one a skeptic attacks first.
 
-    Returns "frontier", "gemma", or None if the grader is neutral to both."""
+    A grader whose house cannot be established (a reseller, an unrecognized host) is
+    reported as "unverified" — NOT as neutral. A reseller can serve a Gemini model from
+    a host that belongs to nobody, and treating "I don't know" as "no bias" is how the
+    guard would be silently defeated. Callers must decide; --pairwise refuses it.
+
+    Returns "frontier", "gemma", "unverified", or None if provably neutral to both."""
     gv = _vendor(grader_url)
+    if gv == UNVERIFIED:
+        return UNVERIFIED
     if gv == _vendor(judge_url):
         return "frontier"
     if gv == GEMMA_VENDOR:
@@ -901,16 +1066,22 @@ def _assert_independent(judge_url: str, grader_url: str, strict: bool) -> str | 
     biased = _grader_bias(judge_url, grader_url)
     if biased is None:
         return None
-    msg = (f"GRADER BIAS: grader ({_vendor(grader_url)}) shares a house with the "
-           f"{biased.upper()} judge — its scores for that side are inflated.")
+    if biased == UNVERIFIED:
+        msg = (f"GRADER HOUSE UNVERIFIABLE: cannot establish which vendor is behind "
+               f"{_host(grader_url)} (a reseller can serve a Gemini model — Gemma's "
+               f"house — from a neutral-looking domain). 'Unknown' is not 'unbiased'.")
+        hint = ("Point GRADER_* at a first-party endpoint whose vendor is known "
+                "(api.openai.com is neutral to both Anthropic and Google).")
+    else:
+        msg = (f"GRADER BIAS: grader ({_vendor(grader_url)}) shares a house with the "
+               f"{biased.upper()} judge — its scores for that side are inflated.")
+        hint = ("Either point GRADER_* at a vendor that is neither the frontier judge's "
+                "nor google (Gemma's house), or run --bracket to report BOTH biased "
+                "graders as bounds.")
     if strict:
-        sys.exit(f"{msg}\nPairwise has no reference to anchor against, so this bias "
-                 f"lands directly in the verdict. Either point GRADER_* at a vendor "
-                 f"that is neither the frontier judge's nor google (Gemma's house), "
-                 f"or run --bracket to report BOTH biased graders as bounds.")
-    print(f"WARNING — {msg}\n  Treat {biased}'s score as an UPPER bound, not a "
-          f"measurement. A grader from a third house, or --bracket, removes this.",
-          file=sys.stderr)
+        sys.exit(f"{msg}\nPairwise has no reference to anchor against, so this lands "
+                 f"directly in the verdict. {hint}")
+    print(f"WARNING — {msg}\n  {hint}", file=sys.stderr)
     return biased
 
 
