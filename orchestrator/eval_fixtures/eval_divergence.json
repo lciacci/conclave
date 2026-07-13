@@ -1,4 +1,21 @@
 {
+  "headroom": {
+    "value": 0.0278,
+    "ci95": [
+      0.0031,
+      0.0524
+    ],
+    "oracle": 0.9611,
+    "best_single_model": "coder",
+    "best_single_score": 0.9334,
+    "single_model_scores": {
+      "coder": 0.9334,
+      "general": 0.8722,
+      "reasoning": 0.7741
+    },
+    "verdict": "ENSEMBLE NOT WORTH IT \u2014 no judge can beat one model here; route or cascade instead",
+    "note": "headroom = ORACLE (perfect judge) - BEST SINGLE MODEL. The entire value the ensemble+judge pattern can ever buy on this fleet. A real judge captures a fraction of it \u2014 possibly a negative fraction."
+  },
   "n": 36,
   "meaningful_spread_threshold": 0.1,
   "divergent": 24,

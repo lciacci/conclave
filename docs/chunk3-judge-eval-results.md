@@ -21,10 +21,32 @@ re-run of it. Grading: **3 samples per answer** with variance. Frozen in
 `orchestrator/eval_fixtures/`; re-score for **$0** with `judge_eval.py --score` (the
 grader memo is committed, so no API calls).
 
-# 🔴 THE BASELINE THE EVAL NEVER RAN (2026-07-12) — the ensemble does not pay
+# THE PRECONDITION (2026-07-12) — this fleet has no headroom for a judge
 
 Everything below argues about *which judge is better*. Nobody had asked the prior question:
-**is a judged ensemble better than just calling one model?** It is not.
+**does this fleet give a judge anything to arbitrate?** It does not — and that is a
+statement about the **fleet**, not about the pattern.
+
+**Fan-out + judge only pays when the candidates are *comparably strong* and *genuinely
+decorrelated*, so different models win on different inputs.** That is a testable property of
+a candidate set, measurable *before* you build any judge, offline, for $0. The metric:
+
+> ### HEADROOM = ORACLE (a perfect judge) − BEST SINGLE MODEL
+>
+> The entire value the ensemble+judge pattern can *ever* buy on a given fleet. A real judge
+> captures some fraction of it — and a bad one captures a **negative** fraction.
+>
+> **Conclave's fleet: headroom = +0.028** (95% CI [+0.003, +0.052]).
+
+That is the finding. Not "ensembles don't work" — routing and multi-model serving demonstrably
+work in production (OpenRouter et al.). But note what those systems mostly do: **route** (pick
+the right model per request) rather than **fan out and vote**. Our own `design.md` already
+called routing "the cheap sibling". This measurement says the cheap sibling is the better bet
+*on a fleet shaped like ours*, and tells you exactly what a fleet must look like for the judge
+to be worth it.
+
+Reproduce: `python3 orchestrator/divergence.py` ($0, cached). **Use it to vet the next fleet
+before spending a GPU-hour on a judge for it.**
 
 All policies scored by the same grader against the same references, n=36:
 
@@ -45,41 +67,41 @@ Paired over the 36 items:
 | **ORACLE (perfect judge) − always-coder** | **+0.028** | [+0.003, +0.052] |
 | Gemma-judged ensemble − oracle | −0.078 | [−0.137, −0.019] |
 
-**Two things follow, and they are the real v3 result:**
+**Two things follow:**
 
-1. **The entire headroom of the ensemble+judge pattern here is +0.028.** Even a *perfect*
-   judge — one that always picks the best of the three candidates — beats simply always
-   calling the coder model by less than 3 points, and that is the ceiling on what any
-   judge can ever buy on this fleet and query set.
-2. **The actual judge does not merely fail to capture that headroom — it goes backwards.**
-   The Gemma-judged ensemble scores **0.050 *below* always-coder** (CI [−0.107, +0.007],
-   so: not distinguishable from parity, and *certainly not better*), while costing 3×
-   inference, a judge call, and the measured ~30% contention tax.
+1. **The headroom is +0.028.** Even a *perfect* judge beats simply always calling the coder
+   model by under 3 points. **No judge — however well built, however cleverly graded — can
+   beat one model by more than that on this fleet.** Every downstream judge question (select
+   mode, pairwise, a neutral grader key) is competing for that sliver.
+2. **The actual judge captures a negative fraction of it.** The Gemma-judged ensemble lands
+   **0.050 *below* always-coder** (CI [−0.107, +0.007] — not distinguishable from parity, and
+   certainly not better), while costing 3× inference, a judge call, and the measured ~30%
+   contention tax.
 
-**Why:** the "specialists" are not specialists. The coder model (Qwen2.5-Coder-**14B** —
-the largest of the three) is the best candidate on **31 of 36 queries**, *across all three
-categories*, including reasoning and general. The fleet is not three complementary experts;
-it is one strong model and two weaker ones. Selecting among them is mostly a chance to pick
-something worse — which is exactly what the judge does.
+**Why — the precondition fails: the "specialists" are not specialists.** The coder model
+(Qwen2.5-Coder-**14B**, the largest of the three) is the best candidate on **31 of 36
+queries**, *across all three categories*, including reasoning and general. This is not three
+complementary experts; it is **one strong model carrying two weaker ones**. There is little
+disagreement to exploit, so fan-out mostly offers the judge a chance to pick something worse.
 
-Supporting: **12 of 36 queries are degenerate** — all three specialists answer them
-equally well, so no judging task exists at all (reasoning is the worst: only **3/12**
-queries diverge). Reproduce with `python3 orchestrator/divergence.py`; result frozen in
-`eval_divergence.json`.
+Supporting: **12 of 36 queries are degenerate** — all three answer equally well, so no judging
+task exists at all (reasoning is worst: only **3/12** diverge).
 
-**Caveats, stated up front so this is not over-claimed in the other direction:** n=36, one
-query set, one grader, one fleet. The queries are short and general-knowledge-ish, which
-plausibly favours a single strong model over specialist routing; a workload of genuinely
-domain-split, hard tasks might diverge more. And "always-coder" is only knowable *in
-hindsight* — a real deployment would have to know which model to always pick. But those
-caveats do not rescue the design as it stands: **the measured ensemble+judge is worse than
-a single model, and the best possible judge would beat it by 0.028.**
+**This is a fleet-design result, and it is reusable.** The next fleet should be chosen to
+*maximize headroom*: candidates of **comparable strength** with **genuinely different
+strengths** — different lineages, different finetunes, or a cascade — rather than one big
+model plus two small ones. `divergence.py` measures that for any candidate set, offline, for
+$0, **before** a judge is built for it. That instrument is the durable output of this work.
 
-**What this does NOT say:** that meta-reasoners over specialised outputs are a bad pattern.
-It says *this fleet* (a 14B and two smaller models, on *these* queries) has almost no
-diversity for a judge to exploit. The pattern needs candidates that are genuinely
-complementary — different strengths, comparable strength. That is a fleet-design finding,
-and it is the thing to fix before any further judge-metric work.
+**Caveats, so this is not over-claimed in the other direction:** n=36, one query set, one
+grader, one fleet. The queries are short and general, which plausibly favours a single strong
+model over specialist routing; a workload of genuinely domain-split, hard tasks could diverge
+much more. And "always-coder" is only knowable *in hindsight* — a live system would still need
+to know which model to pick, which is precisely what a **router** does.
+
+**What this does NOT say:** that ensembles or meta-reasoners are a bad pattern. Multi-model
+systems work in production. It says **this fleet does not satisfy the pattern's precondition**,
+and it gives you the number to check the next one against.
 
 ---
 

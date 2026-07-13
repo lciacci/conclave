@@ -4,42 +4,52 @@ Last updated: 2026-07-12 (end of session). Read this + `design.md` to resume col
 **v0.5→v3 all done, and the judge eval has now had its rigor pass. Nothing running, $0.
 Next is v4 (MCP), or unblock the one remaining rigor item (pairwise — needs grader quota).**
 
-## 🔴🔴 READ FIRST — THE ENSEMBLE DOES NOT PAY. The v3 thesis has a negative result.
+## 🔴 READ FIRST — the fleet has no HEADROOM for a judge. Fix the fleet, not the judge.
 
 Measured 2026-07-12 (`orchestrator/divergence.py`, frozen in `eval_divergence.json`,
-reproduce for $0). Nobody had ever run the baseline: **is a judged ensemble better than
-just calling ONE model?** It is not.
+reproduces for **$0**). Nobody had asked the prior question: **does this fleet give a judge
+anything to arbitrate?**
+
+**Fan-out + judge only pays when candidates are *comparably strong* and *genuinely
+decorrelated*** — so different models win on different inputs. That is a property of the
+**fleet**, testable *before* building any judge. The metric:
+
+> ### HEADROOM = ORACLE (a perfect judge) − BEST SINGLE MODEL
+> The entire value the ensemble+judge pattern can *ever* buy on a fleet.
+> **Conclave's fleet: +0.028** (95% CI [+0.003, +0.052]).
 
 | policy | score | cost |
 |---|---|---|
-| ORACLE — a *perfect* judge picking best-of-3 | 0.961 | 3× inference + perfect judgment |
+| ORACLE — a *perfect* judge, best-of-3 | 0.961 | 3× inference + perfect judgment |
 | **ALWAYS coder — one model, no judge** | **0.933** | **1× inference** |
-| **GEMMA-judged ensemble (the v3 design)** | **0.883** | 3× inference + judge + ~30% contention |
+| Gemma-judged ensemble (the v3 design) | 0.883 | 3× inference + judge + ~30% contention |
 
-- **Gemma-judged ensemble − always-coder = −0.050** (95% CI [−0.107, +0.007]). The judge
-  goes **backwards** vs one model, at 3× the cost.
-- **ORACLE − always-coder = +0.028** (CI [+0.003, +0.052]). Even a **perfect** judge buys
-  under 3 points. **That is the entire headroom of the pattern on this fleet.**
+- Even a **perfect** judge buys **under 3 points** over one model. Every judge question
+  (select mode, pairwise, a neutral grader key) is competing for that sliver.
+- The real judge captures a **negative** fraction: **−0.050** vs always-coder
+  (CI [−0.107, +0.007]).
 
-**Why: the "specialists" are not specialists.** The coder model (Qwen2.5-Coder-**14B**, the
-biggest of the three) is the best candidate on **31 of 36** queries — across *all three*
-categories. The fleet is one strong model and two weaker ones, not three complementary
-experts. And **12/36 queries are degenerate** (all three answer equally well → no judging
-task exists at all; reasoning is worst, only 3/12 diverge).
+**Why the precondition fails: the "specialists" are not specialists.** Qwen2.5-Coder-**14B**
+(the biggest) is the best candidate on **31 of 36** queries — across *all three* categories.
+One strong model carrying two weaker ones, not three complementary experts. And **12/36
+queries are degenerate** (all three answer equally well → no judging task at all; reasoning
+is worst, 3/12).
 
-**So the next action is NOT another judge metric.** Improving the judge cannot recover
-value that is not there. Options, in order:
-1. **Fix the fleet, not the judge.** The pattern needs candidates that are *complementary
-   and comparably strong*. Three models of similar size with genuinely different strengths
-   (or different lineages/finetunes), rather than a 14B carrying two smaller models.
-2. **Fix the query set.** These queries are short and general; 1/3 are degenerate. A judge
-   can only be measured where candidates actually diverge.
-3. Only then: select-mode / pairwise judge metrics (below). They are now *downstream* of a
-   fleet that gives a judge something to do.
+**This does NOT say ensembles don't work.** Multi-model systems work in production — but note
+what they mostly do: **route** (pick the right model per request), not fan-out-and-vote.
+`design.md` already called routing "the cheap sibling"; this measurement says the cheap
+sibling is the better bet *on a fleet shaped like ours*.
 
-This is a genuine negative result and it is *worth having* — it is the kind of thing the
-lab exists to find. It does NOT say "meta-reasoners over specialised outputs is a bad
-pattern"; it says **this fleet has almost no diversity for a judge to exploit.**
+### Next actions, in order
+1. **Choose a fleet with real headroom.** Candidates of **comparable strength** with
+   **genuinely different strengths** (different lineages/finetunes, or a cascade) — not one
+   14B plus two smaller models. **Vet any candidate fleet with `divergence.py` BEFORE spending
+   a GPU-hour on a judge for it.** That instrument is the durable output of v3.
+2. **Fix the query set.** A third of it is degenerate; a judge can only be measured where the
+   candidates actually diverge.
+3. **Consider the router** (`design.md`'s "cheap sibling") — on a skewed fleet it dominates.
+4. *Only then* judge metrics (select mode / pairwise, below). They are downstream of a fleet
+   that gives a judge something to do.
 
 ### The judge-vs-judge numbers (secondary now — and three claims were RETRACTED)
 

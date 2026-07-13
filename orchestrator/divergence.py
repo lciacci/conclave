@@ -1,25 +1,34 @@
 #!/usr/bin/env python3
-"""Do the specialists actually DISAGREE? — the precondition for the whole judge thesis.
+"""FLEET INSTRUMENT — is this candidate set worth ensembling at all?
 
-A judge can only be measured on queries where the candidates DIVERGE: one clearly better,
-the others plausible-but-worse. `eval_queryset.py` says exactly this in its own docstring.
-It was never checked.
+Fan-out + judge only pays when the candidates are **comparably strong** and **genuinely
+decorrelated**, so that different models win on different inputs. That is a property of the
+FLEET, not of the judge — and it is testable *before* you build any judge, for $0, offline.
 
-It matters more than any metric fix. If all three specialists answer a query equally well,
-there is nothing to select, the judging task is undefined for that query, and no
-instrument — select mode, pairwise, a neutral third-vendor grader — can rescue it. It
-would also explain the ceiling more simply than anything else: the frontier judge writes
-its own answer (chosen == -1 on 34/36) because choosing among three correct answers is
-pointless.
+This measures it. The headline number:
 
-What this does: grades all 3 candidates for every query against the gold reference with
-the same ReferenceGrader the eval uses, then reports the spread (best - worst) per query.
+    HEADROOM = ORACLE (a perfect judge, always picks the best candidate)
+             - BEST SINGLE MODEL (just always call the strongest one, no judge, no fan-out)
 
-  spread ~0     -> candidates are interchangeable. NO judging task exists here.
-  spread large  -> a real choice exists, and picking right is a measurable skill.
+Headroom is the ENTIRE value the ensemble+judge pattern can ever buy on this fleet. A real
+judge captures some fraction of it (and can capture a NEGATIVE fraction — a bad judge is
+worse than not judging). So:
 
-It also emits `best_candidate` per query — the ground-truth label that select-mode scoring
-needs, so this is not a throwaway diagnostic.
+    headroom ~0     -> STOP. No judge, however good, can beat one model here. Fix the fleet.
+                       (Route or cascade instead: pick the right model, don't vote.)
+    headroom large  -> the models genuinely disagree in useful ways. A judge has something
+                       to arbitrate, and building/tuning one is worth the spend.
+
+**Conclave's own fleet scores +0.028** (n=36) — coder-14B is the best candidate on 31/36
+queries across ALL THREE categories. It is one strong model carrying two weaker ones, so
+fan-out mostly offers a chance to pick something *worse*, which is what the judge does
+(0.883 judged vs 0.933 for always-coder). Not a failure of the pattern; a failure of the
+fleet to satisfy the pattern's precondition. Use this tool when choosing the next fleet.
+
+Also reports, per query:
+  * spread (best - worst): ~0 means the candidates are interchangeable and NO judging task
+    exists for that query. 12/36 of the current set is degenerate this way.
+  * best_candidate: the ground-truth label that select-mode judge scoring needs.
 
 Offline (no GPU): candidates are frozen in eval_fixtures/. Uses the same GradeCache, so a
 re-run is free and a killed run resumes.
@@ -30,6 +39,7 @@ re-run is free and a killed run resumes.
 from __future__ import annotations
 
 import json
+import math
 import os
 import statistics
 import sys
@@ -80,7 +90,43 @@ def analyse(cache: dict[str, list[dict]], scorer) -> dict:
     for r in rows:
         by_cat.setdefault(r["category"], []).append(r)
 
+    # THE HEADLINE: how much can ANY judge ever buy on this fleet?
+    # oracle = a perfect judge. best_single = the strongest model, used alone, no judge.
+    # headroom = oracle - best_single. That is the whole prize. If it is ~0, no judge is
+    # worth building: route or cascade instead.
+    models = sorted({m for r in rows for m in r["scores"]})
+    singles = {m: statistics.fmean([r["scores"][m] for r in rows if m in r["scores"]])
+               for m in models}
+    best_single_model = max(singles, key=singles.get) if singles else None
+    oracle = statistics.fmean([r["best_score"] for r in rows]) if rows else 0.0
+    best_single = singles.get(best_single_model, 0.0)
+    headroom = oracle - best_single
+    # paired CI on the headroom — it is a claim about a population of queries
+    hr_ci = None
+    if best_single_model and len(rows) > 1:
+        d = [r["best_score"] - r["scores"][best_single_model] for r in rows
+             if best_single_model in r["scores"]]
+        sem = statistics.stdev(d) / math.sqrt(len(d))
+        hr_ci = [round(statistics.fmean(d) - 1.96 * sem, 4),
+                 round(statistics.fmean(d) + 1.96 * sem, 4)]
+
     return {
+        "headroom": {
+            "value": round(headroom, 4), "ci95": hr_ci,
+            "oracle": round(oracle, 4),
+            "best_single_model": best_single_model,
+            "best_single_score": round(best_single, 4),
+            "single_model_scores": {m: round(v, 4) for m, v in singles.items()},
+            "verdict": ("ENSEMBLE NOT WORTH IT — no judge can beat one model here; "
+                        "route or cascade instead"
+                        if headroom < 0.05 else
+                        "MARGINAL — a judge must be very good to pay for itself"
+                        if headroom < 0.10 else
+                        "WORTH ENSEMBLING — the models disagree usefully"),
+            "note": "headroom = ORACLE (perfect judge) - BEST SINGLE MODEL. The entire "
+                    "value the ensemble+judge pattern can ever buy on this fleet. A real "
+                    "judge captures a fraction of it — possibly a negative fraction.",
+        },
         "n": len(rows),
         "meaningful_spread_threshold": MEANINGFUL,
         "divergent": len(div),
@@ -101,7 +147,20 @@ def analyse(cache: dict[str, list[dict]], scorer) -> dict:
 
 def print_report(r: dict) -> None:
     n, d = r["n"], r["divergent"]
-    print(f"\n=== CANDIDATE DIVERGENCE — n={n} queries, 3 specialists each ===")
+    h = r["headroom"]
+    print(f"\n=== FLEET HEADROOM — is this candidate set worth ensembling? (n={n}) ===")
+    print(f"  single models, used ALONE (no judge, no fan-out):")
+    for m, v in sorted(h["single_model_scores"].items(), key=lambda kv: -kv[1]):
+        star = "  <- best single" if m == h["best_single_model"] else ""
+        print(f"      {m:12s} {v:.3f}{star}")
+    print(f"  ORACLE (a PERFECT judge, always picks the best candidate): {h['oracle']:.3f}")
+    ci = f"  95% CI [{h['ci95'][0]:+.3f}, {h['ci95'][1]:+.3f}]" if h["ci95"] else ""
+    print(f"\n  >>> HEADROOM = oracle - best single = {h['value']:+.4f}{ci}")
+    print(f"      {h['verdict']}")
+    print(f"      (This is the ENTIRE value any judge can ever buy here. A real judge")
+    print(f"       captures a fraction of it — and a bad one captures a NEGATIVE fraction.)")
+
+    print(f"\n=== candidate divergence — where a judging task even exists ===")
     print(f"spread = best candidate's grade - worst candidate's grade (0-1 scale)")
     print(f"  mean spread   {r['mean_spread']:.3f}   median {r['median_spread']:.3f}")
     print(f"  DIVERGENT (spread > {r['meaningful_spread_threshold']}): {d}/{n}"
@@ -159,6 +218,14 @@ def demo() -> None:
     assert b["all_three_essentially_correct"] if "all_three_essentially_correct" in b else True
     assert r["divergent"] == 1 and r["degenerate"] == 1
     assert r["best_candidate_counts"]["coder"] >= 1
+
+    # HEADROOM is the headline: oracle - best single model. Here coder scores (1.0+1.0)/2=1.0
+    # and the oracle also gets 1.0 on both -> headroom 0: a perfect judge buys NOTHING over
+    # just always using coder. The tool must say so rather than celebrate the divergence.
+    h = r["headroom"]
+    assert h["best_single_model"] == "coder", h
+    assert abs(h["value"]) < 1e-9, f"a fleet whose best model IS the oracle has ZERO headroom: {h}"
+    assert "NOT WORTH IT" in h["verdict"], h["verdict"]
     print("ok — divergence analysis verified offline (divergent vs degenerate queries)")
 
 
