@@ -90,9 +90,17 @@ what's serving behind it. Also the natural seam for per-model token/cost account
 >
 > **Conclave's fleet: headroom = +0.028** (95% CI [+0.003, +0.052]) — so even a *perfect* judge
 > beats one model by under 3 points, and the real judge lands **−0.050** below it. **The
-> precondition fails: the "specialists" are not specialists.** Qwen2.5-Coder-**14B** (the
-> largest) is the best candidate on **31/36** queries, across *all three* categories — one
-> strong model carrying two weaker ones. 12/36 queries are degenerate (no judging task at all).
+> candidates are REDUNDANT, not hierarchical: 28/36 queries are an exact TIE**; strict (unique)
+> wins are **coder 4 / general 4 / reasoning 0**, and no model is significantly the best.
+>
+> ⚠️ **CEILING-LIMITED, and the verdict is NOT SETTLED.** 31/36 queries have the top candidate
+> already at the grader's maximum, where headroom is 0 *by construction* — the whole result rests
+> on **5 queries**. The 0.05 decision threshold lies *inside* the CI, so "not worth it" vs
+> "marginal" is **not distinguishable at n=36**. **The next step is HARDER QUERIES, not (yet) a
+> different fleet:** you cannot diagnose a fleet with an instrument pinned at its maximum.
+>
+> ❌ **RETRACTED:** "the 14B coder is the best candidate on 31/36 queries" — a **config-ordering
+> artifact** (`max()` takes the first max; reverse the candidate list and `general` wins 27).
 >
 > **This does not falsify the pattern** — multi-model systems work in production. It says this
 > *instantiation* fails the precondition, and it hands you the instrument to check the next one:
@@ -307,11 +315,12 @@ Controls first, compute second.
   **Result: the fleet fails the pattern's PRECONDITION.** `HEADROOM = ORACLE − BEST SINGLE MODEL`
   = **+0.028** (CI [+0.003, +0.052]) — even a *perfect* judge barely beats always calling the
   strongest model alone (0.961 vs 0.933), and the real judge lands below it (0.883). Cause: the
-  "specialists" are not specialists — the 14B coder is the best candidate on 31/36 queries across
-  *all three* categories; 12/36 queries are degenerate. **Next: choose a fleet WITH headroom
-  (comparable strength, genuinely different strengths) and vet it with `orchestrator/divergence.py`
-  ($0) before building a judge for it. The instrument is the durable output of v3.** Also revisit
-  the router ("cheap sibling" above) — it dominates on a fleet this skewed.
+  candidates are **redundant** — 28/36 queries are an exact TIE; strict wins are coder 4 /
+  general 4 / reasoning 0. ⚠️ But the measurement is **ceiling-limited** (31/36 queries at the
+  grader's max, so the result rests on 5 queries) and the verdict is **NOT RESOLVED at n=36**.
+  **Next: HARDER QUERIES that de-saturate the grader, then re-run `orchestrator/divergence.py`
+  ($0) — only then can the fleet be judged.** An earlier "the 14B coder wins 31/36" claim was a
+  config-ordering artifact and is **retracted**. Also revisit the router ("cheap sibling" above).
   An earlier "thesis proven / the small judge holds up" claim was **withdrawn** — see
   `docs/chunk3-judge-eval-results.md` for the full correction and the three over-claims it retracts.
   Chunk 4 dismissed.

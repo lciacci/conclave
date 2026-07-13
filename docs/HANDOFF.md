@@ -29,27 +29,43 @@ decorrelated*** — so different models win on different inputs. That is a prope
 - The real judge captures a **negative** fraction: **−0.050** vs always-coder
   (CI [−0.107, +0.007]).
 
-**Why the precondition fails: the "specialists" are not specialists.** Qwen2.5-Coder-**14B**
-(the biggest) is the best candidate on **31 of 36** queries — across *all three* categories.
-One strong model carrying two weaker ones, not three complementary experts. And **12/36
-queries are degenerate** (all three answer equally well → no judging task at all; reasoning
-is worst, 3/12).
+**Why: the candidates are REDUNDANT, not hierarchical.** **28 of 36 queries are an exact TIE**
+at the top — no model wins them. **Strict (unique) wins: coder 4 / general 4 / reasoning 0.**
+There is simply very little disagreement to arbitrate.
+
+> ### ❌ RETRACTED: "the 14B coder is the best candidate on 31/36 queries"
+> A **config-ordering artifact**. `max()` returns the *first* maximum and
+> `EnsembleConfig.candidates` is `[coder, reasoning, general]`, so all 28 tied queries were
+> credited to coder. **Reverse the list and the same data says `general` wins 27.** The "one
+> strong model carrying two weaker ones" story is **withdrawn** — `coder` is not even
+> *significantly* better than `general` (margin CI [−0.014, +0.136] includes zero). Fixed in
+> `divergence.py` (`strict_win_counts`; ties belong to nobody, counts are order-invariant).
+
+### ⚠️ The measurement is CEILING-LIMITED — so the verdict is NOT settled
+- **31/36 queries have the top candidate already at the grader's maximum**, where headroom is
+  **0 by construction**. The entire +0.028 is earned on **5 queries**.
+- **The verdict is NOT RESOLVED at n=36:** the CI is [+0.003, +0.052] and the "not worth it"
+  threshold is 0.05 — the threshold sits *inside* the interval. "NOT WORTH IT" and "MARGINAL"
+  are **not distinguishable** with this data. (The CI's *lower* bound is vacuous: headroom is
+  ≥0 by construction, so "excludes zero" is guaranteed and is not evidence.)
+- Both real biases (winner's curse on the oracle; in-sample pick of best-single) make the
+  headroom **conservative**, not inflated — so the *direction* is trustworthy even if the
+  verdict is not.
 
 **This does NOT say ensembles don't work.** Multi-model systems work in production — but note
 what they mostly do: **route** (pick the right model per request), not fan-out-and-vote.
-`design.md` already called routing "the cheap sibling"; this measurement says the cheap
-sibling is the better bet *on a fleet shaped like ours*.
+`design.md` already called routing "the cheap sibling".
 
 ### Next actions, in order
-1. **Choose a fleet with real headroom.** Candidates of **comparable strength** with
-   **genuinely different strengths** (different lineages/finetunes, or a cascade) — not one
-   14B plus two smaller models. **Vet any candidate fleet with `divergence.py` BEFORE spending
-   a GPU-hour on a judge for it.** That instrument is the durable output of v3.
-2. **Fix the query set.** A third of it is degenerate; a judge can only be measured where the
-   candidates actually diverge.
-3. **Consider the router** (`design.md`'s "cheap sibling") — on a skewed fleet it dominates.
-4. *Only then* judge metrics (select mode / pairwise, below). They are downstream of a fleet
-   that gives a judge something to do.
+1. **HARDER QUERIES FIRST — not a new fleet.** You cannot diagnose a fleet with an instrument
+   pinned at its maximum. 31/36 queries are at the grader's ceiling, so the models have almost
+   no room to *show* disagreement even if it exists. Write queries where the **best** candidate
+   still loses points, then re-run `divergence.py` (free, offline). **Only this can tell you
+   whether the fleet is genuinely redundant or the test is just too easy.**
+2. **Then judge the fleet.** If headroom stays ~0 on hard, unsaturated queries, the fleet
+   really is redundant → a different fleet (comparable strength, genuinely different
+   strengths/lineages) or a **router** instead of a judge.
+3. *Only then* judge metrics (select mode / pairwise, below). Downstream of both.
 
 ### The judge-vs-judge numbers (secondary now — and three claims were RETRACTED)
 
