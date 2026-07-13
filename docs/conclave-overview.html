@@ -464,14 +464,15 @@
     </div>
 
     <div class="verdict-line notjust" style="margin-top:40px;">
-      <p class="eyebrow" style="margin-bottom:14px;">Result · measured 2026-07-11 · 18 queries, blind reference-grading</p>
+      <p class="eyebrow" style="margin-bottom:14px;">Result · rigor pass 2026-07-12 · 36 queries, reference-grading, 3 grader samples</p>
       <div style="display:flex; flex-wrap:wrap; gap:28px 44px; align-items:flex-end; margin-bottom:14px;">
-        <div><div style="font-family:var(--serif); font-size:2.4rem; line-height:1; color:var(--general);">0.91</div><div style="font-family:var(--mono); font-size:11px; color:var(--ink-muted); margin-top:6px;">in-fleet Gemma-9B judge</div></div>
+        <div><div style="font-family:var(--serif); font-size:2.4rem; line-height:1; color:var(--general);">0.883<span style="font-size:1.1rem; color:var(--ink-faint);"> ±.010</span></div><div style="font-family:var(--mono); font-size:11px; color:var(--ink-muted); margin-top:6px;">in-fleet Gemma-9B judge</div></div>
         <div style="font-family:var(--mono); color:var(--ink-faint); font-size:1.4rem; padding-bottom:6px;">vs</div>
         <div><div style="font-family:var(--serif); font-size:2.4rem; line-height:1; color:var(--brass);">1.00</div><div style="font-family:var(--mono); font-size:11px; color:var(--ink-muted); margin-top:6px;">frontier judge (Claude Sonnet 5)</div></div>
-        <div style="border-left:1px solid var(--line-strong); padding-left:28px;"><div style="font-family:var(--serif); font-size:2.4rem; line-height:1; color:var(--ink);">15<span style="font-size:1.2rem; color:var(--ink-faint);">/18</span></div><div style="font-family:var(--mono); font-size:11px; color:var(--ink-muted); margin-top:6px;">queries tied</div></div>
+        <div style="border-left:1px solid var(--line-strong); padding-left:28px;"><div style="font-family:var(--serif); font-size:2.4rem; line-height:1; color:var(--ink);">25<span style="font-size:1.2rem; color:var(--ink-faint);">/36</span></div><div style="font-family:var(--mono); font-size:11px; color:var(--ink-muted); margin-top:6px;">tied · 0 won · 11 lost</div></div>
       </div>
-      <p style="font-size:15px; color:var(--ink); margin:0;"><b>The small self-hosted judge holds up.</b> It matches the frontier on general and reasoning, trailing only on code selection. The frontier's perfect 1.00 is partly grader self-bias (same model judges and grades), so the real gap is smaller still — a rigor pass with a cross-vendor grader is the documented next step.</p>
+      <p style="font-size:15px; color:var(--ink); margin:0 0 10px;"><b>A real gap, concentrated in code (0.789).</b> Gemma ties the frontier on 25 of 36 and never beats it. The gap is ~12× the grader noise, so it is signal, not noise — but at zero marginal cost, a judge that ties a frontier model two-thirds of the time may still be the right default. Frontier stays the <i>baseline to beat</i>, never a runtime dependency.</p>
+      <p style="font-size:13px; color:var(--ink-muted); margin:0;"><b>What the rigor pass overturned.</b> An earlier 18-query run showed 15/18 ties and read as "the small judge holds up." That was mostly the <i>questions</i> being too easy: harder trap queries discriminate 2.6× better and Gemma's tie rate collapses. The assumed "grader self-bias" was also <b>false</b> — an out-of-house grader scores the frontier 1.00 too (+0.000). The real limit is a <b>ceiling effect</b>: the frontier saturates at 1.00, so reference-grading cannot measure its headroom. Blinded pairwise is built and awaiting a neutral third-vendor grader key.</p>
     </div>
   </div>
 </section>
@@ -526,7 +527,7 @@
       </div>
       <div class="phase active">
         <div><div class="pv">v3</div><span class="status done">thesis proven</span></div>
-        <div><h3>Ensemble + judge — the thesis</h3><p class="pd">Client-side orchestrator built and verified. Contention baseline captured (+30% → multi-GPU dismissed); the fleet boots clean on additive memory slices. Judge eval run: the in-fleet Gemma-9B judge ties a frontier judge on 15 of 18 queries — a small self-hosted judge holds up. The pedagogically interesting phase, done.</p></div>
+        <div><h3>Ensemble + judge — the thesis</h3><p class="pd">Client-side orchestrator built and verified. Contention baseline captured (+30% → multi-GPU dismissed); the fleet boots clean on additive memory slices. Judge eval run and then put through a rigor pass: the in-fleet Gemma-9B judge ties a frontier judge on 25 of 36 queries and loses 11, trailing on code — a real gap, but a cheap judge that ties two-thirds of the time. The pedagogically interesting phase, done.</p></div>
       </div>
       <div class="phase">
         <div><div class="pv">v4</div><span class="status next">maybe</span></div>
