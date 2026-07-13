@@ -419,9 +419,9 @@
         <div class="layer accent-brass"><span class="lbl">LiteLLM gateway :4000</span><span class="sub">model=ensemble · cost accounting</span></div>
         <div class="arrow-down">↓</div>
         <div class="gpu-split">
-          <div class="gpu-cell c"><b>coder</b><span class="frac">util 0.25→0.55</span></div>
-          <div class="gpu-cell r"><b>reasoning</b><span class="frac">→ 0.82</span></div>
-          <div class="gpu-cell g"><b>general</b><span class="frac">starts first</span></div>
+          <div class="gpu-cell c"><b>coder</b><span class="frac">util 0.30</span></div>
+          <div class="gpu-cell r"><b>reasoning</b><span class="frac">util 0.24</span></div>
+          <div class="gpu-cell g"><b>general</b><span class="frac">util 0.25 · starts first</span></div>
         </div>
         <div class="layer" style="justify-content:center; color:var(--ink-faint);"><span class="sub" style="margin:0;">3× vLLM co-resident on one L40S · 48 GB</span></div>
       </div>
@@ -429,7 +429,7 @@
         <ul class="featlist">
           <li><span class="k">wire</span><span class="v"><b>OpenAI-compatible everywhere.</b> vLLM serves it, LiteLLM routes it, the client speaks it — and it touches zero OpenAI servers. Compatibility buys drop-in clients, not a dependency.</span></li>
           <li><span class="k">fleet</span><span class="v"><b>Lineage-decorrelated specialists.</b> Qwen coder, a Qwen-distill reasoner, and Google's Gemma — chosen so their <em>failure modes</em> don't correlate. A judge feeds on disagreement.</span></li>
-          <li><span class="k">memory</span><span class="v"><b>Cumulative VRAM ceilings.</b> vLLM's <code>gpu_memory_utilization</code> is a ceiling on <em>total</em> GPU memory, not a private slice. Models start one at a time with rising ceilings (0.25 → 0.55 → 0.82) so no late starter starves the KV cache.</span></li>
+          <li><span class="k">memory</span><span class="v"><b>Additive per-slice VRAM.</b> vLLM's <code>gpu_memory_utilization</code> is a per-process request checked against <em>free</em> memory at that process's own startup, not a shared ceiling — an earlier cumulative scheme (0.25 → 0.55 → 0.82) crash-looped the last starter. Models now start sequentially, each claiming its own slice (general 0.25 / coder 0.30 / reasoning 0.24, summing under 0.9) sized to its own weights + KV cache.</span></li>
           <li><span class="k">access</span><span class="v"><b>Tailscale-only, no exceptions.</b> The inference box has no public ingress, ever. Reachable like a LAN device over WireGuard.</span></li>
         </ul>
       </div>
@@ -466,7 +466,7 @@
     <div class="verdict-line notjust" style="margin-top:40px;">
       <p class="eyebrow" style="margin-bottom:14px;">Result · rigor pass 2026-07-12 · 36 queries, reference-grading, 3 grader samples</p>
       <div style="display:flex; flex-wrap:wrap; gap:28px 44px; align-items:flex-end; margin-bottom:14px;">
-        <div><div style="font-family:var(--serif); font-size:2.4rem; line-height:1; color:var(--general);">0.883<span style="font-size:1.1rem; color:var(--ink-faint);"> ±.010</span></div><div style="font-family:var(--mono); font-size:11px; color:var(--ink-muted); margin-top:6px;">in-fleet Gemma-9B judge</div></div>
+        <div><div style="font-family:var(--serif); font-size:2.4rem; line-height:1; color:var(--general);">0.883</div><div style="font-family:var(--mono); font-size:11px; color:var(--ink-muted); margin-top:6px;">in-fleet Gemma-9B judge</div></div>
         <div style="font-family:var(--mono); color:var(--ink-faint); font-size:1.4rem; padding-bottom:6px;">vs</div>
         <div><div style="font-family:var(--serif); font-size:2.4rem; line-height:1; color:var(--brass);">1.00</div><div style="font-family:var(--mono); font-size:11px; color:var(--ink-muted); margin-top:6px;">frontier judge (Claude Sonnet 5)</div></div>
         <div style="border-left:1px solid var(--line-strong); padding-left:28px;"><div style="font-family:var(--serif); font-size:2.4rem; line-height:1; color:var(--ink);">25<span style="font-size:1.2rem; color:var(--ink-faint);">/36</span></div><div style="font-family:var(--mono); font-size:11px; color:var(--ink-muted); margin-top:6px;">tied · 0 won · 11 lost</div></div>
@@ -551,6 +551,7 @@
 <footer>
   <div class="wrap">
     <p class="note"><b style="color:var(--ink-muted);">Conclave</b> — a learning lab for cloud GPU infrastructure, inference serving, and the "meta-reasoners over specialized outputs" pattern family. Open-weight models, self-hosted, Tailscale-only, ~$100/mo cap. The honest counter-argument stays on the record: OpenRouter is cheaper unless utilization is high — the justification is learning the infra and owning the stack, not saving money.</p>
+    <p class="note" style="margin-top:14px;">Source: <a href="https://github.com/lciacci/conclave">github.com/lciacci/conclave</a></p>
   </div>
 </footer>
 
