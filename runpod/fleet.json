@@ -1,0 +1,38 @@
+[
+  {
+    "_comment": "ARRAY ORDER = START ORDER. mem_util is a PER-SLICE ADDITIVE fraction of TOTAL VRAM, summing to <~0.9. vLLM checks, at EACH process's startup, that FREE >= mem_util*TOTAL, then reserves that slice — so it is a per-process REQUEST against currently-free memory, NOT a cumulative ceiling. A cumulative scheme (0.25/0.55/0.82) is physically impossible and crash-loops forever. Ported verbatim from infra/variables.tf, measured + verified on the 2026-07-10 AWS boot (all three startup=1, restarts=0, ~7.6 GiB headroom). Sizes are for a 48GB card. general starts first (smallest footprint, and it is the default judge).",
+    "name": "general",
+    "repo": "hugging-quants/gemma-2-9b-it-AWQ-INT4",
+    "port": 8003,
+    "mem_util": 0.25,
+    "max_len": 8192,
+    "dtype": "",
+    "cost_in": 0.00000030,
+    "cost_out": 0.00000030,
+    "gated": true
+  },
+  {
+    "_comment": "14B not 32B: a 32B coder + 2 small models cannot co-reside on one 48GB card (32B+Gemma alone filled 42/44 GiB). This was forced by the AWS 8-vCPU quota capping us at a single GPU; on RunPod that constraint is gone, but we keep 14B for THIS boot to preserve comparability with the frozen base-36 run.",
+    "name": "coder",
+    "repo": "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ",
+    "port": 8001,
+    "mem_util": 0.30,
+    "max_len": 8192,
+    "dtype": "",
+    "cost_in": 0.00000040,
+    "cost_out": 0.00000040,
+    "gated": false
+  },
+  {
+    "_comment": "FP8-dynamic. REQUIRES AN ADA OR HOPPER GPU (compute capability >= 8.9) — L40S, L40, RTX 6000 Ada, H100. On Ampere (A100, A6000, A10G) vLLM still LOADS this checkpoint but silently downgrades it to weight-only W8A16 via Marlin kernels: a different compute path, different numerics, and it would break comparability with the frozen run. Do NOT put this fleet on an A100 or A6000 however cheap they look. Qwen-lineage (not Llama) because the Llama distill leaks BPE byte markers under vLLM 0.24 and the V0-engine fix is FALSIFIED.",
+    "name": "reasoning",
+    "repo": "RedHatAI/DeepSeek-R1-Distill-Qwen-7B-FP8-dynamic",
+    "port": 8002,
+    "mem_util": 0.24,
+    "max_len": 8192,
+    "dtype": "",
+    "cost_in": 0.00000020,
+    "cost_out": 0.00000020,
+    "gated": false
+  }
+]
