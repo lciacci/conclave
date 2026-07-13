@@ -118,6 +118,41 @@ expensive thing switched off" trick `candidate_cache` applies to the GPU. It is 
 a rate-limited 432-call eval finish at all (runs resume instead of restarting) and what
 makes re-scoring cost **zero** API calls.
 
+### Code review (PR #9) — six more, all "silent wrong number" bugs
+
+Review found six bugs whose failure mode is a *plausible but wrong published number*
+rather than a crash. **None affected the number above** (the fixtures are 36/36 for both
+judges with one judge model throughout), but each was live on the documented next steps:
+
+1. **A failed judge was cached as a judgment.** `run_judge` degrades to a raw specialist
+   answer on any exception — right for serving (never sink the ensemble), catastrophic
+   for an eval. A stale key 401s, every "frontier judge" row becomes *the coder's raw
+   answer*, and we grade and publish it as the judge's output — and the incremental
+   carry-over then never retries it. Failed rows are no longer cached.
+2. **A query missing from one judge's file scored 0.0 instead of being skipped.** Directly
+   on the growth path: expand the query set, `--generate`, then score without re-running
+   `--frontier` → the frontier takes a 0.0 on every new query and Gemma "wins" a
+   comparison it never had. `evaluate()` now scores only queries **every** judge answered,
+   warns, and records `skipped_unjudged` in the report.
+3. **Swapping `JUDGE_MODEL` silently mixed models in one judgments file** (prior rows
+   carried over regardless of model; report labelled with the new model only). Mismatched
+   priors are now dropped and re-judged.
+4. **The vendor guard was exact-host**, so Gemini via **Vertex** (`*.googleapis.com`) or a
+   reseller read as "independent" of Gemma — the same hole the vendor table exists to
+   close, one layer down. Now suffix-matched, and an unestablishable host returns
+   **`UNVERIFIED`**: *unknown is not unbiased*, and `--pairwise` refuses it.
+5. **The grade-cache key omitted `base_url` and the reference text** — `--bracket` shares
+   one cache across two graders (same model string on two vendors collided), and editing a
+   gold reference while keeping its id silently reused every stale grade.
+6. `RuntimeError("unreachable")` was reachable (a `temperature` rejection on the final
+   retry attempt fell out of the loop).
+
+Fixing (5) invalidated the committed grade cache. Re-grading would have re-queried a
+nondeterministic grader and could have **silently moved a published number**, so the 216
+grades were **migrated** to the new keys with identical values instead. Verified: `--score`
+replays the fixtures with an *invalid* API key and reproduces 0.883 ± 0.010, 25/36 tied,
+0 live calls. Regression tests cover all six.
+
 ---
 
 # Original result (2026-07-11, n=18) — superseded, kept for the record

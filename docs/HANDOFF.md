@@ -90,6 +90,22 @@ Three **pre-existing bugs in committed code**, found only by running it rigorous
 check waves through a Gemini grader even though Gemma is Google's. `_grader_bias()` encodes
 this; `--pairwise` **refuses** a colliding grader (open pairwise has no reference to anchor
 the bias against), and `--bracket` runs both biased graders as explicit **bounds**.
+Vendor matching is **suffix-based** (`*.googleapis.com` catches Gemini-via-Vertex too), and
+a host whose house cannot be established (a reseller) returns **`UNVERIFIED`** — *unknown is
+not unbiased*, and `--pairwise` refuses that as well. **`api.openai.com` reads as neutral**,
+so the OpenAI key above will pass the guard cleanly.
+
+### Two harness behaviours a future session WILL hit (from the PR #9 code review)
+- **A judge call that FAILS is not cached.** `run_judge` degrades to a raw specialist answer
+  on any exception (right for serving, catastrophic for an eval). If a phase prints
+  `JUDGE FAILED on <qid> ... not cached`, **re-run that phase** — the row is deliberately
+  absent so it gets retried, not frozen in as a fake judgment.
+- **`--score` only scores queries EVERY judge answered.** If you grow `QUERY_SET` and run
+  `--generate` but forget `--frontier`, the new queries are **skipped** (with a loud warning
+  and a `skipped_unjudged` list in the report) rather than scored 0.0 for the missing judge.
+  A shrinking `n=` in the report header is the tell: run the missing phase.
+- Swapping `JUDGE_MODEL` **drops** prior judgments from the old model and re-judges them, so
+  a judgments file never silently mixes two judges.
 
 ## Where we are
 
