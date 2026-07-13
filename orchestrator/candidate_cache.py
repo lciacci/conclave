@@ -26,11 +26,16 @@ DEFAULT_PATH = os.path.join(_HERE, "eval_candidates.json")
 FIXTURE_PATH = os.path.join(_HERE, "eval_fixtures", "eval_candidates.json")
 
 
-def load(path: str = DEFAULT_PATH) -> dict[str, list[dict]]:
-    """Live cache if present, else the committed fixture. The live file is gitignored,
-    so without this a fresh clone finds no candidates and --score cannot replay the
-    published run at all."""
-    if not os.path.exists(path) and os.path.exists(FIXTURE_PATH):
+def load(path: str = DEFAULT_PATH, allow_fixture: bool = True) -> dict[str, list[dict]]:
+    """Live cache if present, else (for READERS) the committed fixture. The live file is
+    gitignored, so without the fallback a fresh clone finds no candidates and --score
+    cannot replay the published run at all.
+
+    `allow_fixture=False` is for WRITERS (populate). A generator must never treat the
+    read-only fixture as its own resume state: it would boot the GPU, make ZERO fan-out
+    calls, and silently adopt the frozen candidates as if this fleet had produced them —
+    paying for a box and generating nothing."""
+    if not os.path.exists(path) and allow_fixture and os.path.exists(FIXTURE_PATH):
         path = FIXTURE_PATH
     if not os.path.exists(path):
         return {}
@@ -49,7 +54,10 @@ def populate(cfg: EnsembleConfig, call=http_call, path: str = DEFAULT_PATH,
     already cached unless refresh=True, so a re-run after a crash resumes cheaply.
     A candidate set with every content None (whole fleet errored) is NOT cached —
     so a transient gateway blip doesn't freeze bad data into the cache."""
-    cache = {} if refresh else load(path)
+    # allow_fixture=False: resume only from OUR OWN live cache, never from the committed
+    # fixture. Otherwise a fresh clone's --generate would boot the box, adopt the fixture's
+    # 36 candidate sets as already-done, and call the fleet zero times.
+    cache = {} if refresh else load(path, allow_fixture=False)
     for q in query_set:
         if q["id"] in cache and not refresh:
             continue

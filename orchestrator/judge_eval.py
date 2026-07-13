@@ -710,6 +710,9 @@ def evaluate(cache: dict, judgments: dict[str, dict[str, dict]], scorer,
         report["skipped_unjudged"] = sorted(skipped)
     if ungraded:
         report["skipped_ungraded"] = sorted(ungraded)
+        print(f"WARNING — {len(ungraded)} query(s) NOT scored: the grader returned no usable "
+              f"verdict on every sample (refusal / content filter / cutoff). n is reduced "
+              f"accordingly. ids: {sorted(ungraded)}", file=sys.stderr)
     if any(stdevs[jn] for jn in judges):
         report["mean_grader_stdev"] = {jn: mean(stdevs[jn]) for jn in judges}
         report["grader_samples"] = getattr(scorer, "samples", 1)
@@ -934,6 +937,24 @@ def demo() -> None:
     refreshed = judge_over_cache(cache, EnsembleConfig(judge_model="general"),
                                  counting_judge, prior=frozen, refresh=True)
     assert refreshed[qs[0]["id"]]["answer"] == "fresh answer", "refresh=True re-judges"
+
+    # ---- review round 3: four MORE bugs, three of them introduced BY the round-2 fixes ----
+
+    # (A) _load must fall back to the fixture and return {} when neither exists — callers
+    # must NOT gate on os.path.exists(live), which short-circuits the fallback and leaves
+    # prior={} on a fresh clone => a full-price re-judge with every guard silently disarmed.
+    assert _load(os.path.join(_HERE, "definitely-not-a-file.json")) == {}, \
+        "_load returns {} when neither live nor fixture exists"
+
+    # (B) the bias guard must take the VENDOR established from the ARTIFACT, not re-derive it
+    # from a URL that may have come from the environment. Passing an env URL is exactly how a
+    # Sonnet grader grading a Sonnet judge got certified INDEPENDENT.
+    assert _grader_bias("anthropic", "https://api.anthropic.com") == "frontier", \
+        "vendor-in, vendor-compared: a Sonnet grader is NOT independent of a Sonnet judge"
+    assert _grader_bias("anthropic", "https://api.openai.com") is None
+    assert _grader_bias("anthropic", "https://generativelanguage.googleapis.com/v1beta/openai") == "gemma"
+    # ...and a URL still works, for convenience
+    assert _grader_bias("https://api.anthropic.com", "https://api.anthropic.com") == "frontier"
 
     # ---- code-review regressions (PR #9). All six are "silent wrong number" bugs. ----
 
@@ -1267,7 +1288,12 @@ def _is_local_fleet(host: str) -> bool:
 GEMMA_VENDOR = "google"
 
 
-def _grader_bias(judge_url: str, grader_url: str) -> str | None:
+def _grader_bias(judge: str, grader_url: str) -> str | None:
+    """`judge` is the frontier judge's VENDOR (preferred — established from the judgments
+    artifact by _judge_identity) or, for convenience, its URL. Passing a URL here is what
+    reintroduced the bug this guard exists for: in _judge_identity's fallback branch the
+    URL is the ENV's, not the artifact's, so re-deriving the vendor from it certified a
+    Sonnet grader as independent of a Sonnet judge. Take the vendor, don't recompute it."""
     """Which side, if any, does this grader share a house with?
 
     Two distinct collisions, and BOTH corrupt the result — in opposite directions:
@@ -1283,16 +1309,17 @@ def _grader_bias(judge_url: str, grader_url: str) -> str | None:
 
     Returns "frontier", "gemma", "unverified", or None if provably neutral to both."""
     gv = _vendor(grader_url)
+    jv = judge if judge in ("anthropic", "openai", "google", "local", UNVERIFIED) else _vendor(judge)
     if gv == UNVERIFIED:
         return UNVERIFIED
-    if gv == _vendor(judge_url):
+    if gv == jv:
         return "frontier"
     if gv == GEMMA_VENDOR:
         return "gemma"
     return None
 
 
-def _assert_independent(judge_url: str, grader_url: str, strict: bool) -> str | None:
+def _assert_independent(judge: str, grader_url: str, strict: bool) -> str | None:
     """Warn (or, for pairwise, refuse) when the grader shares a house with either
     judge. Reference-anchored grading survives a collision — barely; it is why Chunk 3
     was publishable at all — because the reference anchors correctness. Open pairwise
@@ -1300,7 +1327,7 @@ def _assert_independent(judge_url: str, grader_url: str, strict: bool) -> str | 
     collision as fatal UNLESS the run is deliberately bracketing (see --bracket).
 
     Returns the favored side ("frontier" | "gemma"), or None when neutral."""
-    biased = _grader_bias(judge_url, grader_url)
+    biased = _grader_bias(judge, grader_url)
     if biased is None:
         return None
     if biased == UNVERIFIED:
@@ -1338,6 +1365,8 @@ def _load(path: str) -> dict:
         if os.path.exists(fixture):
             print(f"  (using committed fixture {os.path.basename(fixture)})", file=sys.stderr)
             path = fixture
+        else:
+            return {}   # neither live nor fixture — callers must not have to pre-check
     with open(path) as f:
         return json.load(f)
 
@@ -1358,7 +1387,10 @@ if __name__ == "__main__":
         gw = gw if gw.startswith("http") else f"http://{gw}"
         cfg = EnsembleConfig(gateway_url=gw, judge_model="general")  # Gemma
         cache = candidate_cache.populate(cfg)          # skips already-cached queries
-        prior = _load(GEMMA_JUDGMENTS) if os.path.exists(GEMMA_JUDGMENTS) else {}
+        # NOT gated on os.path.exists(live): that would short-circuit _load's fixture
+        # fallback, leaving prior={} on a fresh clone -> a full-price re-judge of all 36,
+        # with the model-mismatch and stale-candidates guards silently never firing.
+        prior = _load(GEMMA_JUDGMENTS)
         gemma = judge_over_cache(cache, cfg, prior=prior,  # judges only the NEW ones
                                  refresh="--refresh" in sys.argv)
         _save(gemma, GEMMA_JUDGMENTS)
@@ -1372,7 +1404,7 @@ if __name__ == "__main__":
             sys.exit("no candidate cache — run --generate on a boot first")
         cfg = EnsembleConfig(judge_url=base, judge_model=model)
         call = functools.partial(frontier_call, api_key=key)
-        prior = _load(FRONTIER_JUDGMENTS) if os.path.exists(FRONTIER_JUDGMENTS) else {}
+        prior = _load(FRONTIER_JUDGMENTS)   # see the note in --generate: never gate on the live path
         frontier = judge_over_cache(cache, cfg, call, prior=prior,  # only the NEW ones
                                     refresh="--refresh" in sys.argv)
         _save(frontier, FRONTIER_JUDGMENTS)
@@ -1408,7 +1440,7 @@ if __name__ == "__main__":
             env_j_base, env_j_model, env_j_key = _frontier_from_env()
             j_base, j_vendor = _judge_identity(judgments["frontier"], env_j_base)
             g_base, g_model, g_key = _grader_from_env()
-            gbias = _grader_bias(j_base, g_base)
+            gbias = _grader_bias(j_vendor, g_base)
             # The bracket is only a BRACKET if the two graders lean OPPOSITE ways. It used
             # to accept anything non-neutral and then hard-label it "gemma_vendor" — so an
             # Anthropic or an unverifiable grader got folded in as the upper bound and the
@@ -1428,7 +1460,7 @@ if __name__ == "__main__":
                 # shares Gemma's house       -> Gemma's score here is an UPPER bound
                 "grader=gemma_vendor": (g_base, g_model, g_key),
             }.items():
-                scorer, meta = build(b, m, k, _grader_bias(j_base, b))
+                scorer, meta = build(b, m, k, _grader_bias(j_vendor, b))
                 r = evaluate(cache, judgments, scorer)
                 r["grader"] = meta
                 r["frontier_judge"] = {"url": j_base, "vendor": j_vendor}
@@ -1439,7 +1471,7 @@ if __name__ == "__main__":
             j_base, j_vendor = _judge_identity(judgments["frontier"], env_j_base)
             g_base, g_model, g_key = _grader_from_env()  # who is grading
             # Pairwise is fatal on a colliding grader; reference grading only warns.
-            favors = _assert_independent(j_base, g_base, strict=pairwise)
+            favors = _assert_independent(j_vendor, g_base, strict=pairwise)
             scorer, meta = build(g_base, g_model, g_key, favors)
             r = evaluate(cache, judgments, scorer)
             r["grader"] = meta

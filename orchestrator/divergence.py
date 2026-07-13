@@ -19,16 +19,30 @@ worse than not judging). So:
     headroom large  -> the models genuinely disagree in useful ways. A judge has something
                        to arbitrate, and building/tuning one is worth the spend.
 
-**Conclave's own fleet scores +0.028** (n=36) — coder-14B is the best candidate on 31/36
-queries across ALL THREE categories. It is one strong model carrying two weaker ones, so
-fan-out mostly offers a chance to pick something *worse*, which is what the judge does
-(0.883 judged vs 0.933 for always-coder). Not a failure of the pattern; a failure of the
-fleet to satisfy the pattern's precondition. Use this tool when choosing the next fleet.
+**Conclave's own fleet scores +0.028** (n=36) — even a perfect judge barely beats calling the
+strongest model alone (0.961 vs 0.933), while the real judge lands *below* it (0.883). The
+candidates are largely REDUNDANT: **28/36 queries are an exact tie at the top**, and the
+grader is already saturated on 28/36, so the whole headroom is earned on ~8 queries.
+Not a failure of the pattern; a failure of the fleet to satisfy the pattern's precondition.
+
+TWO TRAPS THIS TOOL EXISTS TO AVOID — both were live, both produced published nonsense:
+
+  * **TIES ARE NOT WINS.** `max()` returns the FIRST max. With candidates ordered
+    [coder, reasoning, general], every tie was credited to coder — which is how
+    "coder is the best candidate on 31/36 queries" got published. Reverse the list and the
+    same data says `general` wins 27. On STRICT wins it is **coder 4 / general 4 /
+    reasoning 0**. Report `strict_win_counts`, never a tie-blind argmax.
+  * **The CI's lower bound is vacuous.** headroom >= 0 BY CONSTRUCTION (a max is never below
+    any of its members), so "the CI excludes zero" tests an impossible null and is
+    guaranteed. Judge the UPPER bound against the verdict threshold — and if the threshold
+    lies inside the CI, say the verdict is NOT RESOLVED rather than picking one.
 
 Also reports, per query:
   * spread (best - worst): ~0 means the candidates are interchangeable and NO judging task
-    exists for that query. 12/36 of the current set is degenerate this way.
-  * best_candidate: the ground-truth label that select-mode judge scoring needs.
+    exists for that query.
+  * best_candidates (a LIST — ties included) + strict_winner (None on a tie). Only strict
+    winners are usable as select-mode ground truth; a tied query has no right answer.
+  * at_ceiling: the grader is already maxed, so headroom there is 0 by construction.
 
 Offline (no GPU): candidates are frozen in eval_fixtures/. Uses the same GradeCache, so a
 re-run is free and a killed run resumes.
@@ -62,26 +76,47 @@ MEANINGFUL = 0.1
 
 def analyse(cache: dict[str, list[dict]], scorer) -> dict:
     rows = []
+    skipped_incomplete: list[str] = []
+    skipped_ungraded: list[str] = []
     for qid, cands in cache.items():
         q = QUERY_BY_ID.get(qid)
         if not q:
             continue
-        scored = []
-        for c in cands:
-            if not c.get("content"):
-                continue
-            scored.append({"model": c["model"], "score": scorer.score(q, c["content"])})
-        if len(scored) < 2:
+        # EVERY candidate must have answered, or the row is dropped. Scoring a query where
+        # only 2 of 3 replied would average `singles[m]` over a different row set than
+        # `oracle`, and the denominators drift: blanking one losing answer for a model
+        # RAISES its single-model score and collapses the headroom. A fleet error would
+        # silently make the ensemble look less useful.
+        if any(not c.get("content") for c in cands) or len(cands) < 2:
+            skipped_incomplete.append(qid)
             continue
-        best = max(scored, key=lambda s: s["score"])
-        worst = min(scored, key=lambda s: s["score"])
+        # score() may return None — the grader gave no usable verdict (refusal, content
+        # filter, max-tokens cutoff). None is NOT a score of zero, and it must not reach
+        # max()/fmean(), which would crash mid-run *after* the grades were paid for.
+        scored = [{"model": c["model"], "score": scorer.score(q, c["content"])} for c in cands]
+        if any(s["score"] is None for s in scored):
+            skipped_ungraded.append(qid)
+            continue
+
+        top = max(s["score"] for s in scored)
+        bot = min(s["score"] for s in scored)
+        # TIES ARE NOT WINS. max() returns the FIRST max, so with candidates ordered
+        # [coder, reasoning, general] every tie was silently credited to coder — which is
+        # how "coder is the best candidate on 31/36" got published. It was a statement
+        # about the order of a list in a config file: reverse the list and `general` wins
+        # 27. On STRICT (unique) wins it is coder 4 / general 4 / reasoning 0.
+        winners = [s["model"] for s in scored if s["score"] >= top - 1e-9]
         rows.append({
             "id": qid, "category": q["category"],
             "scores": {s["model"]: s["score"] for s in scored},
-            "best_candidate": best["model"], "best_score": best["score"],
-            "spread": round(best["score"] - worst["score"], 3),
-            "all_correct": worst["score"] >= 0.9,     # even the worst is essentially right
-            "divergent": (best["score"] - worst["score"]) > MEANINGFUL,
+            "best_candidates": winners,                       # ALL models tied at the top
+            "strict_winner": winners[0] if len(winners) == 1 else None,  # None = a tie
+            "tied_at_top": len(winners) > 1,
+            "best_score": top,
+            "spread": round(top - bot, 3),
+            "all_correct": bot >= 0.9,     # even the worst is essentially right
+            "divergent": (top - bot) > MEANINGFUL,
+            "at_ceiling": top >= 0.999,    # grader saturated: no headroom possible here
         })
 
     div = [r for r in rows if r["divergent"]]
@@ -92,42 +127,82 @@ def analyse(cache: dict[str, list[dict]], scorer) -> dict:
 
     # THE HEADLINE: how much can ANY judge ever buy on this fleet?
     # oracle = a perfect judge. best_single = the strongest model, used alone, no judge.
-    # headroom = oracle - best_single. That is the whole prize. If it is ~0, no judge is
-    # worth building: route or cascade instead.
+    # headroom = oracle - best_single. That is the whole prize.
     models = sorted({m for r in rows for m in r["scores"]})
-    singles = {m: statistics.fmean([r["scores"][m] for r in rows if m in r["scores"]])
-               for m in models}
+    singles = {m: statistics.fmean([r["scores"][m] for r in rows]) for m in models}
     best_single_model = max(singles, key=singles.get) if singles else None
     oracle = statistics.fmean([r["best_score"] for r in rows]) if rows else 0.0
     best_single = singles.get(best_single_model, 0.0)
     headroom = oracle - best_single
-    # paired CI on the headroom — it is a claim about a population of queries
-    hr_ci = None
+
+    hr = {}
     if best_single_model and len(rows) > 1:
-        d = [r["best_score"] - r["scores"][best_single_model] for r in rows
-             if best_single_model in r["scores"]]
+        d = [r["best_score"] - r["scores"][best_single_model] for r in rows]
         sem = statistics.stdev(d) / math.sqrt(len(d))
-        hr_ci = [round(statistics.fmean(d) - 1.96 * sem, 4),
-                 round(statistics.fmean(d) + 1.96 * sem, 4)]
+        lo, hi = statistics.fmean(d) - 1.96 * sem, statistics.fmean(d) + 1.96 * sem
+        # The lower bound is NOT evidence. headroom >= 0 BY CONSTRUCTION (a max is never
+        # below any of its members), so "the CI excludes zero" tests an impossible null
+        # and is guaranteed the moment any model beats the best one even once. The bound
+        # that decides anything is the UPPER one, against the verdict threshold.
+        hr["ci95"] = [round(lo, 4), round(hi, 4)]
+        hr["ci_note"] = ("Lower bound is vacuous: headroom >= 0 by construction, so "
+                         "'excludes 0' is guaranteed and is NOT evidence. Judge the "
+                         "UPPER bound against the verdict threshold.")
+        # Is the best single model even significantly the best? If not, the whole verdict
+        # is hostage to an arbitrary pick — a different 'best single' changes the answer.
+        runner = sorted(singles, key=singles.get, reverse=True)
+        if len(runner) > 1:
+            dm = [rw["scores"][runner[0]] - rw["scores"][runner[1]] for rw in rows]
+            msem = statistics.stdev(dm) / math.sqrt(len(dm))
+            m_lo = statistics.fmean(dm) - 1.96 * msem
+            hr["best_single_is_significant"] = bool(m_lo > 0)
+            hr["best_single_margin_ci95"] = [round(m_lo, 4),
+                                             round(statistics.fmean(dm) + 1.96 * msem, 4)]
+            hr["runner_up"] = runner[1]
+
+    # Ceiling: on queries where the best candidate already scores 1.0, headroom is ZERO by
+    # construction — the grader cannot go higher. Reporting headroom without saying how
+    # much of the query set is saturated hides that the number rests on a handful of items.
+    at_ceiling = sum(r["at_ceiling"] for r in rows)
+    live = len(rows) - at_ceiling
+
+    NOT_WORTH, MARGINAL = 0.05, 0.10
+    hi = hr.get("ci95", [headroom, headroom])[1]
+    verdict = ("ENSEMBLE NOT WORTH IT — no judge can beat one model here; route or cascade"
+               if headroom < NOT_WORTH else
+               "MARGINAL — a judge must be very good to pay for itself"
+               if headroom < MARGINAL else
+               "WORTH ENSEMBLING — the models disagree usefully")
+    # Do not state a verdict the data cannot support: if the threshold lies INSIDE the CI,
+    # the two verdicts are not distinguishable at this n. Say so instead of picking one.
+    resolved = not (hr.get("ci95") and hr["ci95"][0] < NOT_WORTH < hi)
+    if not resolved:
+        verdict += (f"  [NOT RESOLVED at n={len(rows)}: the {NOT_WORTH} threshold lies "
+                    f"inside the 95% CI, so NOT-WORTH-IT vs MARGINAL is not distinguishable. "
+                    f"More queries needed to settle it.]")
 
     return {
         "headroom": {
-            "value": round(headroom, 4), "ci95": hr_ci,
+            "value": round(headroom, 4),
             "oracle": round(oracle, 4),
             "best_single_model": best_single_model,
             "best_single_score": round(best_single, 4),
             "single_model_scores": {m: round(v, 4) for m, v in singles.items()},
-            "verdict": ("ENSEMBLE NOT WORTH IT — no judge can beat one model here; "
-                        "route or cascade instead"
-                        if headroom < 0.05 else
-                        "MARGINAL — a judge must be very good to pay for itself"
-                        if headroom < 0.10 else
-                        "WORTH ENSEMBLING — the models disagree usefully"),
+            "verdict": verdict,
+            "verdict_resolved": resolved,
+            "queries_at_grader_ceiling": at_ceiling,
+            "queries_with_live_headroom": live,
+            "ceiling_note": (f"{at_ceiling}/{len(rows)} queries have the best candidate "
+                             f"already at the grader's maximum, where headroom is 0 BY "
+                             f"CONSTRUCTION. The headroom is earned on only {live} queries."),
             "note": "headroom = ORACLE (perfect judge) - BEST SINGLE MODEL. The entire "
                     "value the ensemble+judge pattern can ever buy on this fleet. A real "
                     "judge captures a fraction of it — possibly a negative fraction.",
+            **hr,
         },
         "n": len(rows),
+        "skipped_incomplete": skipped_incomplete,
+        "skipped_ungraded": skipped_ungraded,
         "meaningful_spread_threshold": MEANINGFUL,
         "divergent": len(div),
         "degenerate": len(rows) - len(div),
@@ -138,9 +213,16 @@ def analyse(cache: dict[str, list[dict]], scorer) -> dict:
             c: {"n": len(v), "divergent": sum(r["divergent"] for r in v),
                 "mean_spread": round(statistics.fmean([r["spread"] for r in v]), 3)}
             for c, v in by_cat.items()},
-        "best_candidate_counts": {
-            m: sum(r["best_candidate"] == m for r in rows)
-            for m in sorted({r["best_candidate"] for r in rows})},
+        # STRICT wins only (a tie is not a win for anybody), plus how often each model was
+        # merely tied at the top. The old tie-blind count credited every tie to whichever
+        # model came first in EnsembleConfig.candidates — that is how "coder wins 31/36"
+        # got published when the honest count is coder 4 / general 4 / reasoning 0.
+        "strict_win_counts": {
+            m: sum(r["strict_winner"] == m for r in rows) for m in models},
+        "tied_at_top_counts": {
+            m: sum(r["tied_at_top"] and m in r["best_candidates"] for r in rows)
+            for m in models},
+        "queries_tied_at_top": sum(r["tied_at_top"] for r in rows),
         "per_query": rows,
     }
 
@@ -153,12 +235,30 @@ def print_report(r: dict) -> None:
     for m, v in sorted(h["single_model_scores"].items(), key=lambda kv: -kv[1]):
         star = "  <- best single" if m == h["best_single_model"] else ""
         print(f"      {m:12s} {v:.3f}{star}")
+    if not h.get("best_single_is_significant", True):
+        lo, hi2 = h["best_single_margin_ci95"]
+        print(f"      !! '{h['best_single_model']}' is NOT significantly better than "
+              f"'{h['runner_up']}' (margin CI [{lo:+.3f}, {hi2:+.3f}] includes 0)")
+        print(f"         -> the verdict below is hostage to an arbitrary pick.")
     print(f"  ORACLE (a PERFECT judge, always picks the best candidate): {h['oracle']:.3f}")
-    ci = f"  95% CI [{h['ci95'][0]:+.3f}, {h['ci95'][1]:+.3f}]" if h["ci95"] else ""
+    ci = (f"  95% CI [{h['ci95'][0]:+.3f}, {h['ci95'][1]:+.3f}]" if h.get("ci95") else "")
     print(f"\n  >>> HEADROOM = oracle - best single = {h['value']:+.4f}{ci}")
+    print(f"      (lower bound is vacuous — headroom is >=0 by construction. Judge the UPPER bound.)")
     print(f"      {h['verdict']}")
     print(f"      (This is the ENTIRE value any judge can ever buy here. A real judge")
     print(f"       captures a fraction of it — and a bad one captures a NEGATIVE fraction.)")
+    print(f"\n  CEILING: {h['queries_at_grader_ceiling']}/{n} queries have the best candidate "
+          f"already at the grader's max,")
+    print(f"           where headroom is 0 BY CONSTRUCTION. The headroom is earned on only "
+          f"{h['queries_with_live_headroom']} queries.")
+
+    print(f"\n=== who is actually best? (TIES ARE NOT WINS) ===")
+    print(f"  {r['queries_tied_at_top']}/{n} queries are an exact TIE at the top — no model wins them.")
+    print(f"  strict (unique) wins:")
+    for m, k in sorted(r["strict_win_counts"].items(), key=lambda kv: -kv[1]):
+        print(f"      {m:12s} {k:2d}/{n}")
+    print(f"  (a tie-blind `max()` would credit ALL ties to whichever model is listed first")
+    print(f"   in EnsembleConfig.candidates — that is not a finding, it is a config order.)")
 
     print(f"\n=== candidate divergence — where a judging task even exists ===")
     print(f"spread = best candidate's grade - worst candidate's grade (0-1 scale)")
@@ -213,19 +313,42 @@ def demo() -> None:
     assert r["n"] == 2
     byid = {x["id"]: x for x in r["per_query"]}
     a, b = byid[qs[0]["id"]], byid[qs[1]["id"]]
-    assert a["divergent"] and a["spread"] == 0.8 and a["best_candidate"] == "coder"
+    assert a["divergent"] and a["spread"] == 0.8 and a["strict_winner"] == "coder"
     assert not b["divergent"], "candidates within 0.05 are interchangeable — no judging task"
-    assert b["all_three_essentially_correct"] if "all_three_essentially_correct" in b else True
     assert r["divergent"] == 1 and r["degenerate"] == 1
-    assert r["best_candidate_counts"]["coder"] >= 1
 
-    # HEADROOM is the headline: oracle - best single model. Here coder scores (1.0+1.0)/2=1.0
-    # and the oracle also gets 1.0 on both -> headroom 0: a perfect judge buys NOTHING over
-    # just always using coder. The tool must say so rather than celebrate the divergence.
     h = r["headroom"]
     assert h["best_single_model"] == "coder", h
     assert abs(h["value"]) < 1e-9, f"a fleet whose best model IS the oracle has ZERO headroom: {h}"
     assert "NOT WORTH IT" in h["verdict"], h["verdict"]
+
+    # ---- THE TIE BUG. max() takes the FIRST max, so a tie-blind argmax credits every tie
+    # to whichever model is listed first in the config. That is how "coder is best on 31/36"
+    # got published when the honest count was coder 4 / general 4. Ties must be NOBODY's win,
+    # and the counts must be invariant to candidate ORDER.
+    tied = {qs[2]["id"]: [{"model": m, "content": "tie", "error": None}
+                          for m in ("coder", "reasoning", "general")]}
+    rt = analyse(tied, FakeScorer({"tie": 1.0}))
+    row = rt["per_query"][0]
+    assert row["tied_at_top"] and row["strict_winner"] is None, "a tie is NOT a win"
+    assert sorted(row["best_candidates"]) == ["coder", "general", "reasoning"]
+    assert sum(rt["strict_win_counts"].values()) == 0, "nobody wins a tie"
+
+    # ...and the counts must not change when the candidate ORDER changes.
+    rev = {qs[2]["id"]: [{"model": m, "content": "tie", "error": None}
+                         for m in ("general", "reasoning", "coder")]}
+    assert analyse(rev, FakeScorer({"tie": 1.0}))["strict_win_counts"] == rt["strict_win_counts"], \
+        "win counts must be invariant to EnsembleConfig.candidates order"
+
+    # ---- denominator drift: a query where a model returned nothing must be DROPPED, not
+    # scored — else singles[m] averages a different row set than oracle and headroom collapses.
+    holed = {qs[0]["id"]: [{"model": "coder", "content": None, "error": "boom"},
+                           {"model": "reasoning", "content": "bad", "error": None},
+                           {"model": "general", "content": "mid", "error": None}]}
+    rh = analyse(holed, sc)
+    assert rh["n"] == 0 and rh["skipped_incomplete"] == [qs[0]["id"]], \
+        "an incomplete candidate set must be dropped, not silently re-based"
+
     print("ok — divergence analysis verified offline (divergent vs degenerate queries)")
 
 

@@ -67,41 +67,81 @@ Paired over the 36 items:
 | **ORACLE (perfect judge) − always-coder** | **+0.028** | [+0.003, +0.052] |
 | Gemma-judged ensemble − oracle | −0.078 | [−0.137, −0.019] |
 
-**Two things follow:**
+**Three things follow — and a fourth that limits all of them:**
 
-1. **The headroom is +0.028.** Even a *perfect* judge beats simply always calling the coder
-   model by under 3 points. **No judge — however well built, however cleverly graded — can
-   beat one model by more than that on this fleet.** Every downstream judge question (select
-   mode, pairwise, a neutral grader key) is competing for that sliver.
+1. **The headroom is +0.028.** Even a *perfect* judge beats always calling the strongest model
+   by under 3 points. Every downstream judge question (select mode, pairwise, a neutral grader
+   key) is competing for that sliver.
 2. **The actual judge captures a negative fraction of it.** The Gemma-judged ensemble lands
    **0.050 *below* always-coder** (CI [−0.107, +0.007] — not distinguishable from parity, and
-   certainly not better), while costing 3× inference, a judge call, and the measured ~30%
-   contention tax.
+   certainly not better), while costing 3× inference, a judge call, and the ~30% contention tax.
+3. **The candidates are largely REDUNDANT, not hierarchical.** **28 of 36 queries are an exact
+   tie at the top** — no model wins them. On **strict (unique) wins it is coder 4 / general 4 /
+   reasoning 0.** There is simply very little disagreement to arbitrate.
 
-**Why — the precondition fails: the "specialists" are not specialists.** The coder model
-(Qwen2.5-Coder-**14B**, the largest of the three) is the best candidate on **31 of 36
-queries**, *across all three categories*, including reasoning and general. This is not three
-complementary experts; it is **one strong model carrying two weaker ones**. There is little
-disagreement to exploit, so fan-out mostly offers the judge a chance to pick something worse.
+> ### ❌ RETRACTED: "the 14B coder is the best candidate on 31 of 36 queries"
+> **That was an artifact of the order of a list in a config file.** `max()` returns the *first*
+> maximum, and `EnsembleConfig.candidates` is `[coder, reasoning, general]` — so all 28 tied
+> queries were silently credited to **coder**. Reverse the list and the same data says
+> **`general` wins 27**. The honest count is **coder 4 / general 4 / reasoning 0**.
+>
+> The "one strong model carrying two weaker ones" story built on it is **withdrawn**. `coder`
+> is not even *significantly* the best single model (coder − general = +0.061, 95% CI
+> [−0.014, +0.136], includes zero) — and the verdict is hostage to that pick: had `general`
+> been chosen, headroom would be **+0.089 → "MARGINAL"**, not "not worth it". Fixed in
+> `divergence.py` (`strict_win_counts`; ties belong to nobody, and the counts are now
+> invariant to candidate order).
 
-Supporting: **12 of 36 queries are degenerate** — all three answer equally well, so no judging
-task exists at all (reasoning is worst: only **3/12** diverge).
+4. **⚠️ THE INSTRUMENT IS SATURATED, and that limits every claim above.** **31 of 36 queries
+   have the best candidate already at the grader's maximum**, where headroom is **0 by
+   construction**. The entire +0.028 is earned on **5 queries**. Drop the largest and it falls
+   to +0.019; drop two and it is +0.014.
+   And the verdict is **NOT RESOLVED at n=36**: the CI is [+0.003, +0.052] while the
+   "not worth it" threshold is 0.05 — the threshold sits *inside* the interval, so
+   "NOT WORTH IT" and "MARGINAL" are **not distinguishable** with this data. (The CI's *lower*
+   bound is vacuous: headroom is ≥0 by construction, so "excludes zero" is guaranteed and is
+   not evidence.)
 
-**This is a fleet-design result, and it is reusable.** The next fleet should be chosen to
-*maximize headroom*: candidates of **comparable strength** with **genuinely different
-strengths** — different lineages, different finetunes, or a cascade — rather than one big
-model plus two small ones. `divergence.py` measures that for any candidate set, offline, for
-$0, **before** a judge is built for it. That instrument is the durable output of this work.
+### What this actually licenses — and what it does not
 
-**Caveats, so this is not over-claimed in the other direction:** n=36, one query set, one
-grader, one fleet. The queries are short and general, which plausibly favours a single strong
-model over specialist routing; a workload of genuinely domain-split, hard tasks could diverge
-much more. And "always-coder" is only knowable *in hindsight* — a live system would still need
-to know which model to pick, which is precisely what a **router** does.
+**Supported:** on *this* query set, there is very little for a judge to arbitrate. The
+candidates tie on 28/36, the measured headroom is small (+0.028), and the real judge captures a
+*negative* fraction of it. Whatever else is true, **the current ensemble is not earning its 3×
+inference cost here.**
+
+**NOT supported — do not quote these:**
+- ❌ "The coder model dominates" / "one strong model carrying two weaker ones." **Retracted** —
+  a config-ordering artifact. Strict wins are coder 4 / general 4 / reasoning 0, and coder is
+  not significantly better than general.
+- ❌ "The ensemble is definitively not worth it." The verdict is **NOT RESOLVED at n=36**: the
+  decision threshold lies inside the confidence interval.
+- ❌ "The fleet is the problem." **Plausible, but unproven.** It is at least as consistent with
+  the *query set* being the problem: 31/36 queries are at the grader's ceiling, so the
+  instrument has almost no room to detect disagreement even if it existed.
+
+### The next step is the QUERY SET, not the fleet
+
+The measurement is **ceiling-limited**: on 31 of 36 queries the top candidate already scores
+full marks, so headroom there is zero *by construction* and the entire result rests on 5 items.
+You cannot diagnose a fleet with an instrument that is pinned at its maximum.
+
+1. **Harder queries that de-saturate the grader.** Queries where the *best* candidate still
+   loses points are the only ones that can reveal whether models genuinely differ. Then re-run
+   `divergence.py` — it is free and offline.
+2. **Then** judge the fleet. If headroom stays ~0 on hard, unsaturated queries, the fleet
+   really is redundant and the answer is a different fleet (comparable strength, genuinely
+   different strengths / lineages) or a **router** rather than a judge.
+3. Judge metrics (select mode, pairwise, a neutral grader key) remain downstream of both.
+
+**The durable output is the instrument.** `divergence.py` measures headroom, strict wins,
+ties, ceiling saturation, and whether the verdict is even resolved — for any candidate set,
+offline, for $0, *before* a judge is built for it. Use it to vet the next query set and the
+next fleet.
 
 **What this does NOT say:** that ensembles or meta-reasoners are a bad pattern. Multi-model
-systems work in production. It says **this fleet does not satisfy the pattern's precondition**,
-and it gives you the number to check the next one against.
+systems work in production (mostly by **routing** — picking the right model — rather than
+fanning out and voting). It says **this fleet, on these queries, gives a judge nothing to do,
+and this query set cannot currently tell us why.**
 
 ---
 
