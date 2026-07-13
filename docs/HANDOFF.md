@@ -26,7 +26,44 @@ The Chunk 3 headline ("Gemma ties the frontier on 15/18 — the small judge hold
    of its scale. **Pairwise (blinded, both-orders) is the fix — it is BUILT AND TESTED but
    UNRUN**, blocked only on grader quota (below).
 
-### 🔴 THE ONE NEXT ACTION CHANGED — run the eval in `select` mode. No key, no boot, no spend.
+### 🔴🔴 READ FIRST — THE ENSEMBLE DOES NOT PAY. The v3 thesis has a negative result.
+
+Measured 2026-07-12 (`orchestrator/divergence.py`, frozen in `eval_divergence.json`,
+reproduce for $0). Nobody had ever run the baseline: **is a judged ensemble better than
+just calling ONE model?** It is not.
+
+| policy | score | cost |
+|---|---|---|
+| ORACLE — a *perfect* judge picking best-of-3 | 0.961 | 3× inference + perfect judgment |
+| **ALWAYS coder — one model, no judge** | **0.933** | **1× inference** |
+| **GEMMA-judged ensemble (the v3 design)** | **0.883** | 3× inference + judge + ~30% contention |
+
+- **Gemma-judged ensemble − always-coder = −0.050** (95% CI [−0.107, +0.007]). The judge
+  goes **backwards** vs one model, at 3× the cost.
+- **ORACLE − always-coder = +0.028** (CI [+0.003, +0.052]). Even a **perfect** judge buys
+  under 3 points. **That is the entire headroom of the pattern on this fleet.**
+
+**Why: the "specialists" are not specialists.** The coder model (Qwen2.5-Coder-**14B**, the
+biggest of the three) is the best candidate on **31 of 36** queries — across *all three*
+categories. The fleet is one strong model and two weaker ones, not three complementary
+experts. And **12/36 queries are degenerate** (all three answer equally well → no judging
+task exists at all; reasoning is worst, only 3/12 diverge).
+
+**So the next action is NOT another judge metric.** Improving the judge cannot recover
+value that is not there. Options, in order:
+1. **Fix the fleet, not the judge.** The pattern needs candidates that are *complementary
+   and comparably strong*. Three models of similar size with genuinely different strengths
+   (or different lineages/finetunes), rather than a 14B carrying two smaller models.
+2. **Fix the query set.** These queries are short and general; 1/3 are degenerate. A judge
+   can only be measured where candidates actually diverge.
+3. Only then: select-mode / pairwise judge metrics (below). They are now *downstream* of a
+   fleet that gives a judge something to do.
+
+This is a genuine negative result and it is *worth having* — it is the kind of thing the
+lab exists to find. It does NOT say "meta-reasoners over specialised outputs is a bad
+pattern"; it says **this fleet has almost no diversity for a judge to exploit.**
+
+### The ONE next action, if you still want a judge metric — `select` mode. No key, no boot.
 
 An adversarial review (2026-07-12, three independent reviewers) found the eval **does not
 measure judging**. The frontier judge sets `chosen == -1` on **34 of 36** queries — it

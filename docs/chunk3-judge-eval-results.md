@@ -21,6 +21,68 @@ re-run of it. Grading: **3 samples per answer** with variance. Frozen in
 `orchestrator/eval_fixtures/`; re-score for **$0** with `judge_eval.py --score` (the
 grader memo is committed, so no API calls).
 
+# 🔴 THE BASELINE THE EVAL NEVER RAN (2026-07-12) — the ensemble does not pay
+
+Everything below argues about *which judge is better*. Nobody had asked the prior question:
+**is a judged ensemble better than just calling one model?** It is not.
+
+All policies scored by the same grader against the same references, n=36:
+
+| policy | score | what it costs |
+|---|---|---|
+| FRONTIER judge "ensemble" | 1.000 | *not a judge* — Sonnet writes its own answer 34/36. This row is "just ask a frontier model". |
+| **ORACLE** — a *perfect* judge picking the best of 3 | **0.961** | 3× inference + perfect judgment (unattainable) |
+| **ALWAYS coder** — one model, no judge, no fan-out | **0.933** | **1× inference. No judge. No ensemble.** |
+| **GEMMA-judged ensemble** (the v3 design) | **0.883** | 3× inference + judge call + ~30% contention tax |
+| ALWAYS general | 0.872 | 1× inference |
+| ALWAYS reasoning | 0.774 | 1× inference |
+
+Paired over the 36 items:
+
+| comparison | Δ | 95% CI |
+|---|---|---|
+| **Gemma-judged ensemble − always-coder** | **−0.050** | [−0.107, +0.007] |
+| **ORACLE (perfect judge) − always-coder** | **+0.028** | [+0.003, +0.052] |
+| Gemma-judged ensemble − oracle | −0.078 | [−0.137, −0.019] |
+
+**Two things follow, and they are the real v3 result:**
+
+1. **The entire headroom of the ensemble+judge pattern here is +0.028.** Even a *perfect*
+   judge — one that always picks the best of the three candidates — beats simply always
+   calling the coder model by less than 3 points, and that is the ceiling on what any
+   judge can ever buy on this fleet and query set.
+2. **The actual judge does not merely fail to capture that headroom — it goes backwards.**
+   The Gemma-judged ensemble scores **0.050 *below* always-coder** (CI [−0.107, +0.007],
+   so: not distinguishable from parity, and *certainly not better*), while costing 3×
+   inference, a judge call, and the measured ~30% contention tax.
+
+**Why:** the "specialists" are not specialists. The coder model (Qwen2.5-Coder-**14B** —
+the largest of the three) is the best candidate on **31 of 36 queries**, *across all three
+categories*, including reasoning and general. The fleet is not three complementary experts;
+it is one strong model and two weaker ones. Selecting among them is mostly a chance to pick
+something worse — which is exactly what the judge does.
+
+Supporting: **12 of 36 queries are degenerate** — all three specialists answer them
+equally well, so no judging task exists at all (reasoning is the worst: only **3/12**
+queries diverge). Reproduce with `python3 orchestrator/divergence.py`; result frozen in
+`eval_divergence.json`.
+
+**Caveats, stated up front so this is not over-claimed in the other direction:** n=36, one
+query set, one grader, one fleet. The queries are short and general-knowledge-ish, which
+plausibly favours a single strong model over specialist routing; a workload of genuinely
+domain-split, hard tasks might diverge more. And "always-coder" is only knowable *in
+hindsight* — a real deployment would have to know which model to always pick. But those
+caveats do not rescue the design as it stands: **the measured ensemble+judge is worse than
+a single model, and the best possible judge would beat it by 0.028.**
+
+**What this does NOT say:** that meta-reasoners over specialised outputs are a bad pattern.
+It says *this fleet* (a 14B and two smaller models, on *these* queries) has almost no
+diversity for a judge to exploit. The pattern needs candidates that are genuinely
+complementary — different strengths, comparable strength. That is a fleet-design finding,
+and it is the thing to fix before any further judge-metric work.
+
+---
+
 > ## ⚠️ READ THIS BEFORE QUOTING ANY NUMBER BELOW
 >
 > A later adversarial review (2026-07-12, three independent reviewers) found that **this
