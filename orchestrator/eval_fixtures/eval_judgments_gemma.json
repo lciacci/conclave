@@ -3,205 +3,273 @@
     "answer": "```python\ndef remove_duplicates(lst):\n    return list({x: None for x in lst}.keys())\n```",
     "chosen": 2,
     "rationale": "The synthesized answer effectively combines the conciseness and correct order preservation from Answer 2 while avoiding the confusion of the reasoning in Answer 1.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "70ad7148322baa29"
   },
   "coder-bug-mutable-default": {
     "answer": "The bug is that the default `acc=[]` is mutable, causing all calls to share the same list. To fix this, change the default to `None` and initialize a new list if `acc` is `None`.",
     "chosen": 1,
     "rationale": "Answer 1 provides a clear and accurate explanation of the bug and its fix.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "aad204980a4758df"
   },
   "coder-sql-param": {
     "answer": "```python\ncur.execute(\"SELECT * FROM users WHERE name = %s\", (name,))\n```",
     "chosen": 0,
     "rationale": "Answer 0 provides the correct solution using parameterized queries and a clear explanation.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "eb09ccfd69fa05d3"
   },
   "coder-async-gather": {
     "answer": "{\"chosen\": 1, \"rationale\": \"This answer accurately uses asyncio.gather to run the coroutines concurrently and collect their results.\", \"answer\": \n  \"To run three async coroutines concurrently and collect all their results using asyncio, you can use `asyncio.gather`:```python\\nimport asyncio\\n\\nasync def coroutine_function(name):\\n  print(f\\\"Coroutine {name} starting...\\\")\\n  await asyncio.sleep(2)\\n  print(f\\\"Coroutine {name} finished.\\\")\\n  return f\\\"Result from coroutine {name}\\\"\\n\\nasync def main():\\n  coroutines = [coroutine_function(\\\"A\\\"), coroutine_function(\\\"B\\\"), coroutine_function(\\\"C\\\")]\\n  results = await asyncio.gather(*coroutines)\\n  print(\\\"All coroutines completed. Results:\\\")\\n  for result in results:\\n    print(result)\\n\\nasyncio.run(main())\\n```\\nThis code defines three coroutines, runs them concurrently, and collects their results in a list., then prints each result.     \\n The `asyncio.gather()` function is key, ensuring all coroutines are run at once and their results are retrieved when they finish.\",\" } },added TaskingClarfications to the prompt. Add the dict back in so the model can see what the task is asking for. autant ({\"\n \n \n \n\n\n\n    \n    \n    \n    \n  \n  \n\n\n\n\n  \n   \n \n     \n\n\n\n   \n  \n        \n  \n   \n\n\n\n  \n\n\n\n  \n    \n    \n\n    \n\n     \n\n\n     \n  \n\n\n\n  \n\n\n\n  \n\n\n\n  \n\n\n\n \n \n\n\n\n \n\n\n\n \n\n\n\n   \n\n\n   \n\n\n\n \n\n\n  \n\n\n   \n\n\n\n  \n       \n\n\n\n  \n\n\n\n\n\n\n\n\n  \n  \n  \n   \n\n  \n \n\n\n\n\n \n\n  \n\n\n\n\n\n  \n   \n\n \n    \n  \n\n\n  \n\n\n \n\n\n \n\n\n\n\n\n\n\n  \n\n\n\n \n\n\n\n       \n\n\n\n\n   \n\n\n\n\n\n   \n\n\n\n  \n\n\n\n \n \n\n \n \n\n\n\n \n  \n  \n  \n\n\n\n\n\n\n  \n\n\n\n  \n\n\n\n \n \n\n\n\n\n\n\n\n\n  \n  \n\n\n\n  \n\n\n\n\n  \n\n\n\n\n \n\n\n\n \n\n\n \n\n\n\n \n\n\n\n\n\n\n  \n\n\n\n   \n\n\n\n \n\n\n  \n\n\n\n\n\n  \n\n\n\n\n \n\n\n\n \n\n  \n    \n\n\n\n\n  \n        \n\n \n \n\n \n\n  \n \n \n\n\n\n \n\n\n\n  \n\n\n\n \n\n\n\n \n \n\n\n\n  \n  \n\n \n\n\n\n \n  \n\n\n\n      \n       \n   \n\n\n\n  \n\n\n\n \n\n\n\n \n\n \n  \n\n\n\n    \n \n\n\n\n\n\n\n \n  \n\n \n\n  \n  \n\n\n\n\n\n \n\n\n\n \n\n\n\n \n\n\n\n  \n\n\n\n   \n\n \n\n\n\n \n\n\n\n\n \n\n\n   \n\n   \n  \n\n\n\n\n\n\n \n \n\n\n\n \n\n\n\n \n\n\n\n \n\n\n\n\n \n\n\n   \n\n\n\n \n\n\n\n\n  \n\n\n\n  \n\n\n   \n\n\n\n    \n      \n  \n   \n\n\n\n\n \n\n\n\n  \n\n\n\n   \n\n  \n\n\n\n \n\n\n\n        \n\n\n\n  \n \n\n\n      \n\n\n\n\n  \n\n\n\n  \n\n\n\n   \n  \n\n  \n\n\n\n \n  \n\n\n\n   \n\n      \n\n\n\n\n\n \n\n\n\n \n\n\n\n  \n\n\n\n    \n\n\n   \n\n\n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n\n\n\n\n\n   \n  \n\n  \n\n\n\n \n\n\n\n \n\n\n\n\n\n\n  \n \n\n\n\n \n\n\n               \n\n\n\n  \n \n\n\n\n\n\n     \n\n\n\n     \n\n\n    \n\n\n\n \n\n\n\n      \n\n  \n\n\n\n  \n\n\n\n\n\n\n\n\n  \n\n\n\n   \n\n\n\n  \n\n\n\n  \n  \n\n\n\n   \n\n\n\n \n\n  \n   \n\n\n\n\n \n\n  \n                                                              \n  \n\n\n \n\n\n \n\n\n\n \n\n\n\n   \n\n\n\n\n\n  \n\n\n\n \n\n\n\n\n\n\n \n\n\n\n \n\n\n\n \n \n \n \n \n\n\n   \n \n \n\n\n\n\n \n\n\n\n  \n\n\n\n   \n\n  \n\n \n\n \n\n \n\n\n\n  \n\n   \n\n\n\n\n \n\n\n   \n   \n\n\n\n  \n\n\n\n\n  \n\n\n  \n  \n\n\n\n   \n\n\n\n  \n\n\n\n\n\n\n \n  \n\n\n\n  \n\n\n\n \n \n\n\n\n \n\n\n     \n\n\n\n     \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n    \n\n\n\n \n\n\n\n \n\n \n \n\n\n\n    \n\n\n\n\n  \n\n\n\n\n   \n\n\n\n \n\n\n\n  \n\n\n\n  \n\n\n\n  \n\n \n\n\n\n  \n\n\n\n\n\n\n \n\n\n\n \n\n\n  \n\n\n\n  \n\n\n\n  \n   \n\n\n\n  \n \n\n\n\n       \n\n\n\n\n   \n\n\n\n\n  \n\n\n\n    \n\n\n\n  \n   \n\n\n\n\n  \n     \n\n\n\n    \n   \n\n\n\n \n\n\n\n \n\n\n\n \n\n\n\n  \n\n\n\n   \n\n\n\n  \n\n\n\n \n\n\n\n  \n\n\n \n   \n\n\n  \n\n\n\n\n\n\n     \n\n\n\n  \n\n\n\n\n  \n\n\n\n  \n  \n\n\n\n   \n\n\n\n \n\n\n\n  \n\n\n\n    \n\n\n\n\n  \n\n\n\n   \n\n\n\n   \n\n\n\n \n\n\n\n\n  \n\n\n\n \n     \n\n\n\n\n  \n\n  \n\n\n\n   \n\n\n\n\n \n\n\n\n \n\n\n\n\n   \n\n\n\n \n  \n  \n \n  \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n   \n\n\n\n  \n\n\n\n   \n\n\n      \n  \n\n\n\n  \n  \n\n\n\n  \n\n\n   \n \n\n\n    \n\n  \n \n\n\n\n  \n\n\n\n \n\n\n\n\n\n\n\n  \n\n\n\n \n\n\n\n\n   \n\n\n\n  \n \n\n\n\n   \n\n\n\n  \n\n\n\n\n\n\n\n  \n\n\n\n  \n\n\n\n   \n\n\n\n\n  \n\n\n\n \n\n\n\n  \n\n\n\n\n  \n\n\n\n   \n\n\n\n \n\n\n\n\n \n  \n \n\n\n  \n\n\n\n    \n\n\n\n  \n\n\n\n   \n\n\n\n \n\n\n\n  \n\n  \n\n\n\n \n\n \n\n\n\n \n\n\n\n     \n\n\n\n \n \n\n\n\n  \n\n\n\n  \n\n\n\n\n \n \n\n\n\n \n\n\n\n \n\n\n\n \n\n\n\n \n\n\n\n  \n\n\n\n   \n\n\n\n \n\n \n\n\n\n  \n\n\n\n  \n\n\n\n\n\n\n\n   \n\n\n\n     \n   \n\n\n\n \n  \n\n\n\n \n\n\n    \n       \n\n\n\n\n\n     \n\n\n\n  \n\n \n\n\n\n  \n\n\n\n   \n\n\n\n \n\n\n\n  \n\n\n\n   \n\n \n\n\n\n\n \n  \n\n   \n\n\n        \n    \n\n \n  \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n\n\n  \n\n\n\n  \n     \n   \n\n\n\n   \n  \n\n\n\n \n\n\n\n\n   \n\n\n\n  \n\n\n\n  \n\n\n\n    \n\n\n\n \n\n\n\n    \n\n\n   \n\n\n   \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n   \n\n\n\n   \n\n\n\n\n \n  \n\n\n\n    \n\n  \n\n\n\n \n\n\n\n \n\n\n\n\n\n\n\n  \n \n\n\n\n \n\n\n\n\n\n\n\n   \n\n\n\n  \n\n\n\n   \n  \n\n\n\n  \n\n\n\n    \n\n\n\n  \n\n\n\n  \n\n\n\n \n\n\n\n\n\n \n\n\n\n  \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n\n\n\n \n\n\n\n\n  \n\n  \n\n\n\n  \n\n\n\n \n\n\n\n  \n\n\n\n \n\n\n\n \n\n  \n\n\n\n  \n\n\n\n  \n\n\n\n  \n   \n\n\n\n\n \n\n\n   \n\n\n\n  \n \n\n\n\n   \n\n\n\n  \n\n\n\n  \n\n\n\n  \n\n\n\n \n\n\n\n   \n\n\n\n \n\n\n\n  \n\n\n\n \n\n   \n\n \n\n\n   \n\n\n\n  \n\n\n\n  \n\n\n\n\n\n   \n\n\n\n \n\n\n\n \n\n\n  \n  \n\n\n\n\n\n \n\n\n\n  \n\n\n\n   \n\n\n\n \n\n\n\n  \n\n \n\n\n\n \n\n\n   \n\n\n\n \n\n\n\n     \n\n\n\n  \n\n\n\n \n\n\n   \n  \n\n \n\n  \n\n\n\n  \n\n\n\n  \n\n\n\n  \n\n\n\n  \n\n\n\n\n  \n\n\n\n \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n  \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n  \n\n\n\n \n\n\n\n   \n  \n   \n\n\n\n   \n   \n  \n\n\n\n  \n\n\n\n \n\n\n\n   \n\n\n\n  \n\n   \n\n\n\n    \n\n\n\n   \n\n\n\n \n\n\n\n \n\n\n\n \n\n\n\n  \n\n\n\n  \n\n\n\n   \n\n\n\n\n\n\n   \n\n\n\n    \n\n\n  \n\n\n\n   \n\n\n\n   \n\n\n\n \n\n\n\n   \n\n\n\n \n\n  \n \n\n\n\n  \n   \n  \n \n\n\n\n\n\n\n   \n\n\n\n \n\n  \n\n\n\n \n\n\n   \n\n\n\n \n\n\n  \n\n \n\n\n\n \n       \n\n  \n\n\n\n   \n\n\n\n  \n\n  \n\n\n\n   \n\n\n\n\n \n\n\n\n    \n    \n\n\n   \n\n\n \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n \n\n\n   \n\n\n\n\n\n   \n\n\n\n \n\n\n\n \n\n\n\n  \n\n\n\n  \n \n\n\n\n \n\n\n\n \n\n\n\n  \n\n\n\n  \n\n\n\n   \n\n\n\n  \n\n \n\n\n\n  \n\n\n\n  \n\n\n\n   \n\n  \n\n\n\n  \n\n\n\n   \n  \n\n\n\n\n\n   \n\n\n\n\n   \n\n\n\n   \n\n\n\n  \n\n\n\n \n\n\n\n   \n \n\n\n\n   \n\n\n\n  \n\n\n\n\n\n\n\n  \n\n\n\n \n\n\n \n\n\n\n  \n\n\n\n \n  \n\n  \n    \n\n \n\n\n\n \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n  \n\n\n\n   \n\n\n\n \n\n\n\n \n\n\n\n  \n\n\n\n  \n\n\n\n   \n\n\n\n \n\n\n\n \n  \n\n\n\n \n\n\n   \n\n\n\n \n\n\n\n  \n\n\n\n \n\n\n\n\n\n\n  \n\n\n\n\n\n\n\n   \n\n   \n \n\n    \n\n   \n\n\n\n    \n\n\n\n  \n  \n\n\n\n   \n\n\n  \n\n\n\n  \n\n\n \n\n\n\n \n\n\n\n\n \n\n\n\n\n\n\n\n     \n\n\n\n\n\n\n   \n\n\n\n  \n\n\n\n \n\n\n\n   \n\n\n\n \n\n\n\n\n\n\n\n\n\n  \n\n\n\n\n \n\n\n\n   \n\n  \n\n\n\n  \n\n\n\n \n\n\n  \n\n\n\n  \n\n\n\n\n \n\n\n\n\n\n       \n\n\n\n   \n\n\n\n \n\n\n\n  \n\n\n\n  \n\n\n\n \n\n \n\n\n\n \n\n\n\n  \n\n\n\n \n\n\n\n \n  \n  \n\n\n\n   \n\n\n\n \n\n\n\n  \n\n\n\n  \n\n\n\n  \n\n \n\n\n\n \n\n\n\n \n\n\n\n \n\n\n\n\n\n  \n\n\n\n\n \n\n\n\n   \n\n\n\n  \n\n  \n\n\n\n \n\n \n\n\n\n \n\n\n\n  \n\n\n\n   \n\n\n\n \n\n   \n\n  \n\n\n\n \n\n \n   \n\n\n\n   \n\n\n\n \n\n\n\n \n\n    \n\n\n\n  \n\n\n\n  \n\n\n\n   \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n \n  \n\n\n\n   \n\n  \n\n \n\n\n\n \n\n \n\n\n\n\n\n\n  \n\n\n\n   \n\n\n \n\n\n\n  \n\n\n\n  \n\n\n\n \n\n\n\n  \n\n   \n\n\n\n   \n\n\n\n  \n\n\n \n\n\n  \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n  \n\n\n\n  \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n  \n\n\n\n\n\n \n\n\n\n   \n\n\n\n\n \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n \n\n\n\n  \n\n\n\n  \n   \n\n\n\n    \n\n\n\n \n\n\n\n  \n\n\n\n  \n\n\n   \n    \n\n\n\n \n\n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n   \n   \n\n\n\n \n\n\n\n \n\n\n\n\n\n\n\n \n\n\n      \n  \n\n\n\n  \n\n\n\n  \n\n\n\n    \n\n\n\n \n\n  \n\n\n\n \n\n\n\n \n\n\n\n\n   \n \n\n\n\n\n\n\n\n       \n\n\n\n  \n\n  \n\n\n\n  \n\n\n\n  \n\n\n\n\n    \n\n\n\n  \n\n\n\n  \n\n\n\n  \n\n\n\n  \n\n\n\n \n\n\n\n   \n\n\n\n\n\n  \n\n\n\n  \n\n\n\n  \n\n  \n\n\n\n   \n\n\n\n   \n\n\n\n   \n\n\n\n  \n\n\n\n  \n\n\n   \n\n\n\n \n\n    \n\n\n\n\n  \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n   \n\n\n\n  \n\n\n\n   \n\n\n\n   \n\n\n\n  \n\n\n\n \n\n      \n  \n\n\n\n\n  \n\n  \n\n\n\n \n\n\n\n   \n\n\n\n\n \n\n\n\n\n\n    \n\n   \n\n\n\n   \n\n\n\n\n\n\n\n\n\n   \n\n\n\n\n \n\n\n\n  \n\n\n\n\n\n\n\n \n\n\n\n \n\n\n \n\n\n\n \n\n\n\n \n\n\n\n  \n\n\n\n\n\n  \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n \n\n \n\n\n\n  \n\n\n\n  \n\n\n\n\n\n\n\n\n\n\n     \n  \n  \n   \n\n  \n   \n\n\n\n  \n\n\n\n\n\n\n \n\n\n\n \n\n\n\n\n  \n\n  \n\n\n\n\n\n\n \n\n\n\n \n\n\n\n   \n\n\n\n    \n\n\n\n\n  \n\n\n\n\n \n\n\n\n   \n\n  \n\n\n\n    \n\n\n\n   \n\n\n\n \n  \n   \n\n\n\n    \n\n\n\n   \n\n\n   \n\n\n\n \n\n\n\n   \n   \n\n\n\n \n\n\n\n \n\n\n\n    \n\n\n\n \n\n\n\n \n\n\n\n   \n\n\n\n  \n\n\n\n   \n\n\n\n \n\n\n\n   \n   \n\n\n\n\n  \n\n\n\n  \n\n\n\n  \n\n\n\n \n\n\n\n  \n   \n     \n\n   \n\n\n\n   \n\n \n\n \n\n\n\n\n  \n\n\n\n  \n\n\n\n\n  \n      \n     \n\n\n\n  \n\n    \n\n\n\n  \n\n\n\n\n \n\n\n\n  \n\n\n\n\n  \n\n\n\n\n \n\n\n\n  \n\n\n\n  \n\n\n\n \n\n\n\n \n\n\n\n\n  \n\n\n\n  \n\n\n\n\n\n  \n\n\n    \n\n\n \n\n\n\n   \n\n\n\n\n\n  \n\n  \n\n\n\n \n\n\n\n  \n\n \n\n\n\n   \n\n\n\n   \n\n\n\n  \n\n\n\n \n\n\n\n  \n\n\n \n\n\n\n\n   \n\n\n\n \n\n\n\n  \n\n\n\n    \n\n\n\n\n   \n\n\n\n    \n\n\n\n  \n\n\n\n\n\n   \n \n\n\n   \n\n\n\n  \n\n\n\n\n  \n\n\n\n   \n\n\n\n \n\n  \n\n\n\n   \n\n\n\n \n\n\n\n  \n\n\n\n  \n\n\n\n  \n\n\n\n \n\n\n\n  \n\n\n\n  \n\n\n\n \n\n\n\n  \n\n",
     "chosen": -1,
     "rationale": "unparsed judge output",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "6ec13a3a281f5844"
   },
   "coder-git-undo-commit": {
     "answer": "To move the last commit from your current branch to a new branch and remove it from the current one, follow these steps:\n\n1. **Create a New Branch**: First, create a new branch from the current branch where you want to move the last commit. \n   ```bash\n   git checkout -b new-branch-name\n   ```\n2. **Reset the Current Branch**: Next, reset the current branch to the commit before the last one. This will remove the last commit from the current branch.\n   ```bash\n   git reset HEAD~1\n   ```\n3. **Verify Changes**: Check the status and log to ensure that the last commit is no longer on the current branch.\n   ```bash\n   git status\n   git log --oneline\n   ```\n4. **Switch Back to the New Branch**: Switch back to the new branch you created earlier.\n   ```bash\n   git checkout new-branch-name\n   ```\n5. **Push Changes (Optional)**: If you need to push the changes to a remote repository, make sure to push both branches.\n   ```bash\n   git push origin current-branch-name\n   git push origin new-branch-name\n   ```\nBy following these steps, you effectively move the last commit to a new branch while removing it from the current branch.",
     "chosen": 1,
     "rationale": "Answer 1 provides the precise steps necessary, while Answer 2  gets bogged down in overthinking. ",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "32c1134b6ea00e85"
   },
   "coder-bigo-nested": {
     "answer": "The time complexity of checking each element in a list of  n items against another list of n items using the `in` operator is O(n) on average due to the hash table implementation.  To further optimize, convert the second list into a set for O(1) average time complexity per check.",
     "chosen": 2,
     "rationale": "Answer 2 best combines the correctness of Answer 1 with the conciseness of Answer 0.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "245b7bd917b5153d"
   },
   "reason-prime-337": {
     "answer": "337 is a prime number because it is not divisible by any prime number less than or equal to its square root (which is approximately 18.36). ",
     "chosen": 2,
     "rationale": "Answer 2 provides a clear explanation of the concept and the process of primality testing.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "590b5fe3f00b3d91"
   },
   "reason-trains": {
     "answer": "The trains will meet in 2 hours.",
     "chosen": 2,
     "rationale": "Answer 2 provides a clear and concise solution with the correct steps and calculation.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "29dc9d335f369cc6"
   },
   "reason-bat-ball": {
     "answer": "$0.05",
     "chosen": -1,
     "rationale": "All solutions correctly use algebra to solve for the ball's cost.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "5e2e55238d9f4a90"
   },
   "reason-work-rate": {
     "answer": "3 minutes",
     "chosen": 2,
     "rationale": "It accurately follows the logic of the problem and provides a clear, concise solution.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "a283fd928737e85b"
   },
   "reason-logic-cards": {
     "answer": "The cards that must be flipped are A and 7.",
     "chosen": 1,
     "rationale": "Answer 1 correctly identifies the need to check for both vowels paired with even numbers and odd numbers not paired with vowels.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "8f290787a7dfa72c"
   },
   "reason-compound": {
     "answer": "1331.00",
     "chosen": 2,
     "rationale": "Answer 2 provides a clear explanation of the formula and its application, correctly arriving at the solution.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "2285f63a2b365b4f"
   },
   "gen-mutex-1sentence": {
     "answer": "A mutex is a synchronization mechanism used in computer programming to ensure that only one thread or process can access a shared resource at a time, preventing data corruption and race conditions.",
     "chosen": 0,
     "rationale": "Answer 0 provides a clear and concise definition of a mutex.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "db4f6df2b6c8ea00"
   },
   "gen-tcp-udp": {
     "answer": "TCP (Transmission Control Protocol) ensures reliable data transmission with error checking, making it suitable for applications like web browsing and email, while UDP (User Datagram Protocol), being connectionless and faster, is used in real-time applications like video streaming where timely delivery is prioritized, even if some data is lost.",
     "chosen": 0,
     "rationale": "Answer 0 provides a clear and accurate comparison of TCP and UDP.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "0577f62021c1967f"
   },
   "gen-photosynthesis": {
     "answer": "Photosynthesis is like a magic recipe that plants use to make their food using sunlight! Imagine the leaves of a plant as little solar panels that catch sunlight. The plant then uses this sunlight to turn water from the soil and carbon dioxide from the air into glucose, which is a type of sugar that gives the plant energy to grow. This process also makes oxygen, which is the air we need to breathe.",
     "chosen": 0,
     "rationale": "Answer 0 uses clear analogies and explains the key inputs and outputs of photosynthesis.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "dd4536b65a420e20"
   },
   "gen-email-decline": {
     "answer": "Subject: Re: Meeting Invitation - [Meeting Topic]\n\nDear [Name],\n\nThank you for the meeting invitation. Unfortunately, due to a scheduling conflict, I won't be available to meet on [Date] at [Time].\n\nWould you be open to connecting asynchronously instead? I'm happy to discuss [Topic] via email or a quick phone call at your convenience.\n\nBest regards,\n\n[Your Name]",
     "chosen": 2,
     "rationale": "Answer 2 is concise and polite while clearly stating the conflict and suggesting alternatives.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "12723de312321b22"
   },
   "gen-analogy-cache": {
     "answer": "Imagine you have a big bookshelf full of books. Every time you want to read a book, you go to the shelf and find it. Now, imagine you have a small table next to your chair where you keep the books you read most often. This table acts like a cache. When you need to read one of those frequently used books, you can quickly grab it from the table instead of searching for it on the shelf. This saves you time because you don't have to go all the way to the shelf every time. The cache stores the most recently or frequently accessed data so that it can be quickly retrieved when needed again.",
     "chosen": 0,
     "rationale": "Answer 0 provides a clear and accurate analogy using a familiar object, the bookshelf.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "a77e29d305acf660"
   },
   "gen-summarize-pros-cons": {
     "answer": "**Pros:**\n- Flexibility in working hours and location\n- Potential for reduced commuting time and costs\n\n**Cons:**\n- Challenges in maintaining team cohesion and communication\n- Isolation and potential loneliness for some workers",
     "chosen": 0,
     "rationale": "Answer 0 provides a concise and accurate list of pros and cons.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "aa9c57cb4fb821d9"
   },
   "coder-float-equality": {
     "answer": "You're right, in Python,  `0.1 + 0.2 == 0.3` often returns `False`. This is due to how computers handle decimal numbers using binary, which can't perfectly represent all decimals. Small rounding errors accumulate during calculations, making exact equality comparisons unreliable. To safely compare floating-point numbers, use  `math.isclose()`, which allows for a small margin of error. ",
     "chosen": 2,
     "rationale": "Answer 2 provides a clear explanation of the binary representation issue and offers practical solutions.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "04e76bfc0a32a6ba"
   },
   "coder-mutate-while-iterating": {
     "answer": "The code removes negative elements as it iterates, but it's more efficient and correct to create a new list containing only non-negative elements using a list comprehension: `positive = [x for x in xs if x >= 0]`.",
     "chosen": 1,
     "rationale": "Answer 1 provides a clear explanation of the issue and offers an alternative approach using a list comprehension, which is generally the preferred method.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "cc2a1f4d66b3c365"
   },
   "coder-shallow-copy": {
     "answer": "When you perform `b = a.copy()`, you are creating a shallow copy of the list `a`. This means that the new list `b` is a separate object in memory, but it still contains references to the same objects as `a`. In your case, since `a` is a list of lists, the elements of `a` are themselves lists, which are not copied but referenced.  To avoid this behavior and create a deep copy of the list of lists, you can use the `copy` module in Python:\n\n```python\nimport copy\na = [[1, 2], [3, 4]]\nb = copy.deepcopy(a)\n\n# Now changing b[0][0] won't affect a\nb[0][0] = 99\n\nprint(a)  # Output: [[1, 2], [3, 4]]\nprint(b)  # Output: [[99, 2], [3, 4]]\n```\nBy using `copy.deepcopy(a)`, you create a completely independent copy of the list of lists, so changes to `b` will not affect `a`.",
     "chosen": 0,
     "rationale": "Answer 1 provides a clear and accurate explanation of shallow copy behavior and how to avoid it.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "420fb9fedc42273f"
   },
   "coder-threads-vs-processes": {
     "answer": "For a CPU-bound Python workload, you should use processes rather than threads. The reason is that Python's Global Interpreter Lock (GIL) can be a bottleneck in CPU-bound tasks. The GIL prevents multiple native threads from executing Python bytecodes at once, which means that even if you have multiple threads, only one will be executing Python code at any given time on a CPU. Processes, on the other hand, do not share the GIL and therefore can take full advantage of multiple CPU cores. Each process has its own Python interpreter and memory space, allowing them to run independently and concurrently. This makes processes more suitable for CPU-bound workloads where parallel execution can significantly improve performance.  ",
     "chosen": 0,
     "rationale": "Answer 0 provides a clear and concise explanation of the key differences between threads and processes in Python, specifically focusing on the GIL and its impact on CPU-bound tasks.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "4785b8fda52ff655"
   },
   "coder-bare-except": {
     "answer": "Using `try: ... except: pass` in Python is generally discouraged because it silently ignores exceptions, preventing you from handling, logging, or providing feedback about potential errors, which can lead to difficult-to-debug issues and unexpected program behavior.",
     "chosen": 1,
     "rationale": "The reasoning answer provides a clear, step-by-step explanation of why using `pass` in an `except` block is problematic.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "36a91ded9e8904c4"
   },
   "coder-string-concat-loop": {
     "answer": "The inefficiency is due to Python's string immutability, causing each concatenation to create a new string object. To fix this, collect parts in a list and join them once after the loop. This approach is more efficient because the join method is optimized, especially for large datasets. The optimized code would look like:\n\nparts = []\nfor part in parts_generator:\n    parts.append(part)\ns = ''.join(parts)",
     "chosen": 2,
     "rationale": "Answer 2 correctly identifies the performance issue and provides a clear, concise solution.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "6ce8e360caaaa585"
   },
   "reason-monty-hall": {
     "answer": "Yes, you should switch.",
     "chosen": 0,
     "rationale": "Answer 0 provides a clear and concise explanation of the Monty Hall Problem using Bayes' Theorem.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "7265e325f7abc1d6"
   },
   "reason-avg-speed": {
     "answer": "The average speed for the round trip is 40 km/h.",
     "chosen": 0,
     "rationale": "Answer 0 provides a clear and complete derivation using the formula for average speed.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "89c7d374c5ee897c"
   },
   "reason-lily-pad": {
     "answer": "The lily pads covered half the lake on day 47.",
     "chosen": 0,
     "rationale": "Answer 0 provides the correct and concise solution.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "b963421ead79c63b"
   },
   "reason-handshakes": {
     "answer": "There are a total of 45 handshakes.",
     "chosen": 2,
     "rationale": "Answer 2 uses the correct formula and provides a clear step-by-step calculation.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "9b2657cba001d013"
   },
   "reason-clock-angle": {
     "answer": "The angle between the hour and minute hands of a clock at exactly 3:15 is 7.5 degrees.",
     "chosen": 0,
     "rationale": "Answer 0 provides a clear, step-by-step calculation with explanations.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "f5ddadb05938cb27"
   },
   "reason-socks-pigeonhole": {
     "answer": "You need to take out <h1>3</h1> socks.",
     "chosen": 2,
     "rationale": "Answer 2 provides a concise and accurate explanation using the worst-case scenario.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "e61c8d6d0949acd6"
   },
   "gen-https-explain": {
     "answer": "HTTPS, which stands for Hypertext Transfer Protocol Secure, is a protocol used to secure communications over the internet. It encrypts the data exchanged between a user's browser and a website, ensuring that any information transmitted remains confidential and cannot be intercepted or tampered with by unauthorized parties. However, HTTPS does not prevent phishing attacks, where attackers trick users into entering their login credentials on a fake website that looks legitimate. Additionally, HTTPS does not ensure the accuracy or authenticity of the content on a website; it only guarantees the security of the data transmission. Lastly, HTTPS does not protect against vulnerabilities in the underlying software or hardware.",
     "chosen": 0,
     "rationale": "Answer 0 provides a clear and accurate explanation of what HTTPS protects and its limitations.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "c1abac981afd2479"
   },
   "gen-api-vs-library": {
     "answer": "An API (Application Programming Interface) is a set of rules and protocols that allows different software applications to communicate with each other. It defines how different software can request and exchange data. Think of it as a set of instructions that one program can follow to ask another program to do something specific. A library, on the other hand, is a collection of pre-written code that developers can use in their own programs. Libraries contain functions, classes, and other tools that simplify common programming tasks. When you use a library, you're essentially including someone else's code in your project to help you accomplish certain things more easily. In summary, an API is about communication between different software systems, while a library is about reusing code within a single application.",
     "chosen": 1,
     "rationale": "Answer 1 provides a clear and concise explanation of both APIs and libraries, highlighting their key differences.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "c49dbff29d5333cb"
   },
   "gen-recursion-analogy": {
     "answer": "Recursion can be thought of like a set of Russian nesting dolls, where each doll contains a smaller version of itself. Imagine you have a big doll that opens to reveal a smaller doll inside, and this smaller doll opens to reveal an even smaller doll, and so on, until you reach the smallest doll which cannot open any further. In programming, recursion is when a function calls itself repeatedly with slightly modified arguments, similar to opening each doll to find the next one inside. The process continues until a condition is met, at which point the function stops calling itself and begins to return values back up the chain. The 'base case' in recursion is like the smallest doll that doesn't contain another doll inside. It's the condition that tells the function when to stop calling itself and return a result. Without a base case, the function would keep calling itself indefinitely, much like if you tried to open the smallest doll only to find another doll inside, leading to an infinite loop. The base case prevents this by providing a clear stopping point, ensuring that the recursive calls eventually resolve and the function returns a final answer.",
     "chosen": 0,
     "rationale": "Answer 0 uses a clear and relatable analogy with a well-explained base case.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "f794a1e64b4ffa63"
   },
   "gen-inflation-explain": {
     "answer": "Inflation is a general increase in prices over time, meaning your money buys less. A little inflation (around 2-3%) is healthy because it encourages spending and wage growth, avoids deflation, and allows businesses to plan. However, too much inflation is harmful as it erodes the value of money and causes economic instability. ",
     "chosen": 1,
     "rationale": "Answer 1 provides a clear and concise explanation of inflation and its benefits, while avoiding overly complex jargon.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "7d88a83c2249dd34"
   },
   "gen-apology-email": {
     "answer": {
@@ -210,12 +278,16 @@
     },
     "chosen": 2,
     "rationale": "Answer 2 is concise, professional, and avoids making excuses while clearly stating the new deadline.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "7f9b86e4e5e7a4cc"
   },
   "gen-ev-vs-gas": {
     "answer": "## Electric vs Petrol Cars: A Quick Comparison\n\n**Electric Cars:**\n* **Environmentally Friendly:**  Zero tailpipe emissions contribute to cleaner air and reduced greenhouse gases.\n* **Lower Running Costs:** Electricity is generally cheaper than petrol, and EVs require less maintenance.\n\n**Petrol Cars:**\n* **Longer Range:** Petrol cars currently offer greater driving range on a single fill-up.\n* **Wide Availability:** Petrol stations are abundant, making refueling convenient and accessible. ",
     "chosen": 2,
     "rationale": "Answer 2 strikes a good balance, avoiding factual errors and overstatements.",
-    "model": "general"
+    "model": "general",
+    "judge_url": "http://100.87.121.89:4000",
+    "candidates_sha": "8f9ce882f68132cc"
   }
 }

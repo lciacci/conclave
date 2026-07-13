@@ -174,6 +174,13 @@ def run_judge(query: str, candidates: list[dict], cfg: EnsembleConfig, call=http
     try:
         parsed = json.loads(raw)
         answer = parsed.get("answer") or raw
+        # A judge sometimes returns a STRUCTURED answer (e.g. {"Subject":..,"Body":..} for
+        # an email task). Left as a dict it gets str()-formatted into the grader prompt as
+        # a Python repr — the published run graded a dict repr for one query — and blows
+        # up the keyword scorer on .lower(). The answer must always be text.
+        if not isinstance(answer, str):
+            answer = json.dumps(answer, ensure_ascii=False) if isinstance(answer, (dict, list)) \
+                else str(answer)
         rationale = parsed.get("rationale", "")
         chosen = parsed.get("chosen", -1)
     except (ValueError, AttributeError):

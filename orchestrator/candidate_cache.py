@@ -21,10 +21,17 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ensemble import EnsembleConfig, fan_out, http_call
 from eval_queryset import QUERY_SET
 
-DEFAULT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "eval_candidates.json")
+_HERE = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_PATH = os.path.join(_HERE, "eval_candidates.json")
+FIXTURE_PATH = os.path.join(_HERE, "eval_fixtures", "eval_candidates.json")
 
 
 def load(path: str = DEFAULT_PATH) -> dict[str, list[dict]]:
+    """Live cache if present, else the committed fixture. The live file is gitignored,
+    so without this a fresh clone finds no candidates and --score cannot replay the
+    published run at all."""
+    if not os.path.exists(path) and os.path.exists(FIXTURE_PATH):
+        path = FIXTURE_PATH
     if not os.path.exists(path):
         return {}
     with open(path) as f:

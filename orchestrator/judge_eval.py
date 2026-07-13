@@ -36,6 +36,7 @@ import functools
 import hashlib
 import ipaddress
 import json
+import math
 import os
 import re
 import statistics
@@ -179,8 +180,19 @@ _STOP = {"the", "a", "an", "is", "are", "to", "of", "and", "or", "in", "on", "fo
 # --------------------------------------------------------------------------- #
 # Scorers — pluggable. Each exposes .name and .score(query, answer) -> [0,1].
 # --------------------------------------------------------------------------- #
+def _as_text(answer) -> str:
+    """A judge answer is not always a str — a structured reply ({"Subject":..,"Body":..})
+    arrives as a dict. Coerce at the boundary: otherwise --heuristic dies on .lower() and
+    a grader silently receives a Python dict repr (which the published run did)."""
+    if answer is None:
+        return ""
+    if isinstance(answer, str):
+        return answer
+    return json.dumps(answer, ensure_ascii=False) if isinstance(answer, (dict, list)) else str(answer)
+
+
 def _terms(text: str) -> set[str]:
-    toks = re.findall(r"[a-z0-9_]+", text.lower())
+    toks = re.findall(r"[a-z0-9_]+", _as_text(text).lower())
     return {t for t in toks if len(t) > 2 and t not in _STOP}
 
 
@@ -261,8 +273,13 @@ class GradeCache:
     def __init__(self, path: str | None = None):
         self.path = path or os.path.join(_HERE, "eval_grade_cache.json")
         self.hits = self.misses = 0
+        src = self.path
+        if not os.path.exists(src):  # fresh clone: seed from the committed fixture
+            fx = os.path.join(_HERE, "eval_fixtures", os.path.basename(self.path))
+            if os.path.exists(fx):
+                src = fx
         try:
-            with open(self.path) as f:
+            with open(src) as f:
                 self._d = json.load(f)
         except (FileNotFoundError, ValueError):
             self._d = {}
@@ -285,11 +302,15 @@ class GradeCache:
             json.dump(self._d, f)
 
     def call_cached(self, k: str, fn):
+        """A None from `fn` means "no verdict" — NOT a verdict of zero. It is never
+        cached, so a retry can get a real answer instead of a frozen failure. (A cached
+        0.0 is a legitimate hit and is returned as one: `is None`, never truthiness.)"""
         v = self.get(k)
         if v is not None:
             return v
         v = fn()
-        self.put(k, v)
+        if v is not None:
+            self.put(k, v)
         return v
 
 
@@ -324,41 +345,55 @@ class ReferenceGrader:
         self.cache = cache
         self._call = functools.partial(call, api_key=api_key, temperature=temp)
 
-    def _grade_once(self, query: dict, answer: str, i: int = 0) -> float:
-        def go() -> float:
+    def _grade_once(self, query: dict, answer: str, i: int = 0) -> float | None:
+        """None = the grader gave NO USABLE VERDICT (empty reply, refusal, max-tokens
+        cutoff, content filter). That is NOT a score of 0.0. Returning 0.0 here made an
+        unreadable reply indistinguishable from "the answer was wrong", froze it in the
+        cache so a re-run never retried it, and moved an aggregate by ~1/36 = 0.028 —
+        roughly 3x the published +/-0.010 error bar. The judge path already refuses to
+        cache a failure (judge_over_cache); the grader path must not manufacture one."""
+        def go() -> float | None:
             msg = [{"role": "user", "content": (
                 "You are grading one answer to a question against a reference answer. "
                 "Score 0-5 how correct and complete it is (0=wrong/empty, 5=fully "
                 "correct and complete). Judge substance, not style.\n\n"
                 f"Question:\n{query['prompt']}\n\nReference answer:\n{query['reference']}"
-                f"\n\nAnswer to grade:\n{answer}\n\n"
+                f"\n\nAnswer to grade:\n{_as_text(answer)}\n\n"
                 'Respond ONLY with JSON: {"score": <0-5>, "reason": "<one sentence>"}')}]
             raw = self._call(self.base_url, self.model, msg, self.timeout,
                              response_format={"type": "json_object"})
             s = _extract_score(raw)
-            return 0.0 if s is None else max(0.0, min(5.0, s)) / 5.0
+            return None if s is None else max(0.0, min(5.0, s)) / 5.0
 
         if self.cache is None:
             return go()
         # Everything that can change the grade is in the key:
         #  - base_url: --bracket shares ONE cache across two graders. Two vendors can
         #    expose the same model string, and without the URL their grades collide.
-        #  - reference: edit a gold answer in eval_queryset.py while keeping its id and
-        #    every stale grade for it would be silently reused. The id is not the query.
+        #  - prompt + reference: edit a query or a gold answer in eval_queryset.py while
+        #    keeping its id and every stale grade would be silently reused. The id is not
+        #    the query — and BOTH the prompt and the reference go into the grading message.
         #  - sample index i: N samples of one answer must be N DISTINCT entries, or the
         #    variance we went to the trouble of measuring memoizes away to a fake 0.0.
         k = GradeCache.key("ref", self.base_url, self.model, self.temperature,
-                           query["id"], query["reference"], answer, i)
+                           query["id"], query["prompt"], query["reference"], answer, i)
         return self.cache.call_cached(k, go)
 
     def score_detail(self, query: dict, answer: str | None) -> dict:
-        """mean + stdev + raw samples. evaluate() prefers this over .score()."""
+        """mean + stdev + samples, plus `ungraded` — samples the grader gave no usable
+        verdict on. Those are DROPPED, never counted as 0.0. If every sample is ungraded
+        the item has no score at all (mean=None) and evaluate() skips it rather than
+        inventing one."""
         if not answer:
-            return {"mean": 0.0, "stdev": 0.0, "samples": []}
-        xs = [self._grade_once(query, answer, i) for i in range(self.samples)]
+            return {"mean": 0.0, "stdev": 0.0, "samples": [], "ungraded": 0}
+        raw = [self._grade_once(query, answer, i) for i in range(self.samples)]
+        xs = [x for x in raw if x is not None]
+        ungraded = len(raw) - len(xs)
+        if not xs:
+            return {"mean": None, "stdev": 0.0, "samples": [], "ungraded": ungraded}
         return {"mean": round(statistics.fmean(xs), 3),
                 "stdev": round(statistics.stdev(xs), 3) if len(xs) > 1 else 0.0,
-                "samples": [round(x, 3) for x in xs]}
+                "samples": [round(x, 3) for x in xs], "ungraded": ungraded}
 
     def score(self, query: dict, answer: str | None) -> float:
         return self.score_detail(query, answer)["mean"]
@@ -403,7 +438,7 @@ class PairwiseScorer:
                 "on correctness and completeness — judge substance, not style or length. "
                 "A reference answer is given to anchor correctness.\n\n"
                 f"Question:\n{query['prompt']}\n\nReference answer:\n{query['reference']}\n\n"
-                f"[Answer A]\n{first}\n\n[Answer B]\n{second}\n\n"
+                f"[Answer A]\n{_as_text(first)}\n\n[Answer B]\n{_as_text(second)}\n\n"
                 'Respond ONLY with JSON: {"winner": "A" | "B" | "TIE", '
                 '"reason": "<one sentence>"}')}]
             return self._call(self.base_url, self.model, msg, self.timeout,
@@ -460,6 +495,42 @@ class PairwiseScorer:
 # --------------------------------------------------------------------------- #
 # Judging over cached candidates (any judge config)
 # --------------------------------------------------------------------------- #
+def _candidates_sha(cands: list[dict]) -> str:
+    """Fingerprint of the answers a judgment was made over. A judgment is only valid for
+    the candidate set it saw; this is what lets carry-over detect that the answers moved
+    underneath it."""
+    body = "\x00".join(f"{c.get('model')}\x01{c.get('content')}" for c in cands)
+    return hashlib.sha256(body.encode()).hexdigest()[:16]
+
+
+# Model-name -> vendor, for artifacts written before judge_url was stamped into rows.
+# Coarse on purpose: it only has to be right about WHICH HOUSE, not which model.
+_MODEL_VENDOR_HINTS = (("claude", "anthropic"), ("gpt", "openai"), ("o1", "openai"),
+                       ("gemini", "google"), ("gemma", "google"))
+
+
+def _judge_identity(judgments: dict[str, dict], fallback_url: str) -> tuple[str, str]:
+    """(url, vendor) of the judge that ACTUALLY produced these judgments.
+
+    The bias guard used to ask the ENVIRONMENT who the frontier judge was — JUDGE_URL,
+    defaulting to OpenAI — while the frozen judgments were made by claude-sonnet-5, a
+    fact recorded in the file and read by nobody. So simply leaving JUDGE_URL unset made
+    a Sonnet grader grading Sonnet's own judge get stamped [INDEPENDENT], in the printed
+    report AND in the saved JSON. The one guard the published number rests on was keyed
+    off a variable with no causal link to the artifact. Identity now comes from the
+    artifact: the stamped judge_url, else inferred from the recorded model name."""
+    urls = {j["judge_url"] for j in judgments.values() if j.get("judge_url")}
+    if len(urls) == 1:
+        u = urls.pop()
+        return u, _vendor(u)
+    models = {j.get("model", "").lower() for j in judgments.values()}
+    for m in models:
+        for hint, vendor in _MODEL_VENDOR_HINTS:
+            if hint in m:
+                return fallback_url, vendor
+    return fallback_url, _vendor(fallback_url)
+
+
 def judge_over_cache(cache: dict[str, list[dict]], judge_cfg: EnsembleConfig,
                      call=http_call, prior: dict[str, dict] | None = None,
                      refresh: bool = False) -> dict[str, dict]:
@@ -501,6 +572,24 @@ def judge_over_cache(cache: dict[str, list[dict]], judge_cfg: EnsembleConfig,
             f"  - Meant to keep the existing run? Set JUDGE_MODEL={was[0]!r}.\n"
             f"  - Meant to re-judge everything with '{judge_cfg.judge_model}'? "
             f"Re-run with --refresh.")
+    # A judgment's real input is the CANDIDATES, not the query id. Carry-over keyed on id
+    # alone lets a judgment survive a complete replacement of the answers it judged —
+    # regenerate eval_candidates.json (fleet change, deleted cache) and every existing
+    # judgment is stale, silently reported as if fresh. GradeCache already keys on the
+    # answer TEXT for exactly this reason; the judgment memo never got the same treatment.
+    # Refuse rather than silently re-judge: a changed fleet is something you must know.
+    stale = [qid for qid, j in (prior or {}).items()
+             if qid in cache and j.get("candidates_sha")
+             and j["candidates_sha"] != _candidates_sha(cache[qid])]
+    if stale and not refresh:
+        sys.exit(
+            f"REFUSING to score against stale judgments: the candidates for {len(stale)} "
+            f"query(s) have CHANGED since they were judged (e.g. {stale[:3]}).\n"
+            f"Those judgments were made over different answers and no longer describe "
+            f"this candidate set.\n"
+            f"  - Re-judge them against the new candidates: re-run with --refresh.\n"
+            f"  - Or restore the candidate set they were judged over.")
+
     keep = {} if refresh else dict(prior or {})
     out: dict[str, dict] = dict(keep)
     failed = 0
@@ -522,6 +611,11 @@ def judge_over_cache(cache: dict[str, list[dict]], judge_cfg: EnsembleConfig,
             failed += 1
             continue
         out[qid] = {k: j[k] for k in ("answer", "chosen", "rationale", "model")}
+        # Stamp WHO judged and WHAT they judged, into the artifact itself. The scoring
+        # path must be able to answer "which vendor produced these judgments?" from the
+        # file, never from an env var that has no causal link to it (see _judge_identity).
+        out[qid]["judge_url"] = judge_cfg.resolved_judge_url()
+        out[qid]["candidates_sha"] = _candidates_sha(cands)
         print(f"  judged {qid} ({judge_cfg.judge_model})")
     if failed:
         print(f"  WARNING: {failed} judge call(s) failed and were NOT cached — re-run to "
@@ -571,6 +665,7 @@ def evaluate(cache: dict, judgments: dict[str, dict[str, dict]], scorer,
               f"Re-run the missing judge phase (--generate / --frontier) for a full n.",
               file=sys.stderr)
 
+    ungraded: list[str] = []
     for qid in scorable:
         q = QUERY_BY_ID[qid]
         answers = {jn: judgments[jn].get(qid, {}).get("answer") for jn in judges}
@@ -580,8 +675,15 @@ def evaluate(cache: dict, judgments: dict[str, dict[str, dict]], scorer,
             detail = None
         elif hasattr(scorer, "score_detail"):     # N-sample: carries stdev
             det = {jn: scorer.score_detail(q, answers[jn]) for jn in judges}
+            # mean is None when the grader gave NO usable verdict on any sample. That is
+            # not a score of zero — the item is unscorable and must leave the sample, or
+            # a content-filtered reply becomes a 0.0 that drags the aggregate.
+            if any(det[jn]["mean"] is None for jn in judges):
+                ungraded.append(qid)
+                continue
             scores = {jn: det[jn]["mean"] for jn in judges}
-            detail = {jn: {"stdev": det[jn]["stdev"], "samples": det[jn]["samples"]}
+            detail = {jn: {"stdev": det[jn]["stdev"], "samples": det[jn]["samples"],
+                           "ungraded_samples": det[jn].get("ungraded", 0)}
                       for jn in judges}
             for jn in judges:
                 stdevs[jn].append(det[jn]["stdev"])
@@ -606,9 +708,33 @@ def evaluate(cache: dict, judgments: dict[str, dict[str, dict]], scorer,
               "per_query": per_query}
     if skipped:  # n shrank — that must be visible in the artifact, not just on stderr
         report["skipped_unjudged"] = sorted(skipped)
+    if ungraded:
+        report["skipped_ungraded"] = sorted(ungraded)
     if any(stdevs[jn] for jn in judges):
         report["mean_grader_stdev"] = {jn: mean(stdevs[jn]) for jn in judges}
         report["grader_samples"] = getattr(scorer, "samples", 1)
+
+    # THE ERROR BAR THAT ACTUALLY BOUNDS THE CLAIM.
+    # mean_grader_stdev is grader REPLICATION noise: "if I ask the same grader again, how
+    # much does it wobble on one item". It says nothing about sampling error across
+    # QUERIES — which is what a claim like "judge A beats judge B" needs, because the 36
+    # queries are a sample from a population of possible queries. Quoting the replication
+    # noise as the resolution floor overstates precision by ~4x. The paired SEM over items
+    # is the honest one, and it is what a reader should compare the gap against.
+    if len(judges) == 2 and len(per_query) > 1:
+        a, b = judges
+        diffs = [pq["scores"][b] - pq["scores"][a] for pq in per_query]
+        sem = statistics.stdev(diffs) / math.sqrt(len(diffs))
+        gap = statistics.fmean(diffs)
+        report["paired_gap"] = {
+            "judges": f"{b} - {a}", "gap": round(gap, 4),
+            "sd_of_diff": round(statistics.stdev(diffs), 4),
+            "sem": round(sem, 4), "n": len(diffs),
+            "ci95": [round(gap - 1.96 * sem, 4), round(gap + 1.96 * sem, 4)],
+            "note": "SEM over queries — the error bar for the GAP. Compare the gap to "
+                    "this, not to mean_grader_stdev (which is grader replication noise "
+                    "and is several times smaller).",
+        }
     if getattr(scorer, "diagnostics", None):
         report["diagnostics"] = scorer.diagnostics
     if len(judges) == 2:
@@ -638,6 +764,13 @@ def print_report(r: dict) -> None:
     print("by category:")
     for c, d in r["by_category"].items():
         print(f"  {c:10s} " + "  ".join(f"{jn}={s:.3f}" for jn, s in d.items()))
+    pg = r.get("paired_gap")
+    if pg:
+        lo, hi = pg["ci95"]
+        print(f"paired gap ({pg['judges']}): {pg['gap']:.3f}  SEM {pg['sem']:.4f}  "
+              f"95% CI [{lo:.3f}, {hi:.3f}]  n={pg['n']}")
+        print("  ^ THIS is the error bar for the gap. mean_grader_stdev above is grader")
+        print("    replication noise and is several times smaller — do not quote it as the floor.")
     if "head_to_head" in r:
         print("head-to-head (per-query wins):", r["head_to_head"])
     diag = r.get("diagnostics")
@@ -1013,14 +1146,30 @@ def demo() -> None:
           "pairwise, grader-independence guard verified offline")
 
 
+# THE DEFAULTS ARE THE FROZEN RUN'S CONFIG, deliberately.
+#
+# They used to default to OpenAI/gpt-5.2 while the published run was Anthropic/
+# claude-sonnet-5. That made the *safe* path (replay the frozen result for $0) require
+# secret knowledge of three env vars, and the *default* path silently destructive:
+#   - bare `--score` with any OPENAI_API_KEY in the shell missed every cache key and made
+#     ~72 live PAID calls, then printed a plausible-but-different number;
+#   - bare `--frontier` would drop all 36 frozen claude-sonnet-5 judgments and re-judge
+#     with gpt-5.2, overwriting a published artifact.
+# A default must be the safe, reproducible thing. Override explicitly to spend.
+FROZEN_JUDGE_URL = "https://api.anthropic.com"
+FROZEN_JUDGE_MODEL = "claude-sonnet-5"
+FROZEN_GRADER_SAMPLES = 3
+
+
 def _frontier_from_env() -> tuple[str, str, str]:
     """The frontier JUDGE — the thing being compared against Gemma."""
-    base = os.environ.get("JUDGE_URL", "https://api.openai.com")
-    model = os.environ.get("JUDGE_MODEL", "gpt-5.2")
-    key = os.environ.get("JUDGE_API_KEY") or os.environ.get("OPENAI_API_KEY") \
-        or os.environ.get("ANTHROPIC_API_KEY", "")
+    base = os.environ.get("JUDGE_URL", FROZEN_JUDGE_URL)
+    model = os.environ.get("JUDGE_MODEL", FROZEN_JUDGE_MODEL)
+    key = os.environ.get("JUDGE_API_KEY") or os.environ.get("ANTHROPIC_API_KEY") \
+        or os.environ.get("OPENAI_API_KEY", "")
     if not key:
-        sys.exit("set JUDGE_API_KEY (or OPENAI_API_KEY / ANTHROPIC_API_KEY)")
+        # Scoring a fully-cached run needs no key at all — do not demand one.
+        return base.rstrip("/"), model, "none"
     return base.rstrip("/"), model, key
 
 
@@ -1035,12 +1184,14 @@ def _grader_from_env() -> tuple[str, str, str]:
     Falls back to JUDGE_* when unset, purely so the frozen n=18 run stays
     reproducible; _assert_independent() is what stops that fallback from silently
     reintroducing the bias in a rigor run."""
-    base = os.environ.get("GRADER_URL") or os.environ.get("JUDGE_URL", "https://api.openai.com")
-    model = os.environ.get("GRADER_MODEL") or os.environ.get("JUDGE_MODEL", "gpt-5.2")
+    base = os.environ.get("GRADER_URL") or os.environ.get("JUDGE_URL", FROZEN_JUDGE_URL)
+    model = os.environ.get("GRADER_MODEL") or os.environ.get("JUDGE_MODEL", FROZEN_JUDGE_MODEL)
     key = os.environ.get("GRADER_API_KEY") or os.environ.get("JUDGE_API_KEY") \
-        or os.environ.get("OPENAI_API_KEY") or os.environ.get("ANTHROPIC_API_KEY", "")
+        or os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENAI_API_KEY", "")
     if not key:
-        sys.exit("set GRADER_API_KEY (the independent grader) or JUDGE_API_KEY to reuse the judge's")
+        # A fully-cached replay makes zero calls, so a missing key is not an error here.
+        # If a call IS attempted it will fail loudly, which is the correct outcome.
+        return base.rstrip("/"), model, "none"
     return base.rstrip("/"), model, key
 
 
@@ -1171,7 +1322,22 @@ def _assert_independent(judge_url: str, grader_url: str, strict: bool) -> str | 
     return biased
 
 
+FIXTURES = os.path.join(_HERE, "eval_fixtures")
+
+
 def _load(path: str) -> dict:
+    """Live artifact if present, else the committed fixture of the same name.
+
+    The live eval_*.json are GITIGNORED; only eval_fixtures/ is committed. Without this
+    fallback nothing in the code ever read eval_fixtures/, so `--score` on a fresh clone
+    died with FileNotFoundError — and the documented "$0 replay of the published result"
+    was only ever true on the machine that generated it. Reproducibility that works
+    exclusively on the author's laptop is not reproducibility."""
+    if not os.path.exists(path):
+        fixture = os.path.join(FIXTURES, os.path.basename(path))
+        if os.path.exists(fixture):
+            print(f"  (using committed fixture {os.path.basename(fixture)})", file=sys.stderr)
+            path = fixture
     with open(path) as f:
         return json.load(f)
 
@@ -1217,7 +1383,10 @@ if __name__ == "__main__":
         cache = candidate_cache.load()
         judgments = {"gemma": _load(GEMMA_JUDGMENTS), "frontier": _load(FRONTIER_JUDGMENTS)}
         pairwise = "--pairwise" in sys.argv
-        n = int(os.environ.get("GRADER_SAMPLES", "1"))
+        # Default = the frozen run's sample count, so a bare --score REPLAYS (temperature
+        # is derived from `samples` and is part of the cache key: samples=1 => temp 0 =>
+        # a 100% cache miss => a silently paid re-grade).
+        n = int(os.environ.get("GRADER_SAMPLES", str(FROZEN_GRADER_SAMPLES)))
         gc = GradeCache()  # resume a killed run; re-score for free
 
         def build(g_base, g_model, g_key, favors):
@@ -1227,7 +1396,7 @@ if __name__ == "__main__":
             return s, {"model": g_model, "host": _host(g_base), "vendor": _vendor(g_base),
                        "favors": favors, "independent": favors is None}
 
-        if "--heuristic" in sys.argv:
+        if "--heuristic" in sys.argv:  # deterministic, offline, no grader => no bias guard
             reports = {"local_heuristic": evaluate(cache, judgments, LocalHeuristicScorer())}
 
         elif "--bracket" in sys.argv:
@@ -1236,36 +1405,54 @@ if __name__ == "__main__":
             # grades Gemma generously. Run both and the truth is bracketed between them.
             # A conclusion that survives BOTH is robust to grader bias in either
             # direction — a stronger claim than any single grader can support.
-            j_base, j_model, j_key = _frontier_from_env()
+            env_j_base, env_j_model, env_j_key = _frontier_from_env()
+            j_base, j_vendor = _judge_identity(judgments["frontier"], env_j_base)
             g_base, g_model, g_key = _grader_from_env()
-            if _grader_bias(j_base, g_base) is None:
-                sys.exit("--bracket wants two OPPOSED graders; GRADER_* is already neutral "
-                         "— just run --score without --bracket.")
+            gbias = _grader_bias(j_base, g_base)
+            # The bracket is only a BRACKET if the two graders lean OPPOSITE ways. It used
+            # to accept anything non-neutral and then hard-label it "gemma_vendor" — so an
+            # Anthropic or an unverifiable grader got folded in as the upper bound and the
+            # report still claimed "a conclusion that holds at BOTH ends is bias-robust",
+            # which is false when both ends lean the same way.
+            if gbias != "gemma":
+                sys.exit(
+                    f"--bracket needs two OPPOSED graders: one from the frontier judge's "
+                    f"house (a LOWER bound on Gemma) and one from Gemma's house, google "
+                    f"(an UPPER bound).\nGRADER_* resolves to bias={gbias!r}, which is not "
+                    f"google's.\n  - Neutral grader? Just run --score, no bracket needed.\n"
+                    f"  - Want the bracket? Point GRADER_* at a Google endpoint.")
             reports = {}
             for tag, (b, m, k) in {
                 # grades frontier's own output -> Gemma's score here is a LOWER bound
-                "grader=frontier_vendor": (j_base, j_model, j_key),
+                "grader=frontier_vendor": (j_base, env_j_model, env_j_key),
                 # shares Gemma's house       -> Gemma's score here is an UPPER bound
                 "grader=gemma_vendor": (g_base, g_model, g_key),
             }.items():
                 scorer, meta = build(b, m, k, _grader_bias(j_base, b))
                 r = evaluate(cache, judgments, scorer)
                 r["grader"] = meta
+                r["frontier_judge"] = {"url": j_base, "vendor": j_vendor}
                 reports[tag] = r
 
         else:
-            j_base, _, _ = _frontier_from_env()          # who is being graded
+            env_j_base, _, _ = _frontier_from_env()
+            j_base, j_vendor = _judge_identity(judgments["frontier"], env_j_base)
             g_base, g_model, g_key = _grader_from_env()  # who is grading
             # Pairwise is fatal on a colliding grader; reference grading only warns.
             favors = _assert_independent(j_base, g_base, strict=pairwise)
             scorer, meta = build(g_base, g_model, g_key, favors)
             r = evaluate(cache, judgments, scorer)
             r["grader"] = meta
+            r["frontier_judge"] = {"url": j_base, "vendor": j_vendor}
             reports = {scorer.name: r}
 
         for tag, r in reports.items():
             print(f"\n----- {tag} -----" if len(reports) > 1 else "", end="")
             print_report(r)
+        if gc.misses and "--heuristic" not in sys.argv:
+            print(f"\nNOTE: {gc.misses} grade(s) were computed LIVE (paid). The frozen run "
+                  f"replays for $0 only under the exact config that produced it — see "
+                  f"--replay.", file=sys.stderr)
         if len(reports) > 1:
             print("\n=== BRACKET ===")
             for tag, r in reports.items():
