@@ -9,21 +9,21 @@
       "general": 0.5267,
       "reasoning": 0.5178
     },
-    "verdict": "ENSEMBLE NOT WORTH IT \u2014 no judge can beat one model here; route or cascade",
-    "verdict_resolved": true,
+    "verdict": "ENSEMBLE NOT WORTH IT \u2014 no judge can beat one model here; route or cascade  [NOT RESOLVED at n=30: the 0.05 threshold lies inside the 95% CI, so NOT-WORTH-IT vs MARGINAL is not distinguishable. More queries needed to settle it.]",
+    "verdict_resolved": false,
     "queries_at_grader_ceiling": 6,
     "queries_with_live_headroom": 24,
     "ceiling_note": "6/30 queries have the best candidate already at the grader's maximum, where headroom is 0 BY CONSTRUCTION. The headroom is earned on only 24 queries.",
     "note": "headroom = ORACLE (perfect judge) - BEST SINGLE MODEL. The entire value the ensemble+judge pattern can ever buy on this fleet. A real judge captures a fraction of it \u2014 possibly a negative fraction.",
     "ci95": [
-      0.0036,
-      0.0498
+      0.0025,
+      0.0509
     ],
     "ci_note": "Lower bound is vacuous: headroom >= 0 by construction, so 'excludes 0' is guaranteed and is NOT evidence. Judge the UPPER bound against the verdict threshold.",
     "best_single_is_significant": true,
     "best_single_margin_ci95": [
-      0.084,
-      0.2538
+      0.0802,
+      0.2576
     ],
     "runner_up": "general"
   },
