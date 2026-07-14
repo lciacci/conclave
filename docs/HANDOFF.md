@@ -15,48 +15,69 @@ Nothing running. No instances. **$0 spent this session.**
 > superset of local main. If local `main` annoys you: `git reset --hard origin/main` (back it up
 > first). Nothing is lost.
 
-> ## ✅ THE GPU WORK IS DONE. The hard-set candidates are CAPTURED and committed.
+> # ✅ V3 IS ANSWERED. The verdict is SETTLED, on a SOUND instrument.
 >
-> All 30 pre-registered hard queries have complete candidate sets from all three
-> specialists (generated on a RunPod **H100**, 2026-07-14), frozen in
-> `orchestrator/eval_fixtures/eval_candidates_hard.json`. **Replays for $0 from a fresh
-> clone — no GPU, no capacity hunt, ever again.**
+> **The ceiling was hiding NOTHING. The fleet is HIERARCHICAL, not complementary.
+> ROUTE — do not judge.** (2026-07-14, n=30 pre-registered hard queries, H100.
+> Everything below replays for **$0**: `CONCLAVE_QUERYSET=hard python3
+> orchestrator/divergence.py`.)
 >
-> ## 🔴 THE ONE NEXT ACTION — 2 minutes, no GPU, ~$1–2 of grader API
+> | | BASE (n=36) | **HARD (n=30)** |
+> |---|---|---|
+> | queries **at grader ceiling** | 31/36 (**86%**) | **6/30 (20%)** ← instrument FIXED |
+> | best single (coder) | 0.933 | **0.696** |
+> | oracle (a *perfect* judge) | 0.961 | 0.722 |
+> | **HEADROOM** | **+0.0278** | **+0.0267** ← UNCHANGED |
+> | 95% CI | [0.003, 0.052] | [0.004, 0.050] |
+> | **verdict RESOLVED?** | **NO** | **YES** |
+> | tied at top | 28/36 (78%) | 12/30 (40%) |
+> | divergent | 24/36 (67%) | 24/30 (**80%**) |
 >
-> **Grading is the only thing left, and it is blocked on ONE interactive command.** The
-> AWS SSO token expired mid-run, so the grader key in SSM was unreachable.
+> **The hard set did its job.** The ceiling collapsed 86% → 20%, scores fell
+> 0.933 → 0.696, ties fell 78% → 40%, and the specialists now visibly disagree on
+> **80%** of queries. **And the headroom did not move.** The old measurement was not
+> wrong because it was saturated — it was *undecidable*. Now it is decided.
 >
-> ```sh
-> aws sso login --profile yeti-conclave          # <- the ONLY blocker. Interactive.
+> ### Why disagreement TRIPLED but headroom stayed flat — **divergence ≠ headroom**
+> The fleet is **hierarchical**: `coder 0.696 · general 0.527 · reasoning 0.518`.
+> Strict wins **coder 12/30**, reasoning 4, general 2. And coder is now
+> **SIGNIFICANTLY** the best single model — margin CI **[+0.084, +0.254]**, excludes
+> zero (on the base set it did **not**: [−0.014, +0.136]).
 >
-> export GRADER_URL=https://api.anthropic.com GRADER_MODEL=claude-sonnet-5 \
->   GRADER_API_KEY=$(aws ssm get-parameter --name /conclave/judge-api-key --with-decryption \
->     --profile yeti-conclave --query Parameter.Value --output text)
-> CONCLAVE_QUERYSET=hard python3 orchestrator/divergence.py     # ~270 grader calls, ~10 min
-> ```
+> **The models disagree — but when they disagree, CODER IS USUALLY RIGHT.** So a
+> *perfect* judge picking best-of-3 barely beats always calling coder. That is the exact
+> signature of a fleet you **route to**, not one you **vote over**. `design.md` already
+> called routing "the cheap sibling"; it is now the **measured recommendation**.
 >
-> That prints the number this entire branch exists to produce: **the fleet's HEADROOM on
-> an UNSATURATED query set.** Compare it against the base set (which replays for $0):
-> ```sh
-> python3 orchestrator/divergence.py            # base: headroom +0.0278, 31/36 AT CEILING
-> ```
+> ### The caveat, stated plainly
+> The CI upper bound is **0.0498** against a 0.05 threshold — it clears "resolved" by
+> **0.0002**. Razor-thin. Read it as *"not worth it, at the boundary"*, not a landslide.
+> It cuts the right way though: both known biases (winner's curse on the oracle; in-sample
+> pick of best-single) inflate headroom **in the ensemble's favour**, so the true value is
+> if anything **lower**.
 >
-> ### What the answer means — decide this BEFORE you look, so the result can't be rationalised
-> - **Ceiling gone (few/no queries `at_ceiling`) AND headroom still ~0** → the fleet is
->   **genuinely REDUNDANT.** The base-36 result stands, and it stands on a *sound*
->   instrument. Verdict: **do not build a judge — route or cascade.** The v3 thesis is
->   answered, negatively, and honestly.
-> - **Ceiling gone AND headroom appears (>0.05)** → the base-36 ceiling was **hiding real
->   disagreement**. The +0.028 was an artifact of an easy test, and the ensemble+judge
->   question is **live again**.
-> - **Still ceiling-limited** → the hard queries *weren't hard enough*. Say so; do not
->   quote a headroom number off a saturated grader. That is the failure mode the whole
->   rigor pass exists to prevent.
+> ### What is NOT un-retracted
+> **"The 14B coder is best on 31/36 queries" REMAINS FALSE** — a config-ordering artifact
+> of a tie-blind `max()`. What is **newly established**, on a tie-aware counter and an
+> unsaturated grader, is the weaker and real claim: **coder is significantly the strongest
+> member.** The base set could not distinguish that. This one can.
 >
-> **Do NOT re-word a hard query after seeing which model wins.** That selects for
-> disagreement and manufactures the headroom the instrument exists to measure. If a query
-> is broken, DELETE it and say so.
+> ### Pre-registration held
+> The 30 queries were written and frozen **before any candidate was generated**, and **not
+> one was re-worded after seeing a result.** That is what makes this null result credible.
+>
+> ## ➡️ WHAT TO DO NEXT (the v3 arc is complete)
+> 1. **A ROUTER, not a judge.** The measured recommendation. Pick the right model per
+>    request; do not fan out and vote. Cheap, and it is what the data supports.
+> 2. **Or a DIFFERENT FLEET.** This one is one strong model plus two weaker ones — two of
+>    the three are Qwen-lineage, which HANDOFF has flagged as denting decorrelation since
+>    v2. A fleet with *comparable strength* and *genuinely different lineages* is the only
+>    way the ensemble+judge pattern gets a fair test. **The AWS 8-vCPU quota chose this
+>    fleet, not you** (it forced a 14B coder instead of 32B). That constraint is now gone
+>    on RunPod. **Re-run `divergence.py` on any new fleet BEFORE building a judge for it** —
+>    that is exactly what this instrument is for, and it costs one boot.
+> 3. **Judge metrics (select mode, pairwise) are DOWNSTREAM of both.** Improving a judge
+>    cannot recover value that is not there. Do not start here.
 
 > ### ⛔ CORRECTION — the previous HANDOFF was WRONG about this step's cost.
 > It said *"write HARDER QUERIES, then re-run divergence.py. **No GPU boot, no API key, ~$1.**"*
