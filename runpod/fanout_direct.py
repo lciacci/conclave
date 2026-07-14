@@ -32,7 +32,7 @@ from ensemble import EnsembleConfig
 from eval_queryset import active_query_set, active_set_name
 
 # model name -> the local port its vLLM server is tunnelled to.
-PORTS = {"coder": 18001, "reasoning": 18002, "general": 18003}
+PORTS = {"coder": 18011, "reasoning": 18002, "general": 18003}
 
 
 def direct_call(base_url, model, messages, timeout, response_format=None, **kw):

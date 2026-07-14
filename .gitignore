@@ -40,3 +40,8 @@ orchestrator/eval_report_*.json
 
 # Live spend authorization — never committed (spec 06)
 .tessera/spend-auth.json
+orchestrator/eval_candidates_*.json
+orchestrator/eval_divergence*.json
+orchestrator/eval_selfmoa_*.json
+.runpod_key
+.hf_token

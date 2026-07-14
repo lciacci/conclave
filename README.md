@@ -127,7 +127,7 @@ queries couldn't be tuned toward a flattering result), and the fleet was re-meas
 | best single model (coder) | 0.933 | **0.696** |
 | oracle (a *perfect* judge) | 0.961 | 0.722 |
 | **headroom** | **+0.028** | **+0.027** |
-| verdict statistically resolved? | **no** | **yes** |
+| verdict statistically resolved? | **no** | **no** (retracted — see above) |
 | queries where models disagree | 67% | **80%** |
 
 The hard queries did their job: the ceiling collapsed, scores fell, and the
@@ -160,7 +160,34 @@ router  ≤  judge  ≤  oracle  =  best single + headroom
 So a *perfect* router also buys at most **+0.027** on this fleet. Headroom doesn't merely
 condemn the judge — **it condemns every *selection* policy over this fleet.**
 
-## But the pattern does pay — from **sampling**, not from a fleet
+
+> ## 🔴 RETRACTION (2026-07-14, from code review) — DO NOT QUOTE THE SELF-MoA GAIN
+>
+> **The "+0.058 / the pattern PAYS" result below is VOID.** Three defects, any one fatal:
+> 1. The **baseline was graded at `GRADER_SAMPLES=3`** while the Self-MoA arms were graded at
+>    **`=1`** — a single noisy grade compared against a mean-of-three. On a matched baseline the
+>    gain is **+0.047, CI [−0.005, +0.099] — it crosses zero.**
+> 2. **The judge WAS the grader** (`claude-sonnet-5` chose the answer, then graded its own
+>    choice). The run exported only `GRADER_*`; `JUDGE_*` silently fell back to it.
+> 3. The **guard written to catch (2) was dead code.**
+>
+> **"The verdict is RESOLVED" is also retracted** — it used z=1.96 with an estimated sigma on
+> data that is 24/30 exact zeros. With the correct t quantile the 0.05 threshold falls *inside*
+> the CI on **both** query sets. Nothing is resolved.
+>
+> **"ORACLE@8 beats the fleet by +0.091" is restated as +0.034** — the rest was max-over-8 vs
+> max-over-3 (more lottery tickets) plus the same grading mismatch. Direction survives;
+> magnitude was overstated 2.6×.
+>
+> **What survives:** the ceiling collapse (86%→20%), headroom unchanged (+0.027), disagreement
+> tripling while headroom stayed flat, and — robustly, no CI needed — **the fleet is
+> hierarchical: the coder wins all three categories, beating the reasoner AT reasoning and the
+> general model AT general.**
+>
+> All defects are fixed in code and verified by execution. The Self-MoA gain is **unmeasured**,
+> not positive; a defensible number needs the in-fleet (non-grader) judge.
+
+## ~~But the pattern does pay~~ — SELF-MoA RESULT IS VOID, SEE RETRACTION ABOVE
 
 The oracle bounds **selection**. It does **not** bound **generation** — anything that
 produces candidates that weren't in the set escapes it entirely.
@@ -172,7 +199,7 @@ So we dropped the two weaker models and sampled the **best** model 8× instead
 | | candidates | judge score | vs. no judge |
 |---|---|---|---|
 | **Fleet** (the original design) | 3 models × 1 sample | 0.883 | **−0.050** — the judge is *worse than no judge* |
-| **Self-MoA** | 1 model × 8 samples | **0.753** | **+0.058** ✅ CI [+0.005, +0.110] |
+| **Self-MoA** | 1 model × 8 samples | ~~0.753~~ | ~~+0.058~~ **VOID — see retraction** |
 
 ```
 baseline   the model, one sample        0.696

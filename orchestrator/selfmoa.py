@@ -52,6 +52,7 @@ import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from eval_queryset import active_query_set, active_set_name
+from divergence import _t95
 from judge_eval import (FROZEN_GRADER_SAMPLES, GradeCache, ReferenceGrader, _grader_from_env,
                         frontier_call)
 
@@ -79,6 +80,40 @@ def _load(p: str, fx: str) -> dict:
             with open(cand) as f:
                 return json.load(f)
     return {}
+
+
+def _assert_grader_matches_baseline(div: dict, base_url: str, model: str, samples: int) -> None:
+    """THE DEFECT THAT KILLED THE HEADLINE. The baseline comes from the divergence run; the
+    self-MoA arms are graded HERE. If the two are graded under different grader configs, they
+    are NOT COMPARABLE — and the difference does not crash, it just silently biases the result.
+
+    It happened: to save money the self-MoA grading ran at GRADER_SAMPLES=1 while the baseline
+    had been graded at GRADER_SAMPLES=3. A mean-of-3 is variance-reduced and sits ~0.011 BELOW
+    its own single-grade counterpart on the identical answers, so the baseline was depressed by
+    construction while the oracle (a MAX) was inflated by full-noise single grades. On a
+    matched baseline the published gain (+0.058, CI [+0.005, +0.110]) becomes +0.047 with a CI
+    that CROSSES ZERO. The result was an artifact of the grading config, not a finding.
+
+    Refuse to produce a number rather than produce a wrong one."""
+    g = div.get("grader") or {}
+    want = (g.get("model"), g.get("url"), g.get("samples"))
+    have = (model, base_url, samples)
+    if any(v is None for v in want):
+        print(f"WARNING: the divergence report records no grader config, so the baseline's "
+              f"grading CANNOT be verified against this run's ({have}). Treat any comparison "
+              f"against `baseline` as UNVALIDATED.", file=sys.stderr)
+        return
+    if want != have:
+        sys.exit(
+            f"\nFATAL — BASELINE AND THIS RUN ARE NOT GRADED THE SAME WAY. Refusing to emit a\n"
+            f"number that would be an artifact of the grader config rather than a finding.\n\n"
+            f"  baseline graded under : model={want[0]} url={want[1]} samples={want[2]}\n"
+            f"  this run grades under : model={have[0]} url={have[1]} samples={have[2]}\n\n"
+            f"A mean-of-N grade is variance-reduced and sits BELOW its own single-grade\n"
+            f"counterpart on identical answers, while an ORACLE (a max) is INFLATED by noisy\n"
+            f"single grades. Comparing across configs biases the result in the ensemble's\n"
+            f"favour. Set GRADER_SAMPLES={want[2]} (and the same model/url), or re-grade the\n"
+            f"baseline at this run's config.\n")
 
 
 # ---------------------------------------------------------------- generation (needs GPU)
@@ -154,9 +189,10 @@ def score(cache: dict, scorer, baseline: dict) -> dict:
     if base is not None:
         d = [r["oracle"] - r["baseline"] for r in have_base]
         sem = statistics.stdev(d) / math.sqrt(len(d)) if len(d) > 1 else 0.0
+        t = _t95(len(d))
         out["gain_oracle_over_baseline"] = round(statistics.fmean(d), 4)
-        out["gain_ci95"] = [round(statistics.fmean(d) - 1.96 * sem, 4),
-                            round(statistics.fmean(d) + 1.96 * sem, 4)]
+        out["gain_ci95"] = [round(statistics.fmean(d) - t * sem, 4),
+                            round(statistics.fmean(d) + t * sem, 4)]
     return out
 
 
@@ -241,6 +277,7 @@ if __name__ == "__main__":
 
     base_url, model, key = _grader_from_env()
     n = int(os.environ.get("GRADER_SAMPLES", str(FROZEN_GRADER_SAMPLES)))
+    _assert_grader_matches_baseline(div, base_url, model, n)
     gc = GradeCache()
     scorer = ReferenceGrader(base_url, model, key, call=frontier_call, samples=n, cache=gc)
     print(f"grading {sum(len(v) for v in cache.values())} samples with {model} ...")

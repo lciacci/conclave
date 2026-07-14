@@ -115,6 +115,26 @@ QUERY_BY_ID = {q["id"]: q for q in QUERY_SET}
 MEANINGFUL = 0.1
 
 
+def _t95(n: int) -> float:
+    """Two-sided 95% t quantile. Using z=1.96 with an ESTIMATED sigma is anti-conservative at
+    small n — and on data that is mostly exact zeros (24/30 of the headroom diffs) it is badly
+    so. With df=29 the correct value is 2.045, and that difference alone flipped the hard-set
+    verdict from 'RESOLVED' to 'not resolved'. Never use 1.96 on an estimated sigma again."""
+    if n < 2:
+        return float("inf")
+    _T = {2: 12.706, 3: 4.303, 4: 3.182, 5: 2.776, 6: 2.571, 7: 2.447, 8: 2.365, 9: 2.306,
+          10: 2.262, 11: 2.228, 12: 2.201, 13: 2.179, 14: 2.160, 15: 2.145, 16: 2.131,
+          17: 2.120, 18: 2.110, 19: 2.101, 20: 2.093, 21: 2.086, 22: 2.080, 23: 2.074,
+          24: 2.069, 25: 2.064, 26: 2.060, 27: 2.056, 28: 2.052, 29: 2.048, 30: 2.045,
+          31: 2.042, 40: 2.021, 60: 2.000, 120: 1.980}
+    df = n - 1
+    for k in sorted(_T):
+        if df <= k:
+            return _T[k]
+    return 1.96
+
+
+
 def analyse(cache: dict[str, list[dict]], scorer) -> dict:
     rows = []
     skipped_incomplete: list[str] = []
@@ -187,7 +207,8 @@ def analyse(cache: dict[str, list[dict]], scorer) -> dict:
     if best_single_model and len(rows) > 1:
         d = [r["best_score"] - r["scores"][best_single_model] for r in rows]
         sem = statistics.stdev(d) / math.sqrt(len(d))
-        lo, hi = statistics.fmean(d) - 1.96 * sem, statistics.fmean(d) + 1.96 * sem
+        t = _t95(len(d))
+        lo, hi = statistics.fmean(d) - t * sem, statistics.fmean(d) + t * sem
         # The lower bound is NOT evidence. headroom >= 0 BY CONSTRUCTION (a max is never
         # below any of its members), so "the CI excludes zero" tests an impossible null
         # and is guaranteed the moment any model beats the best one even once. The bound
@@ -202,10 +223,11 @@ def analyse(cache: dict[str, list[dict]], scorer) -> dict:
         if len(runner) > 1:
             dm = [rw["scores"][runner[0]] - rw["scores"][runner[1]] for rw in rows]
             msem = statistics.stdev(dm) / math.sqrt(len(dm))
-            m_lo = statistics.fmean(dm) - 1.96 * msem
+            mt = _t95(len(dm))
+            m_lo = statistics.fmean(dm) - mt * msem
             hr["best_single_is_significant"] = bool(m_lo > 0)
             hr["best_single_margin_ci95"] = [round(m_lo, 4),
-                                             round(statistics.fmean(dm) + 1.96 * msem, 4)]
+                                             round(statistics.fmean(dm) + mt * msem, 4)]
             hr["runner_up"] = runner[1]
 
     # Ceiling: on queries where the best candidate already scores 1.0, headroom is ZERO by

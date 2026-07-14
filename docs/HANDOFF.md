@@ -1,5 +1,68 @@
 # HANDOFF — resume here
 
+> # 🔴🔴 RETRACTIONS — 2026-07-14, from the code review on PR #10. READ BEFORE QUOTING ANY NUMBER.
+>
+> Two headline claims from this session **do not survive review and are WITHDRAWN.** A third is
+> **restated at a third of its advertised size.** Every error ran in the same direction: making
+> the result look better than it was.
+>
+> ### ❌ RETRACTED: "Self-MoA — the judge gains +0.058, the pattern PAYS."
+> **The number is VOID.** Three independent defects, any one of which sinks it:
+> 1. **The baseline was graded differently from the thing compared against it.** To save money
+>    the Self-MoA grading ran at `GRADER_SAMPLES=1`; the baseline (0.696) came from the
+>    divergence run at `GRADER_SAMPLES=3`. **A single noisy grade was compared against a
+>    mean-of-three.** A mean-of-3 is variance-reduced and sits ~0.011 *below* its own
+>    single-grade counterpart on identical answers — so the baseline was depressed *by
+>    construction* while the oracle (a MAX) was inflated by full-noise grades. On a matched
+>    baseline: **gain +0.047, CI [−0.005, +0.099] — CROSSES ZERO** (under z, t *and* bootstrap).
+> 2. **The judge WAS the grader.** The run exported only `GRADER_*`, so `JUDGE_*` silently fell
+>    back to it: `claude-sonnet-5` chose the answer and then `claude-sonnet-5` graded the answer
+>    it had chosen. It picks what it will score highly.
+> 3. **The guard written to catch (2) was dead code** — `judge_is_grader` was computed and then
+>    only ever read *inside* `if ignored_candidates:`, so a judge that selected properly while
+>    *being* the grader sailed through with no warning.
+>
+> **The Self-MoA gain is UNMEASURED, not positive.** A defensible number needs a judge that is
+> not the grader (→ the in-fleet Gemma run, below) and matched grader configs.
+>
+> ### ❌ RETRACTED: "the verdict is now RESOLVED."
+> `divergence.py` used **z = 1.96 with an estimated sigma** at n=30, on paired diffs that are
+> **24/30 exact zeros** — badly anti-conservative. With the correct **t** quantile (df=29,
+> 2.045) the upper bound is **0.051**, so the 0.05 threshold falls **inside** the CI. Bootstrap
+> agrees. **Neither query set resolves the verdict:**
+> ```
+> hard (n=30):  +0.0267  CI [+0.003, +0.051]  -> NOT RESOLVED
+> base (n=36):  +0.0278  CI [+0.002, +0.053]  -> NOT RESOLVED
+> ```
+>
+> ### ⚠️ RESTATED: "ORACLE@8 (0.813) beats the whole fleet's oracle (0.722) by +0.091."
+> **Confounded by N and by grading.** The +0.091 decomposes *exactly*:
+> `+0.039` (max-over-8 vs max-over-3 — just more lottery tickets) `+ 0.018` (single-grade vs
+> mean-of-3 on the fleet side) `+ 0.034` (**the real, matched effect**). At matched N and
+> matched grading, the coder's own oracle@3 is **0.775** vs the fleet's **0.740**.
+> **The direction survives; the magnitude was overstated 2.6×.** The oracle@k curve
+> (`@1 0.695 · @2 0.752 · @3 0.775 · @4 0.787 · @8 0.813`) is a textbook winner's curse and was
+> nowhere acknowledged.
+>
+> ### ✅ WHAT SURVIVES (and it is the qualitative core)
+> - The ceiling collapsed **86% → 20%**. The instrument is genuinely unsaturated now.
+> - Headroom did **not** move: **+0.028 → +0.027**. The ceiling was hiding nothing.
+> - Disagreement **tripled** (ties 78% → 40%; divergent 67% → 80%) while headroom stayed flat —
+>   **divergence is not headroom.**
+> - **The fleet is HIERARCHICAL**: the coder wins **all three categories**, beating the *reasoner*
+>   at reasoning (0.900 vs 0.807) and the *general* model at general (0.500 vs 0.440), on a
+>   balanced 10/10/10 split. **The fleet has no specialists. Parameter count beats
+>   specialization.** This does not depend on any confidence interval.
+>
+> **All defects are fixed in code and verified by execution:** the `judge == grader` guard now
+> **fails fast before a single paid call**; a `grader-config mismatch` guard refuses to emit a
+> number when the baseline and the run are graded differently; all intervals use **t**; VOID is
+> **persisted to the JSON** (it was print-only, so a void run wrote a clean-looking number);
+> select-mode grades the **original** sample, not the truncated one; and `runpod/watchdog.sh`
+> had **no key fallback** — with no `/workspace/.runpod_key` it would 401, `pkill` the fleet, and
+> **exit 0 while the GPU kept billing.**
+
+
 Last updated: **2026-07-13 (end of session).** Read this + `design.md` to resume cold.
 Nothing running. No instances. **$0 spent this session.**
 

@@ -40,6 +40,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from eval_queryset import active_query_set, active_set_name
+from divergence import _t95
 from judge_eval import (FROZEN_GRADER_SAMPLES, GradeCache, ReferenceGrader, _grader_from_env,
                         frontier_call)
 
@@ -57,6 +58,40 @@ def _load(name: str) -> dict:
             with open(c) as f:
                 return json.load(f)
     return {}
+
+
+def _assert_grader_matches_baseline(div: dict, base_url: str, model: str, samples: int) -> None:
+    """THE DEFECT THAT KILLED THE HEADLINE. The baseline comes from the divergence run; the
+    self-MoA arms are graded HERE. If the two are graded under different grader configs, they
+    are NOT COMPARABLE — and the difference does not crash, it just silently biases the result.
+
+    It happened: to save money the self-MoA grading ran at GRADER_SAMPLES=1 while the baseline
+    had been graded at GRADER_SAMPLES=3. A mean-of-3 is variance-reduced and sits ~0.011 BELOW
+    its own single-grade counterpart on the identical answers, so the baseline was depressed by
+    construction while the oracle (a MAX) was inflated by full-noise single grades. On a
+    matched baseline the published gain (+0.058, CI [+0.005, +0.110]) becomes +0.047 with a CI
+    that CROSSES ZERO. The result was an artifact of the grading config, not a finding.
+
+    Refuse to produce a number rather than produce a wrong one."""
+    g = div.get("grader") or {}
+    want = (g.get("model"), g.get("url"), g.get("samples"))
+    have = (model, base_url, samples)
+    if any(v is None for v in want):
+        print(f"WARNING: the divergence report records no grader config, so the baseline's "
+              f"grading CANNOT be verified against this run's ({have}). Treat any comparison "
+              f"against `baseline` as UNVALIDATED.", file=sys.stderr)
+        return
+    if want != have:
+        sys.exit(
+            f"\nFATAL — BASELINE AND THIS RUN ARE NOT GRADED THE SAME WAY. Refusing to emit a\n"
+            f"number that would be an artifact of the grader config rather than a finding.\n\n"
+            f"  baseline graded under : model={want[0]} url={want[1]} samples={want[2]}\n"
+            f"  this run grades under : model={have[0]} url={have[1]} samples={have[2]}\n\n"
+            f"A mean-of-N grade is variance-reduced and sits BELOW its own single-grade\n"
+            f"counterpart on identical answers, while an ORACLE (a max) is INFLATED by noisy\n"
+            f"single grades. Comparing across configs biases the result in the ensemble's\n"
+            f"favour. Set GRADER_SAMPLES={want[2]} (and the same model/url), or re-grade the\n"
+            f"baseline at this run's config.\n")
 
 
 JUDGE_SYS = (
@@ -99,6 +134,7 @@ def _fit(samples: list[str]) -> tuple[list[str], bool]:
 
 
 def judge_once(query: dict, samples: list[str], mode: str, call, base, model, key) -> dict:
+    original = samples                       # keep the FULL texts — see below
     samples, truncated = _fit(samples)
     blocks = "\n\n".join(f"[Answer {i}]\n{s}" for i, s in enumerate(samples))
     if mode == "select":
@@ -120,8 +156,14 @@ def judge_once(query: dict, samples: list[str], mode: str, call, base, model, ke
         ans, chosen = raw, -1     # lenient parse: a judge that ignored the format still answered
     # A judge that "selected" but returned no text: fall back to the sample it named, so a
     # formatting failure is not scored as a WRONG ANSWER.
-    if (not ans) and isinstance(chosen, int) and 0 <= chosen < len(samples):
-        ans = samples[chosen]
+    # Grade the ORIGINAL sample, never the truncated one. Truncation limits what the judge
+    # could READ; it is not a property of the answer it CHOSE. Grading the chopped string
+    # scores the judge for an answer no model ever produced — which is precisely the
+    # "the truncated judge loses for the wrong reason" trap this file warns about above.
+    if mode == "select" and isinstance(chosen, int) and 0 <= chosen < len(original):
+        ans = original[chosen]
+    elif (not ans) and isinstance(chosen, int) and 0 <= chosen < len(original):
+        ans = original[chosen]
     return {"answer": ans, "chosen": chosen, "truncated": truncated}
 
 
@@ -154,6 +196,33 @@ if __name__ == "__main__":
     key = os.environ.get("JUDGE_API_KEY") or g_key
     print(f"judge : {model} @ {base}")
     print(f"grader: {g_model} @ {g_base}")
+
+    # BEFORE A SINGLE PAID CALL — both config errors that already produced a published-and-
+    # retracted number. Fail fast, not after 300 API calls and a plausible-looking result.
+    #
+    # (1) JUDGE == GRADER. The same model chooses the answer and then grades it: in select mode
+    #     it picks what it will score highly, in synthesize mode it marks its own homework. The
+    #     original guard computed this and then only ever READ it inside `if ignored_candidates`,
+    #     so a judge that selected properly while BEING the grader sailed through. That is
+    #     exactly how the published +0.058 was produced — the run exported only GRADER_*, and
+    #     JUDGE_* silently fell back to it. ALLOW_JUDGE_IS_GRADER=1 to override (it will still
+    #     be marked VOID in the report).
+    if (model.strip().lower() == g_model.strip().lower()
+            and os.environ.get("ALLOW_JUDGE_IS_GRADER") != "1"):
+        sys.exit(
+            f"\nFATAL — THE JUDGE IS THE GRADER ({model}).\n"
+            f"  The same model would choose the answer and then grade it. In select mode it\n"
+            f"  picks what it will score highly; in synthesize mode it marks its own homework.\n"
+            f"  This project has already published and retracted a number produced this way.\n\n"
+            f"  Set JUDGE_MODEL/JUDGE_URL/JUDGE_API_KEY to a DIFFERENT model than GRADER_* —\n"
+            f"  ideally a WEAKER one, so it has to READ the candidates rather than out-answer\n"
+            f"  them. e.g. the in-fleet judge:\n"
+            f"    JUDGE_URL=http://localhost:18003 JUDGE_MODEL=general JUDGE_API_KEY=none\n")
+
+    # (2) The baseline was graded by the divergence run. If this run grades under a different
+    #     config, the comparison is an artifact of the grader, not a finding.
+    _n_grader = int(os.environ.get("GRADER_SAMPLES", str(FROZEN_GRADER_SAMPLES)))
+    _assert_grader_matches_baseline(_load("eval_divergence"), g_base, g_model, _n_grader)
 
     out_p = _p(f"eval_selfmoa_judged_{mode}_{model.replace('/', '_')}")
     judged = json.load(open(out_p)) if os.path.exists(out_p) else {}
@@ -191,7 +260,8 @@ if __name__ == "__main__":
     per_base = {r["id"]: r.get("baseline") for r in rep.get("per_query", [])}
     d = [r["score"] - per_base[r["id"]] for r in rows if per_base.get(r["id"]) is not None]
     sem = statistics.stdev(d) / math.sqrt(len(d)) if len(d) > 1 else 0.0
-    lo, hi = statistics.fmean(d) - 1.96 * sem, statistics.fmean(d) + 1.96 * sem
+    t = _t95(len(d))
+    lo, hi = statistics.fmean(d) - t * sem, statistics.fmean(d) + t * sem
 
     wrote_own = sum(1 for r in rows if r["chosen"] == -1)
     n_trunc = sum(1 for r in rows if r.get("truncated"))
@@ -214,6 +284,32 @@ if __name__ == "__main__":
     # Refuse to report it rather than let a 1.000 look like a triumph.
     judge_is_grader = model.strip().lower() == g_model.strip().lower()
     ignored_candidates = len(rows) > 0 and wrote_own / len(rows) > 0.5
+
+    # THE BUG THAT LET THE HEADLINE THROUGH. `judge_is_grader` was computed and then only ever
+    # READ INSIDE `if ignored_candidates:` — so a judge that SELECTED properly (chosen != -1 on
+    # every query) while being the SAME MODEL as the grader sailed through with no warning. That
+    # is exactly how the published select-mode number was produced: the run exported only
+    # GRADER_*, JUDGE_* fell back to the grader, and claude-sonnet-5 graded the answer that
+    # claude-sonnet-5 had chosen. It picks what it will score highly. VOID.
+    void = ignored_candidates or judge_is_grader
+
+    # A select-mode judge picks one of the candidates, so it CANNOT beat the oracle (the max
+    # over those same candidates). A score above it is arithmetically impossible and means the
+    # judge did not really select — it wrote something, or the arms are graded differently.
+    if mode == "select" and oracle is not None and judge_score > oracle + 1e-6:
+        void = True
+        print(f"\n!!!!!! IMPOSSIBLE — select-mode judge ({judge_score:.3f}) EXCEEDS the oracle "
+              f"({oracle:.3f}).\n  A judge that picks one of N candidates cannot beat the best "
+              f"of those N.\n  Either it did not actually select, or the two arms are not "
+              f"graded the same way.")
+
+    if judge_is_grader:
+        print(f"\n!!!!!! RESULT VOID — THE JUDGE IS THE GRADER ({model}) !!!!!!")
+        print(f"  The same model chose the answer and then graded it. In select mode it picks")
+        print(f"  what it will score highly; in synthesize mode it marks its own homework.")
+        print(f"  Point JUDGE_* at a different model than GRADER_* — ideally a WEAKER one, so it")
+        print(f"  has to read the candidates rather than out-answer them.")
+
     if ignored_candidates:
         print(f"\n!!!!!! RESULT VOID — THE JUDGE IGNORED THE CANDIDATES !!!!!!")
         print(f"  It wrote its OWN answer on {wrote_own}/{len(rows)} queries (chosen == -1).")
@@ -238,8 +334,8 @@ if __name__ == "__main__":
         frac = (judge_score - baseline) / gap
         print(f"  >>> captured {100*frac:.0f}% of the {gap:+.3f} oracle gap")
     print(f"  (judge wrote its own answer on {wrote_own}/{len(rows)} queries)")
-    if ignored_candidates:
-        print(f"\n  ** VOID — see the warning above. This is not a synthesis result. **")
+    if void:
+        print(f"\n  ** VOID — see the warning(s) above. This number must NOT be quoted. **")
     elif lo > 0:
         print(f"\n  ** THE JUDGE BEATS THE BASELINE. Generation + selection PAYS. **")
     else:
@@ -249,6 +345,16 @@ if __name__ == "__main__":
 
     tag = f"{mode}_{model.replace(chr(47), chr(95))}"
     json.dump({"mode": mode, "judge_model": model, "grader_model": g_model,
+               "VOID": bool(void),
+               "void_reason": ("; ".join(filter(None, [
+                   f"judge IS the grader ({model}) — it graded the answer it chose"
+                       if judge_is_grader else "",
+                   f"judge ignored the candidates and wrote its own answer on "
+                   f"{wrote_own}/{len(rows)} queries" if ignored_candidates else "",
+               ])) or None),
+               "n_truncated": n_trunc,
+               "max_candidate_tokens": MAX_CANDIDATE_TOKENS,
+               "grader_samples": n,
                "n": len(rows), "judge": round(judge_score, 4),
                "baseline": baseline, "oracle_at_n": oracle,
                "gain": round(statistics.fmean(d), 4), "gain_ci95": [round(lo, 4), round(hi, 4)],

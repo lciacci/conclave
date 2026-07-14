@@ -1,5 +1,33 @@
 # Disagreement is cheap. Complementarity is rare.
 
+> ## 🔴 RETRACTION (2026-07-14, from code review) — DO NOT QUOTE THE SELF-MoA GAIN
+>
+> **The "+0.058 / the pattern PAYS" result below is VOID.** Three defects, any one fatal:
+> 1. The **baseline was graded at `GRADER_SAMPLES=3`** while the Self-MoA arms were graded at
+>    **`=1`** — a single noisy grade compared against a mean-of-three. On a matched baseline the
+>    gain is **+0.047, CI [−0.005, +0.099] — it crosses zero.**
+> 2. **The judge WAS the grader** (`claude-sonnet-5` chose the answer, then graded its own
+>    choice). The run exported only `GRADER_*`; `JUDGE_*` silently fell back to it.
+> 3. The **guard written to catch (2) was dead code.**
+>
+> **"The verdict is RESOLVED" is also retracted** — it used z=1.96 with an estimated sigma on
+> data that is 24/30 exact zeros. With the correct t quantile the 0.05 threshold falls *inside*
+> the CI on **both** query sets. Nothing is resolved.
+>
+> **"ORACLE@8 beats the fleet by +0.091" is restated as +0.034** — the rest was max-over-8 vs
+> max-over-3 (more lottery tickets) plus the same grading mismatch. Direction survives;
+> magnitude was overstated 2.6×.
+>
+> **What survives:** the ceiling collapse (86%→20%), headroom unchanged (+0.027), disagreement
+> tripling while headroom stayed flat, and — robustly, no CI needed — **the fleet is
+> hierarchical: the coder wins all three categories, beating the reasoner AT reasoning and the
+> general model AT general.**
+>
+> All defects are fixed in code and verified by execution. The Self-MoA gain is **unmeasured**,
+> not positive; a defensible number needs the in-fleet (non-grader) judge.
+
+
+
 ### What I learned trying to build a judge for a multi-model ensemble — and why I didn't build it
 
 > ## ⚠️ READ THIS FIRST — THIS IS NOT A NOVEL RESULT, AND IT IS NOT FOR PUBLICATION
