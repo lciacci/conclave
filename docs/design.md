@@ -112,7 +112,15 @@ what's serving behind it. Also the natural seam for per-model token/cost account
 >
 > ---
 >
-> ## ✅ SETTLED 2026-07-14 (n=30 pre-registered HARD queries). **Disagreement is cheap; COMPLEMENTARITY is rare.**
+> ## ⚠️ 2026-07-14 (n=30 pre-registered HARD queries). **Disagreement is cheap; COMPLEMENTARITY is rare.**
+>
+> ### 🔴 RETRACTED: "the verdict is now SETTLED / RESOLVED."
+> That claim used **z = 1.96 with an ESTIMATED sigma** at n=30, on paired diffs that are **24/30
+> exact zeros** — badly anti-conservative. With the correct **t** quantile (df=29, 2.045) the
+> upper bound is **0.051**, so the 0.05 threshold falls **INSIDE** the CI. Bootstrap agrees.
+> **NEITHER query set resolves the verdict:** hard `+0.0267 CI [+0.003, +0.051]`, base
+> `+0.0278 CI [+0.002, +0.053]`. Fixed in `divergence.py` (`_t95`). What survives is the
+> QUALITATIVE core below, none of which needs a confidence interval.
 >
 > The verdict above was **undecidable**, not negative: 31/36 of its queries were pinned at the
 > grader's ceiling, where headroom is 0 *by construction*. A second set of 30 harder queries was
@@ -124,7 +132,7 @@ what's serving behind it. Also the natural seam for per-model token/cost account
 > | best single (coder) | 0.933 | **0.696** |
 > | oracle (a *perfect* judge) | 0.961 | 0.722 |
 > | **HEADROOM** | **+0.028** | **+0.027** ← unchanged |
-> | verdict resolved? | **NO** | **YES** |
+> | verdict resolved? | **NO** | **NO** (was claimed YES — **RETRACTED**, see above) |
 > | models disagree | 67% | **80%** |
 >
 > **The ceiling was hiding nothing.** Removing it TRIPLED the disagreement and moved the answer

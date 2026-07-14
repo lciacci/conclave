@@ -78,26 +78,24 @@ Nothing running. No instances. **$0 spent this session.**
 > superset of local main. If local `main` annoys you: `git reset --hard origin/main` (back it up
 > first). Nothing is lost.
 
-> # 🎯 THE PATTERN PAYS — but from SAMPLING, not from a fleet. (2026-07-14)
+> # ~~🎯 THE PATTERN PAYS — from SAMPLING, not from a fleet~~ 🔴 **RETRACTED — SEE THE TOP OF THIS FILE**
+>
+> **EVERY NUMBER IN THIS BLOCK IS VOID.** Kept only so the retraction has something to point at.
+> The judge was the grader; the baseline was graded at 3 samples while the arms used 1; the
+> oracle comparison is confounded by sample count. **Do not quote any of it.**
 >
 > | | candidates | judge | vs no judge |
 > |---|---|---|---|
-> | **FLEET** (the v3 design) | 3 models × 1 sample | 0.883 | **−0.050** ← judge is *worse than nothing* |
-> | **SELF-MoA** | 1 model × 8 samples | **0.753** | **+0.058** ✅ CI [+0.005, +0.110] |
->
-> Same queries, same grader, same judge machinery. **The only change is where the candidates
-> come from.** The ensemble+judge pattern **works** — it just does not work with a fleet of
-> weaker specialists. It works with **repeated samples of your best model.**
+> | **FLEET** (the v3 design) | 3 models × 1 sample | 0.883 | **−0.050** ← *this one stands* |
+> | ~~**SELF-MoA**~~ | ~~1 model × 8 samples~~ | ~~0.753~~ | ~~+0.058~~ **VOID** |
 >
 > ```
-> baseline   temp-0 coder, one sample     0.696
-> mean       an average temp-0.8 sample   0.695   <- sampling costs NOTHING on average
-> ORACLE@8   the best of 8 samples        0.813   <- vs the WHOLE FLEET's oracle: 0.722
+> baseline   temp-0 coder, one sample     0.696   <- graded at 3 grader samples
+> ORACLE@8   the best of 8 samples        0.813   <- graded at 1. NOT COMPARABLE.
 > ```
-> **Eight draws from ONE model reach a ceiling 0.091 ABOVE what three DIFFERENT models could
-> ever reach.** Sampling headroom **+0.118** vs the fleet's **+0.027** — **4.4× larger.** A real
-> judge captures **49%** of it (inside the 21–61% band prior art predicts — corroboration we did
-> not tune for). **The fleet was never the point. THE CANDIDATE SET SIZE WAS.**
+> The matched, defensible statement is only this: **sampling one model 3× (oracle@3 = 0.775)
+> beats the 3-model fleet's oracle (0.740) at matched N and matched grading — +0.034, not
+> +0.091.** Whether a *real judge* can capture any of that is **UNMEASURED**.
 >
 > ### ⚠️ SYNTHESIZE MODE IS VOID — and it is a trap this project fell into TWICE
 > It scored **1.000** and was nearly reported as a triumph. It is worthless: the judge **wrote
@@ -201,7 +199,7 @@ Nothing running. No instances. **$0 spent this session.**
 > | oracle (a *perfect* judge) | 0.961 | 0.722 |
 > | **HEADROOM** | **+0.0278** | **+0.0267** ← UNCHANGED |
 > | 95% CI | [0.003, 0.052] | [0.004, 0.050] |
-> | **verdict RESOLVED?** | **NO** | **YES** |
+> | **verdict RESOLVED?** | **NO** | **NO** — was claimed YES, **RETRACTED** (z vs t; see the retraction block at the top) |
 > | tied at top | 28/36 (78%) | 12/30 (40%) |
 > | divergent | 24/36 (67%) | 24/30 (**80%**) |
 >
