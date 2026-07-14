@@ -243,6 +243,47 @@ export HF_HOME=/workspace/hf
 mkdir -p "$HF_HOME"
 command -v jq >/dev/null || (apt-get update -qq && apt-get install -y -qq jq)
 
+# ---------------------------------------------------------------------------
+# 3a. INSTALL vLLM — MATCHED TO THE HOST DRIVER.
+#
+# This script never installed vLLM at all: it assumed the image shipped it, and on the
+# H100 boot someone had pip-installed it BY HAND. So a fresh pod reached the model-start
+# loop with no vllm module, every server died with ModuleNotFoundError, and the boot
+# reported success anyway (see the fail-closed fix below). Install it here, explicitly.
+#
+# THE DRIVER RULE IN THE OLD HANDOFF WAS WRONG. It said "driver >= CUDA 12.8". An L4 with
+# driver 570 / CUDA **12.8** was rejected by vllm 0.24 with:
+#     RuntimeError: The NVIDIA driver on your system is too old (found version 12080)
+# because vllm 0.24's wheel is built against torch 2.11+**cu130** and its kernels link
+# libcudart.so.13 — so it needs CUDA **13.0** (driver >= 580), not 12.8. Swapping torch to
+# a cu128 build does NOT help: vllm's own compiled .so still wants libcudart.so.13.
+#
+# So: read the host's CUDA version and pick a vLLM built for it. The driver is a HOST
+# property — no image and no pip flag can change it.
+CUDA_VER=$(nvidia-smi | grep -o 'CUDA Version: [0-9.]*' | awk '{print $3}')
+CUDA_MAJ=${CUDA_VER%%.*}
+echo "host CUDA: $CUDA_VER (driver $(nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -1))"
+
+if python3 -c 'import vllm' 2>/dev/null; then
+  echo "vllm already present: $(python3 -c 'import vllm; print(vllm.__version__)')"
+elif [ "${CUDA_MAJ:-0}" -ge 13 ]; then
+  echo "CUDA >= 13 -> vllm 0.24.0 (cu130). This is the frozen fleet's stack."
+  pip install --break-system-packages -q vllm==0.24.0 || { kill_pod "vllm install failed"; exit 1; }
+else
+  # CUDA 12.x: vllm 0.24 CANNOT run here. 0.11.0 is the last line built on torch cu128.
+  # transformers MUST be pinned below 5: vllm 0.11 declares `transformers>=4.55.2` with no
+  # upper bound, pip resolves that to 5.x, and 5.x dropped the tokenizer attribute vllm
+  # reads -> "GemmaTokenizer has no attribute all_special_tokens_extended". Unbounded
+  # dependency, silent major-version bump, dead boot.
+  echo "CUDA $CUDA_VER (<13) -> vllm 0.11.0 (cu128) + transformers<5"
+  pip install --break-system-packages -q "vllm==0.11.0" "transformers<5" \
+    || { kill_pod "vllm install failed"; exit 1; }
+fi
+python3 -c 'import vllm' 2>/dev/null || { kill_pod "vllm not importable after install"; exit 1; }
+
+# ---------------------------------------------------------------------------
+# 3b. START THE MODELS. A model that does not come up is a FAILED BOOT, not a warning.
+rm -f /workspace/.fleet-failed
 jq -c '.[]' "$FLEET" | while read -r m; do
   name=$(echo "$m" | jq -r .name)
   repo=$(echo "$m" | jq -r .repo)
@@ -273,9 +314,21 @@ jq -c '.[]' "$FLEET" | while read -r m; do
     fi
     sleep 5
   done
+  # FAIL CLOSED. This used to print a WARNING and carry on, and then /workspace/.fleet-ready
+  # was touched UNCONDITIONALLY at the end — so a boot where NOT ONE MODEL LOADED reported
+  # success, armed the idle rule, and left a GPU billing with nothing serving. That is the
+  # "silent two-model fleet" this file warns about elsewhere, in its worst form.
+  # NB the `while read` body is a SUBSHELL (jq | while), so a variable set here would not
+  # survive the loop — the failure must be recorded on disk.
   grep -q "Application startup complete" "/workspace/vllm-$name.log" 2>/dev/null \
-    || echo "WARNING: $name did not report ready — check /workspace/vllm-$name.log"
+    || { echo "FATAL: $name did not start — see /workspace/vllm-$name.log"
+         echo "$name" >> /workspace/.fleet-failed; }
 done
+
+if [ -s /workspace/.fleet-failed ]; then
+  kill_pod "fleet FAILED to start: $(tr '\n' ' ' < /workspace/.fleet-failed)— refusing to bill a GPU that serves nothing"
+  exit 1
+fi
 
 # ---------------------------------------------------------------------------
 # 4. LiteLLM gateway — one OpenAI-compatible endpoint in front of all three.
