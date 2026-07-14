@@ -15,7 +15,55 @@ Nothing running. No instances. **$0 spent this session.**
 > superset of local main. If local `main` annoys you: `git reset --hard origin/main` (back it up
 > first). Nothing is lost.
 
-> # ✅ V3 IS ANSWERED. The verdict is SETTLED, on a SOUND instrument.
+> # 🎯 THE PATTERN PAYS — but from SAMPLING, not from a fleet. (2026-07-14)
+>
+> | | candidates | judge | vs no judge |
+> |---|---|---|---|
+> | **FLEET** (the v3 design) | 3 models × 1 sample | 0.883 | **−0.050** ← judge is *worse than nothing* |
+> | **SELF-MoA** | 1 model × 8 samples | **0.753** | **+0.058** ✅ CI [+0.005, +0.110] |
+>
+> Same queries, same grader, same judge machinery. **The only change is where the candidates
+> come from.** The ensemble+judge pattern **works** — it just does not work with a fleet of
+> weaker specialists. It works with **repeated samples of your best model.**
+>
+> ```
+> baseline   temp-0 coder, one sample     0.696
+> mean       an average temp-0.8 sample   0.695   <- sampling costs NOTHING on average
+> ORACLE@8   the best of 8 samples        0.813   <- vs the WHOLE FLEET's oracle: 0.722
+> ```
+> **Eight draws from ONE model reach a ceiling 0.091 ABOVE what three DIFFERENT models could
+> ever reach.** Sampling headroom **+0.118** vs the fleet's **+0.027** — **4.4× larger.** A real
+> judge captures **49%** of it (inside the 21–61% band prior art predicts — corroboration we did
+> not tune for). **The fleet was never the point. THE CANDIDATE SET SIZE WAS.**
+>
+> ### ⚠️ SYNTHESIZE MODE IS VOID — and it is a trap this project fell into TWICE
+> It scored **1.000** and was nearly reported as a triumph. It is worthless: the judge **wrote
+> its own answer on 29/30 queries** (`chosen == -1`) — it ignored the samples entirely — **and
+> the grader is the SAME MODEL as the judge** (`claude-sonnet-5`), so it marked its own homework.
+> This is the **same artifact already retracted once** (the base run's frontier judge did
+> `chosen == -1` on 34/36). `selfmoa_judge.py` now **detects and refuses it**.
+> **A synthesis judge must be NO STRONGER than the candidates** (or it has no reason to read
+> them), **and the grader must be a different house than the judge.**
+>
+> ### ➡️ NEXT — the candidate-budget-matched experiment
+> **Hold the candidate count at 8; vary only the SOURCE:**
+> | arm | candidates | |
+> |---|---|---|
+> | **Self-MoA** | 8 samples from the best model | **incumbent: 0.753** |
+> | **Mixed-MoA** | 8 samples across 3 comparable-strength, different-lineage models | challenger |
+>
+> The bar has MOVED: a new fleet no longer needs to beat "always call the coder" (0.696). It must
+> beat **Self-MoA (0.753)** while carrying 3× the model footprint. Fleet research (27B/31B/30B,
+> three orgs/architectures) is in the agent log; ~50% chance it is hierarchical too.
+>
+> **PRODUCTION SHAPE:** don't run 8 model copies. Use **`n=8` in ONE request** — vLLM processes
+> the prompt once and forks 8 continuations sharing the prefill KV cache. 1× prefill + 8× decode,
+> batched, latency ≈ a single request. **This guts the "3× inference cost" objection to the whole
+> pattern.** (The sampler used 8 sequential calls — wasteful; `n=8` is the production shape.)
+>
+> ---
+>
+> # ✅ V3 (the FLEET question) IS ANSWERED. The verdict is SETTLED, on a SOUND instrument.
 >
 > **The ceiling was hiding NOTHING. The fleet is HIERARCHICAL, not complementary.
 > ROUTE — do not judge.** (2026-07-14, n=30 pre-registered hard queries, H100.
