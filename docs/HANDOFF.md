@@ -15,9 +15,48 @@ Nothing running. No instances. **$0 spent this session.**
 > superset of local main. If local `main` annoys you: `git reset --hard origin/main` (back it up
 > first). Nothing is lost.
 
-**THE ONE NEXT ACTION: BOOT THE FLEET and generate candidates for the HARD query set.**
-Everything else is done, committed, and verified offline. **You are blocked ONLY on GPU
-capacity** — see the escalation block below.
+> ## ✅ THE GPU WORK IS DONE. The hard-set candidates are CAPTURED and committed.
+>
+> All 30 pre-registered hard queries have complete candidate sets from all three
+> specialists (generated on a RunPod **H100**, 2026-07-14), frozen in
+> `orchestrator/eval_fixtures/eval_candidates_hard.json`. **Replays for $0 from a fresh
+> clone — no GPU, no capacity hunt, ever again.**
+>
+> ## 🔴 THE ONE NEXT ACTION — 2 minutes, no GPU, ~$1–2 of grader API
+>
+> **Grading is the only thing left, and it is blocked on ONE interactive command.** The
+> AWS SSO token expired mid-run, so the grader key in SSM was unreachable.
+>
+> ```sh
+> aws sso login --profile yeti-conclave          # <- the ONLY blocker. Interactive.
+>
+> export GRADER_URL=https://api.anthropic.com GRADER_MODEL=claude-sonnet-5 \
+>   GRADER_API_KEY=$(aws ssm get-parameter --name /conclave/judge-api-key --with-decryption \
+>     --profile yeti-conclave --query Parameter.Value --output text)
+> CONCLAVE_QUERYSET=hard python3 orchestrator/divergence.py     # ~270 grader calls, ~10 min
+> ```
+>
+> That prints the number this entire branch exists to produce: **the fleet's HEADROOM on
+> an UNSATURATED query set.** Compare it against the base set (which replays for $0):
+> ```sh
+> python3 orchestrator/divergence.py            # base: headroom +0.0278, 31/36 AT CEILING
+> ```
+>
+> ### What the answer means — decide this BEFORE you look, so the result can't be rationalised
+> - **Ceiling gone (few/no queries `at_ceiling`) AND headroom still ~0** → the fleet is
+>   **genuinely REDUNDANT.** The base-36 result stands, and it stands on a *sound*
+>   instrument. Verdict: **do not build a judge — route or cascade.** The v3 thesis is
+>   answered, negatively, and honestly.
+> - **Ceiling gone AND headroom appears (>0.05)** → the base-36 ceiling was **hiding real
+>   disagreement**. The +0.028 was an artifact of an easy test, and the ensemble+judge
+>   question is **live again**.
+> - **Still ceiling-limited** → the hard queries *weren't hard enough*. Say so; do not
+>   quote a headroom number off a saturated grader. That is the failure mode the whole
+>   rigor pass exists to prevent.
+>
+> **Do NOT re-word a hard query after seeing which model wins.** That selects for
+> disagreement and manufactures the headroom the instrument exists to measure. If a query
+> is broken, DELETE it and say so.
 
 > ### ⛔ CORRECTION — the previous HANDOFF was WRONG about this step's cost.
 > It said *"write HARDER QUERIES, then re-run divergence.py. **No GPU boot, no API key, ~$1.**"*
@@ -25,7 +64,63 @@ capacity** — see the escalation block below.
 > **self-hosted fleet**. There is no offline path: grading the hard set **REQUIRES A GPU BOOT.**
 > Realistic cost: **~$3–5** (~45–75 min on a g6e + ~270 small grader calls). Budget accordingly.
 
-### ⛔ BLOCKED ON CAPACITY — escalation `esc-20260713-201140` (2026-07-13)
+### 🖥️ THE FLEET NOW RUNS ON RUNPOD (AWS g6e had no capacity). Read this before booting.
+
+`runpod/` holds the whole path: `boot.sh` (kill-switch-first boot), `watchdog.sh`,
+`fleet.json`, `fanout_direct.py`, `topup_coder.py`.
+
+**Known-good pod config** (every field here was learned by it failing):
+| field | value | why |
+|---|---|---|
+| GPU | **H100** (or L40S/L40/RTX-6000-Ada **IF driver ≥ 12.8**) | see driver trap below |
+| image | RunPod **PyTorch** image — **NOT** `vllm/vllm-openai` | see entrypoint trap |
+| start command | **EMPTY** | RunPod's start-command field overrides Docker **CMD, not ENTRYPOINT** |
+| container disk | **80 GB** | weights are ~38 GB |
+| network volume | **NONE** | network volumes are **datacenter-pinned** |
+| ports | TCP **22** only, no HTTP | vLLM/LiteLLM bind to 127.0.0.1; reach them over an SSH tunnel |
+| vLLM | `pip install --break-system-packages vllm==0.24.0` | the image is a Debian **PEP 668** env |
+
+**Five RunPod traps, all hit live:**
+1. **DRIVER.** vLLM 0.24's torch is **cu128**; it hard-fails on an older host driver
+   (*"The NVIDIA driver on your system is too old (found version 12040)"*). **Three L40s
+   in a row shipped driver 550 / CUDA 12.4.** The driver is a **HOST** property — **no
+   image fixes it.** The H100 had driver 580 / CUDA 13.0 and worked. **Check
+   `nvidia-smi` FIRST, before loading anything** — it costs 20 seconds and saves a boot.
+2. **ENTRYPOINT.** `vllm/vllm-openai`'s entrypoint is `vllm serve`. RunPod's start
+   command only overrides **CMD**, so your command is passed as *arguments to vllm serve*
+   (it parsed `bash -c` as `--compilation-config`). The image then loads its own model and
+   **eats 43 GB of the card**, and your fleet dies with *"Free memory ... less than desired
+   GPU memory utilization"*. Killing that rogue `vllm serve` **kills the container** — it
+   IS PID 1's child. **Use a PyTorch image instead.**
+3. **PORT 8001 IS TAKEN** by RunPod's own proxy. `coder` died with *"Address already in
+   use"* while 8002/8003 were fine; curl to 8001 returns RunPod's 502 HTML. **coder now
+   runs on 8011.**
+4. **A STOPPED POD LOSES ITS GPU.** RunPod has no reservation system — stop a pod and the
+   card goes back to the pool. Ours was taken within minutes. **Do not stop-and-resume
+   mid-workflow.** Either keep it running (the watchdog manages it) or terminate outright.
+5. **ENV DOESN'T REACH SSH, AND IS FIXED AT CONTAINER START.** RunPod injects env into
+   **PID 1 only** (`sshd` spawns a clean env — read `/proc/1/environ`), and *editing a
+   secret does not reach a running pod*. So `boot.sh` prefers `/workspace/.runpod_key` and
+   `/workspace/.hf_token`, which is how you fix a bad key **without a rebuild**.
+   Push them from SSM: `aws ssm get-parameter ... | ssh pod 'cat > /workspace/.runpod_key'`.
+
+**COST SAFETY — AWS's out-of-band kill switch does NOT survive this move.** CloudWatch
+stopped a *wedged* box because the stopper lived **outside** it. RunPod has no equivalent;
+everything runs on the pod. Three layers, weakest last:
+1. **Prepaid credit balance** — outside the pod, absolute, survives total pod failure.
+   **This is the real cap. Keep it small.**
+2. **HARD TTL** (`watchdog.sh`) — stops the pod after `MAX_LIFETIME_MIN` no matter what.
+   An idle rule **cannot** catch a crash-looping box (it is not idle); this can.
+3. **Idle rule** — stops after `IDLE_MIN` of GPU <5%. **GATED on `/workspace/.fleet-ready`**
+   because weight download is not GPU work: an ungated idle rule stops the pod
+   **mid-download** and you pay to do it all again. That bug fired live.
+
+`boot.sh` **FAILS CLOSED**: it proves the API key authenticates *and* can see this pod
+**before loading a single model**. It caught a broken key twice. `podStop` is the
+documented mutation (`podTerminate` is **not** in RunPod's docs — do not guess at an
+undocumented call on a safety-critical path).
+
+### ⛔ AWS capacity — escalation `esc-20260713-201140` (2026-07-13). Superseded by RunPod, kept for the fallback path.
 Tried to boot and **could not**. g6e (the L40S 48GB box) is **exhausted in us-east-1**:
 - `g6e.xlarge` **on-demand** — `InsufficientInstanceCapacity` in **all four** AZs (1c/1a/1d/1b).
 - `g6e.2xlarge` **on-demand** (different pool, same single L40S, mem_utils unchanged) — **all four dry.**
