@@ -2,6 +2,42 @@
 
 ### What I learned trying to build a judge for a multi-model ensemble — and why I didn't build it
 
+> ## ⚠️ READ THIS FIRST — THIS IS NOT A NOVEL RESULT, AND IT IS NOT FOR PUBLICATION
+>
+> This is an **internal engineering record**, not a paper. After writing it I went looking for
+> prior art and found that **the method here is already published, and our number replicates
+> theirs.**
+>
+> **[arXiv 2606.27288 — "When Does Combining Language Models Help? A Co-Failure Ceiling on
+> Routing, Voting, and Mixture-of-Agents"](https://arxiv.org/html/2606.27288)** defines β (the
+> rate at which *all* models fail the same query), proves **no router, vote, or cascade can
+> exceed 1 − β**, and explicitly frames it as a **"$0 certificate" computable from a held-out
+> query set *before a router is trained***. That is exactly the instrument built here.
+>
+> Their measured oracle gap on a saturated mix: **0.044, 95% CI [0.027, 0.062]**.
+> **Ours is +0.027 — their lower confidence bound.** We independently reproduced a published
+> result without knowing it existed. Good news for correctness; there is no novelty claim to
+> make, and none is made.
+>
+> **Related prior art to cite, not re-derive:**
+> - **Oracle router as a theoretical upper bound** — [Shnitzer et al., arXiv 2309.15789](https://arxiv.org/abs/2309.15789)
+> - **Model complementarity** — [RouterBench, arXiv 2403.12031](https://arxiv.org/abs/2403.12031):
+>   secondary models give unique correct answers on 10–30% of prompts; and *no router
+>   significantly beats always picking one model* (this is **Martian's own benchmark**)
+> - **A real judge recovers only ~21% of the oracle gap** (pointwise; 61% pairwise) —
+>   [arXiv 2603.12520](https://arxiv.org/abs/2603.12520). Applied to our +0.027, a *realistic*
+>   judge buys **+0.006 to +0.017**. Our conclusion is **understated**, not overstated.
+> - **Self-MoA** — [arXiv 2502.00674](https://arxiv.org/abs/2502.00674): aggregating N samples
+>   from the **single best model** beats mixed-model MoA by **6.6 points**, and wins
+>   *specifically in the hierarchical regime* — which is exactly the regime measured here.
+>
+> **What is kept from this document:** the measurement, the retraction trail, the ceiling
+> analysis, and the `specialist_wins_own_category` diagnostic — which I have not seen named in
+> the prior art and which is the cheapest way to separate a *fleet* problem from a *query-set*
+> problem. It is a lab notebook, and it is useful as one.
+>
+> **§7 and §8 have been narrowed** — the original scoping was wrong. See the correction there.
+
 ---
 
 ## TL;DR
@@ -214,10 +250,50 @@ A *perfect* router also buys at most +0.027 here. Headroom doesn't merely condem
 The honest conclusion isn't "route, don't judge." It's: **just call the strongest model.**
 Routing is only the *cheaper way to chase a prize that isn't there.*
 
-## 7. What this does NOT show
+## 7. What this does NOT show — **the scope correction**
+
+> ### 🔴 THE ORACLE BOUNDS *SELECTION*. IT DOES NOT BOUND *GENERATION*.
+>
+> This is the most important limitation in the document, and the original draft got it wrong.
+>
+> Our oracle is `max over 3 candidates, ONE SAMPLE EACH`. That correctly bounds any policy that
+> **picks one of those three answers** — a judge in select mode, a router, a majority vote.
+>
+> It does **NOT** bound anything that **generates new candidates**:
+>
+> | method | mechanism | bounded by our oracle? |
+> |---|---|---|
+> | Router / model selection | pick one model's answer | **YES — this is exactly our bound** |
+> | Judge in *select* mode | select | **YES** (and strictly below it) |
+> | Majority vote over the 3 | select | **YES** |
+> | Self-consistency (N samples) | select over **N sampled paths** | **NO** — enlarges the candidate set |
+> | Repeated sampling / tree search | **generate** | **NO** — *raises the oracle itself* |
+> | Mixture-of-Agents | **synthesize** (output ∉ candidate set) | **NO** |
+> | Sakana **Fugu** | delegate + verify + **synthesize** | **NO** |
+>
+> **And our own judge can synthesize.** The frontier judge set `chosen == -1` on **34 of 36**
+> queries — it ignored the candidates and *wrote its own answer*. That is generation, not
+> selection, and it is **not** bounded by our oracle. (Empirically it still lost — 0.883 vs the
+> 0.933 single model — so the concern is theoretical *here*. But the claim had to be narrowed.)
+>
+> **[Sakana's Fugu](https://sakana.ai/fugu-release/) (June 2026) beats the best model in its own
+> pool on 10 of 11 benchmarks.** A multi-model system *does* beat the best single model on
+> quality. It escapes this bound by delegating, **verifying**, and **synthesizing** — producing
+> answers that were never in the candidate set. Had this document claimed *"multi-model doesn't
+> pay,"* Fugu would refute it in public.
+>
+> **The delicious detail:** Sakana's own AB-MCTS headline (30% on ARC-AGI-2) is **Pass@250** —
+> itself an oracle. Their **Pass@2**, with a *real selector*, is **19.2%**. They lose a third of
+> their headline to the selection problem. **This finding appears inside theirs.**
+>
+> ### So the defensible claim is narrow:
+> **Selection over a fixed, hierarchical fleet at one sample per model does not pay.**
+> That condemns judges-in-select-mode and routers. It says **nothing** about self-consistency,
+> Mixture-of-Agents, search, or synthesis — mechanisms we did not measure, and which the
+> literature says *do* pay.
 
 **It does not falsify fan-out + judge.** It shows **one fleet failing the pattern's
-precondition.**
+precondition** — for **one mechanism** (selection).
 
 And I have to name the obvious objection, because it's a good one:
 
@@ -233,21 +309,52 @@ So the generalization — *"hierarchy is the default for small mixed fleets"* �
 not established.** The instrument claim (*divergence ≠ headroom; measure the precondition
 first*) stands regardless, because it's true of any fleet.
 
-### The experiment that settles it
+### But that objection is weaker than it looks — the specialists don't win their own categories
 
-Build a fleet **deliberately selected for complementarity** — comparable strength, genuinely
-different pretraining lineages, no obvious dominant member — and re-run the same instrument on
-the same pre-registered hard queries.
+The obvious follow-up is *"your query set was code-heavy, of course the coder won."* **It
+wasn't, and it didn't.** The set is a balanced 10/10/10 split, and computing the best single
+model **within each category** kills the objection with data already on disk, for $0:
 
-**Both outcomes are informative, which is what makes it worth running:**
+| query domain | best model | the *nominal specialist* |
+|---|---|---|
+| **coder** queries | coder **0.687** | coder ✓ |
+| **reasoning** queries | **coder 0.900** | reasoning — *loses at 0.807* |
+| **general** queries | **coder 0.500** | general — *loses at 0.440* |
 
-- **Headroom appears** → the pattern is vindicated. My fleet was the problem, and the judge
-  becomes worth building. I'll say so.
-- **Headroom stays ~0** → *"hierarchy is the default"* is confirmed on a fleet chosen **for**
-  decorrelation, which pre-empts the only serious objection to this write-up. That's a much
-  stronger claim than I can make today.
+**The coder wins all three categories** — it beats the reasoner *at reasoning* and the general
+model *at general*, on their own turf.
 
-I'll pre-register the fleet and publish either result.
+**So the fleet has no specialists.** It has one good model and two worse ones. And the reason is
+brutally simple: **at this scale, parameter count beats specialization.** A 14B model is just
+better than a 7B and a 9B, *even on their home ground.* "Specialist" was a label, not a
+capability. **No reshuffling of the query mix can produce headroom that isn't there.**
+
+That diagnostic (`specialist_wins_own_category`) is now a first-class field in the instrument.
+It is the cheapest way to tell a *fleet* problem from a *query-set* problem, and it should be
+run on any candidate fleet **before** spending money on it.
+
+### The experiment that actually follows — and it is NOT a new fleet
+
+The literature is ahead of us here, and it points somewhere cheaper and more promising.
+
+**[Self-MoA](https://arxiv.org/abs/2502.00674)**: aggregating **N samples from the single best
+model** beats mixed-model MoA by **6.6 points** — and it wins **specifically in the hierarchical
+regime**, which is exactly the regime measured above. The quality coefficient dominates the
+diversity coefficient. Mixed-model MoA only wins when members are of *comparable strength*.
+
+So the next experiment is not "buy a better fleet." It is:
+
+> **Sample the strongest model N times and synthesize.** This tests the **escape mechanism**
+> (generation, not selection), needs **no new fleet**, reuses the same 30 pre-registered
+> queries, and the literature *predicts it wins here*.
+
+It also produces the number this document is missing: **the oracle at k > 1 samples per model.**
+Our current oracle conflates *"the fleet is hierarchical"* with *"the candidate set has size 3."*
+Sampling separates them.
+
+A deliberately decorrelated fleet (comparable **parameter count**, different lineages) remains
+worth running eventually — but it is now the *second* experiment, not the first, and it carries a
+~50% chance of re-confirming what we already know.
 
 ## 8. The actual takeaway
 
