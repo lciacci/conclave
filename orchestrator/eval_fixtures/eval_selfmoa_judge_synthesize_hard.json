@@ -1,0 +1,167 @@
+{
+  "mode": "synthesize",
+  "n": 30,
+  "judge": 1.0,
+  "baseline": 0.6956,
+  "oracle_at_n": 0.8133,
+  "gain": 0.3044,
+  "gain_ci95": [
+    0.2216,
+    0.3872
+  ],
+  "wrote_own_answer": 29,
+  "per_query": [
+    {
+      "id": "hardcoder-closure-late-binding",
+      "score": 1.0,
+      "chosen": -1
+    },
+    {
+      "id": "hardcoder-eq-without-hash",
+      "score": 1.0,
+      "chosen": -1
+    },
+    {
+      "id": "hardcoder-blocking-in-async",
+      "score": 1.0,
+      "chosen": -1
+    },
+    {
+      "id": "hardcoder-generator-exhaustion",
+      "score": 1.0,
+      "chosen": -1
+    },
+    {
+      "id": "hardcoder-money-float-decimal",
+      "score": 1.0,
+      "chosen": -1
+    },
+    {
+      "id": "hardcoder-threading-race-gil",
+      "score": 1.0,
+      "chosen": -1
+    },
+    {
+      "id": "hardcoder-mutable-class-attr",
+      "score": 1.0,
+      "chosen": -1
+    },
+    {
+      "id": "hardcoder-is-vs-eq-interning",
+      "score": 1.0,
+      "chosen": -1
+    },
+    {
+      "id": "hardcoder-lru-design",
+      "score": 1.0,
+      "chosen": -1
+    },
+    {
+      "id": "hardcoder-sort-stability-multikey",
+      "score": 1.0,
+      "chosen": -1
+    },
+    {
+      "id": "hardreason-bayes-disease",
+      "score": 1.0,
+      "chosen": -1
+    },
+    {
+      "id": "hardreason-birthday",
+      "score": 1.0,
+      "chosen": -1
+    },
+    {
+      "id": "hardreason-expected-rolls",
+      "score": 1.0,
+      "chosen": -1
+    },
+    {
+      "id": "hardreason-two-coins",
+      "score": 1.0,
+      "chosen": -1
+    },
+    {
+      "id": "hardreason-pipes-drain",
+      "score": 1.0,
+      "chosen": -1
+    },
+    {
+      "id": "hardreason-last-digit",
+      "score": 1.0,
+      "chosen": -1
+    },
+    {
+      "id": "hardreason-seating-constraint",
+      "score": 1.0,
+      "chosen": -1
+    },
+    {
+      "id": "hardreason-three-boxes",
+      "score": 1.0,
+      "chosen": 0
+    },
+    {
+      "id": "hardreason-st-petersburg",
+      "score": 1.0,
+      "chosen": -1
+    },
+    {
+      "id": "hardreason-clock-overlaps",
+      "score": 1.0,
+      "chosen": -1
+    },
+    {
+      "id": "hardgen-cap-theorem",
+      "score": 1.0,
+      "chosen": -1
+    },
+    {
+      "id": "hardgen-idempotency",
+      "score": 1.0,
+      "chosen": -1
+    },
+    {
+      "id": "hardgen-eventual-consistency",
+      "score": 1.0,
+      "chosen": -1
+    },
+    {
+      "id": "hardgen-oauth-vs-authn",
+      "score": 1.0,
+      "chosen": -1
+    },
+    {
+      "id": "hardgen-index-tradeoff",
+      "score": 1.0,
+      "chosen": -1
+    },
+    {
+      "id": "hardgen-p-value",
+      "score": 1.0,
+      "chosen": -1
+    },
+    {
+      "id": "hardgen-unicode-utf8",
+      "score": 1.0,
+      "chosen": -1
+    },
+    {
+      "id": "hardgen-microservices",
+      "score": 1.0,
+      "chosen": -1
+    },
+    {
+      "id": "hardgen-cache-invalidation",
+      "score": 1.0,
+      "chosen": -1
+    },
+    {
+      "id": "hardgen-concurrency-vs-parallelism",
+      "score": 1.0,
+      "chosen": -1
+    }
+  ],
+  "VOID": true,
+  "void_reason": "Judge ignored the candidates (chosen==-1 on 29/30) and wrote its own answer, AND the grader is the SAME MODEL as the judge (claude-sonnet-5), so it graded its own output. This measures 'a frontier model answers the question and marks its own homework', NOT synthesis over the coder's samples. It is the SAME artifact this project already retracted once in the base run (chosen==-1 on 34/36). DO NOT QUOTE THE 1.000. A synthesis judge must be no stronger than the candidates, and the grader must be a different house than the judge."
+}
