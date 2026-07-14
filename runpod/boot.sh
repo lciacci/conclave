@@ -66,6 +66,16 @@ if [ -r /workspace/.runpod_key ]; then
   export RUNPOD_API_KEY
   echo "using RUNPOD_API_KEY from /workspace/.runpod_key (overrides pod env)"
 fi
+# Same override for the HF token. `general` (Gemma-2-9b) is a GATED repo: with no token
+# it simply does not download, and you get a SILENT two-model fleet — which voids the
+# experiment while looking like it worked. The file override also lets you fix a missing
+# or rotated token on a RUNNING pod: a pod's env is fixed at container start, so the
+# alternative is a rebuild.
+if [ -r /workspace/.hf_token ]; then
+  HF_TOKEN="$(tr -d '[:space:]' < /workspace/.hf_token)"
+  export HF_TOKEN
+  echo "using HF_TOKEN from /workspace/.hf_token (overrides pod env)"
+fi
 
 MAX_LIFETIME_MIN="${MAX_LIFETIME_MIN:-120}"
 IDLE_MIN="${IDLE_MIN:-20}"
@@ -179,10 +189,19 @@ while true; do
   sleep 60
 done
 WDEOF
+# The heredoc above is a FALLBACK. runpod/watchdog.sh is the real one and it SUPERSEDES
+# it: the inline copy's idle rule is UNGATED, and an ungated idle rule stops the pod
+# mid-weight-download (util is 0% for the whole ~38GB pull, because downloading is not
+# GPU work). That bug fired on a live boot. If watchdog.sh shipped alongside this
+# script, use it.
+if [ -r "$HERE/watchdog.sh" ]; then
+  cp "$HERE/watchdog.sh" /usr/local/bin/conclave-watchdog.sh
+  echo "watchdog: using runpod/watchdog.sh (idle rule GATED on fleet-ready)"
+fi
 chmod +x /usr/local/bin/conclave-watchdog.sh
 MAX_LIFETIME_MIN="$MAX_LIFETIME_MIN" IDLE_MIN="$IDLE_MIN" \
   RUNPOD_API_KEY="$RUNPOD_API_KEY" RUNPOD_POD_ID="$RUNPOD_POD_ID" \
-  nohup /usr/local/bin/conclave-watchdog.sh >/dev/null 2>&1 &
+  setsid nohup /usr/local/bin/conclave-watchdog.sh </dev/null >/dev/null 2>&1 &
 echo "watchdog live: hard TTL ${MAX_LIFETIME_MIN}min, idle-stop ${IDLE_MIN}min"
 
 # ---------------------------------------------------------------------------
@@ -292,5 +311,11 @@ echo
 echo "=== FLEET UP ==="
 curl -s http://127.0.0.1:4000/v1/models 2>/dev/null | head -c 400 || true
 echo
+# ARM THE IDLE RULE. The watchdog deliberately ignores GPU-idle until this file exists,
+# because weight download is not GPU work and an ungated idle rule would stop the pod
+# mid-download. Nothing creates this but here — if boot.sh never reaches this line, only
+# the hard TTL protects the pod, which is exactly the intended behaviour for a failed boot.
+touch /workspace/.fleet-ready
+echo "idle rule ARMED (/workspace/.fleet-ready)"
 echo "watchdog: hard TTL ${MAX_LIFETIME_MIN}min | idle-stop ${IDLE_MIN}min | log /workspace/conclave-watchdog.log"
 echo "from the laptop:  ssh -N -L 4000:127.0.0.1:4000 <pod-ssh>   then  CONCLAVE_GW=localhost:4000"
