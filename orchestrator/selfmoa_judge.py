@@ -94,6 +94,34 @@ def _assert_grader_matches_baseline(div: dict, base_url: str, model: str, sample
             f"baseline at this run's config.\n")
 
 
+def _oracle_is_comparable(rep: dict, g_model: str, g_base: str, samples: int) -> bool:
+    """Was the ORACLE graded exactly the way THIS run grades?
+
+    An oracle is a MAX over samples, so noisy single grades INFLATE it, while the judge and the
+    baseline (means) are variance-reduced. Comparing across grader configs manufactures a gap.
+    That is not hypothetical: it is how the retracted +0.058 was produced. So the oracle-relative
+    statistic is only emitted when the configs match EXACTLY — and a report that records no
+    grader at all (the frozen one does not) is NOT a match. Unknown is not matched."""
+    g = rep.get("grader") or {}
+    return (g.get("model"), g.get("url"), g.get("samples")) == (g_model, g_base, samples)
+
+
+def _demo() -> None:
+    ok = {"grader": {"model": "claude-sonnet-5", "url": "https://api.anthropic.com", "samples": 3}}
+    assert _oracle_is_comparable(ok, "claude-sonnet-5", "https://api.anthropic.com", 3)
+    # the EXACT defect that voided +0.058: oracle graded at 1, this run at 3
+    assert not _oracle_is_comparable(
+        {"grader": {"model": "claude-sonnet-5", "url": "https://api.anthropic.com", "samples": 1}},
+        "claude-sonnet-5", "https://api.anthropic.com", 3), "samples mismatch must NOT compare"
+    # a different grader model is not comparable either
+    assert not _oracle_is_comparable(ok, "gpt-5.2-2025-12-11", "https://api.openai.com", 3)
+    # UNKNOWN IS NOT UNBIASED — the frozen report records no grader; it must not sail through
+    assert not _oracle_is_comparable({}, "claude-sonnet-5", "https://api.anthropic.com", 3)
+    assert not _oracle_is_comparable({"grader": None}, "claude-sonnet-5",
+                                     "https://api.anthropic.com", 3)
+    print("ok — oracle comparability guard verified offline")
+
+
 JUDGE_SYS = (
     "You are a judge over several candidate answers to the same question. The answers "
     "were all produced by the same model at a non-zero temperature, so they differ in "
@@ -168,6 +196,10 @@ def judge_once(query: dict, samples: list[str], mode: str, call, base, model, ke
 
 
 if __name__ == "__main__":
+    if "--demo" in sys.argv:
+        _demo()
+        sys.exit(0)
+
     mode = "synthesize"
     if "--mode" in sys.argv:
         mode = sys.argv[sys.argv.index("--mode") + 1]
@@ -324,15 +356,34 @@ if __name__ == "__main__":
         print(f"  house than the judge. Reporting the numbers below FOR THE RECORD ONLY —")
         print(f"  they do not measure synthesis and must not be quoted as if they did.")
 
+    # THE ORACLE IS ONLY COMPARABLE IF IT WAS GRADED THE WAY THIS RUN IS GRADED.
+    # An ORACLE is a MAX over samples, so noisy single grades INFLATE it, while the judge and
+    # the baseline (means) are variance-reduced. The frozen selfmoa report records NO grader
+    # config at all and its arms were graded at samples=1 — so "captured X% of the oracle gap"
+    # is a ratio between two differently-graded quantities. The gain vs baseline is matched and
+    # sound; this ratio is not. Refuse to state it rather than emit an unmatched number.
+    oracle_grader = (rep.get("grader") or {})
+    oracle_matched = _oracle_is_comparable(rep, g_model, g_base, n)
+
     print(f"\n=== SELF-MoA JUDGE ({mode}) — n={len(rows)} ===")
     print(f"  baseline  (temp-0 coder, no judge)   {baseline:.3f}")
     print(f"  JUDGE     ({mode} over 8 samples)    {judge_score:.3f}")
-    print(f"  ORACLE@8  (a PERFECT selector)       {oracle:.3f}")
+    if oracle_matched:
+        print(f"  ORACLE@8  (a PERFECT selector)       {oracle:.3f}")
+    else:
+        print(f"  ORACLE@8  (a PERFECT selector)       {oracle:.3f}  <- ⚠ UNMATCHED GRADING")
     print(f"\n  >>> judge - baseline = {statistics.fmean(d):+.4f}  95% CI [{lo:+.3f}, {hi:+.3f}]")
     gap = oracle - baseline
-    if gap > 0:
+    if gap > 0 and oracle_matched:
         frac = (judge_score - baseline) / gap
         print(f"  >>> captured {100*frac:.0f}% of the {gap:+.3f} oracle gap")
+    elif gap > 0:
+        print(f"  >>> ORACLE COMPARISON SUPPRESSED — the oracle was NOT graded like this run")
+        print(f"      (oracle: {oracle_grader or 'no grader recorded'} vs this run: "
+              f"model={g_model} samples={n}).")
+        print(f"      An oracle is a MAX, so noisy grades inflate it. '% of gap captured' would")
+        print(f"      be a ratio of two differently-graded numbers. Re-grade the oracle at")
+        print(f"      samples={n} to restore it. The gain vs baseline above IS matched and sound.")
     print(f"  (judge wrote its own answer on {wrote_own}/{len(rows)} queries)")
     if void:
         print(f"\n  ** VOID — see the warning(s) above. This number must NOT be quoted. **")
@@ -345,6 +396,15 @@ if __name__ == "__main__":
 
     tag = f"{mode}_{model.replace(chr(47), chr(95))}"
     json.dump({"mode": mode, "judge_model": model, "grader_model": g_model,
+               # Record the grader config in the SHAPE THE GUARD READS
+               # (_assert_grader_matches_baseline -> div["grader"]["model"/"url"/"samples"]).
+               # Writing only the flat keys is how the provenance hole opened: the frozen
+               # eval_selfmoa_report_hard.json records no grader at all, which is precisely
+               # why nobody caught that its arms were graded at samples=1 while the baseline
+               # was at samples=3. A number whose grading cannot be verified is a number that
+               # gets retracted.
+               "grader": {"model": g_model, "url": g_base, "samples": n},
+               "judge_url": base,          # NB: "judge" below is the SCORE, not the config
                "VOID": bool(void),
                "void_reason": ("; ".join(filter(None, [
                    f"judge IS the grader ({model}) — it graded the answer it chose"
@@ -357,6 +417,7 @@ if __name__ == "__main__":
                "grader_samples": n,
                "n": len(rows), "judge": round(judge_score, 4),
                "baseline": baseline, "oracle_at_n": oracle,
+               "oracle_grading_matched": bool(oracle_matched),
                "gain": round(statistics.fmean(d), 4), "gain_ci95": [round(lo, 4), round(hi, 4)],
                "wrote_own_answer": wrote_own, "per_query": rows},
               open(_p(f"eval_selfmoa_judge_{tag}"), "w"), indent=2)

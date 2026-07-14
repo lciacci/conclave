@@ -178,8 +178,19 @@ def score(cache: dict, scorer, baseline: dict) -> dict:
     have_base = [r for r in rows if r["baseline"] is not None]
     base = statistics.fmean([r["baseline"] for r in have_base]) if have_base else None
 
+    # RECORD HOW THE ORACLE WAS GRADED. Without this the report mixes two grading configs and
+    # says nothing about either: `baseline` is copied from the DIVERGENCE run (samples=3), while
+    # `oracle_at_n` is graded HERE at whatever GRADER_SAMPLES happened to be set to — it was 1 in
+    # the run that produced the retracted +0.058. An oracle is a MAX, so noisy single grades
+    # INFLATE it while the mean-of-3 baseline is variance-reduced: the gap was manufactured by
+    # the grader config. Nothing in the file recorded that, so nobody could see it. Downstream
+    # (selfmoa_judge) now refuses to quote an oracle-relative number unless this block matches
+    # its own grader — which it can only do if the block exists.
     out = {
         "n": len(rows), "model": MODEL, "n_samples": N_SAMPLES, "temperature": TEMPERATURE,
+        "grader": {"model": getattr(scorer, "model", None),
+                   "url": getattr(scorer, "base_url", None),
+                   "samples": getattr(scorer, "samples", None)},
         "oracle_at_n": round(oracle_n, 4),
         "mean_sample": round(mean_sample, 4),
         "baseline_temp0": round(base, 4) if base is not None else None,
