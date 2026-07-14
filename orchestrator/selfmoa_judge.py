@@ -66,7 +66,40 @@ JUDGE_SYS = (
 )
 
 
+# A SMALL IN-FLEET JUDGE HAS A SMALL CONTEXT, AND 8 SAMPLES DO NOT ALWAYS FIT.
+# Gemma-2's window is 8192 tokens. Measured on the frozen samples: the 8-sample block is a
+# median of ~4,600 tokens but a MAX of ~7,695 — and 6 of 30 queries leave under 1,700 tokens
+# for the question, the instructions and the judge's own answer. Those overflow.
+#
+# Silent truncation is the dangerous failure: it starves the judge of candidates, the judge
+# scores badly, and you conclude "synthesis doesn't work" when what actually happened is that
+# the judge never saw the material. So: truncate DELIBERATELY, to a budget, and REPORT it.
+# 6000 is the largest budget that still fits Gemma-2's 8192 window with room for the prompt
+# (~300 tok) and for the judge to WRITE its synthesis (~1200 tok): 6000+1500 = 7500 < 8192.
+# It truncates 6/30 queries — down from 12/30 at a 5000 budget. Raising it further buys
+# nothing (6500 also truncates 6) and 6700 overflows.
+#
+# FAIRNESS: whatever budget you use, the FRONTIER arm must be re-run at the SAME budget, or
+# you are comparing a judge that saw full candidates against one that saw truncated ones —
+# and the truncated judge will lose for the wrong reason. The frontier numbers on record
+# (select 0.753) were taken WITHOUT truncation, so they are NOT directly comparable to a
+# truncated Gemma run. Re-run both, or compare only within a budget.
+MAX_CANDIDATE_TOKENS = int(os.environ.get("MAX_CANDIDATE_TOKENS", "6000"))
+_CHARS_PER_TOKEN = 4          # rough, and deliberately conservative
+
+
+def _fit(samples: list[str]) -> tuple[list[str], bool]:
+    """Trim samples to a total budget. Returns (samples, was_truncated)."""
+    budget = MAX_CANDIDATE_TOKENS * _CHARS_PER_TOKEN
+    total = sum(len(s) for s in samples)
+    if total <= budget:
+        return samples, False
+    per = budget // max(1, len(samples))       # equal share — no sample is privileged
+    return ([s if len(s) <= per else s[:per] + "\n...[truncated]" for s in samples], True)
+
+
 def judge_once(query: dict, samples: list[str], mode: str, call, base, model, key) -> dict:
+    samples, truncated = _fit(samples)
     blocks = "\n\n".join(f"[Answer {i}]\n{s}" for i, s in enumerate(samples))
     if mode == "select":
         task = ('Pick the single BEST answer. Respond ONLY with JSON: '
@@ -89,7 +122,7 @@ def judge_once(query: dict, samples: list[str], mode: str, call, base, model, ke
     # formatting failure is not scored as a WRONG ANSWER.
     if (not ans) and isinstance(chosen, int) and 0 <= chosen < len(samples):
         ans = samples[chosen]
-    return {"answer": ans, "chosen": chosen}
+    return {"answer": ans, "chosen": chosen, "truncated": truncated}
 
 
 if __name__ == "__main__":
@@ -102,9 +135,27 @@ if __name__ == "__main__":
     if not samples:
         sys.exit("no samples — run selfmoa.py --generate first")
     qs = {q["id"]: q for q in active_query_set()}
-    base, model, key = _grader_from_env()
 
-    out_p = _p(f"eval_selfmoa_judged_{mode}")
+    # GRADER — always. JUDGE — separately pointable, and it MUST be, because the two must
+    # not be the same model (see the trap guard below). Defaults to the grader only for
+    # backwards compatibility with the frontier-judge run; for a real SYNTHESIS test you
+    # want the IN-FLEET judge, which is WEAKER than the candidates and therefore has to
+    # actually read them:
+    #
+    #   JUDGE_URL=http://localhost:4000 JUDGE_MODEL=general JUDGE_API_KEY=none \
+    #   GRADER_URL=https://api.anthropic.com GRADER_MODEL=claude-sonnet-5 ... \
+    #   CONCLAVE_QUERYSET=hard python3 orchestrator/selfmoa_judge.py --mode synthesize
+    #
+    # Gemma is GOOGLE and the grader is ANTHROPIC — different houses, so no shared-house
+    # bias, and judge != grader so nothing marks its own homework.
+    g_base, g_model, g_key = _grader_from_env()
+    base = os.environ.get("JUDGE_URL") or g_base
+    model = os.environ.get("JUDGE_MODEL") or g_model
+    key = os.environ.get("JUDGE_API_KEY") or g_key
+    print(f"judge : {model} @ {base}")
+    print(f"grader: {g_model} @ {g_base}")
+
+    out_p = _p(f"eval_selfmoa_judged_{mode}_{model.replace('/', '_')}")
     judged = json.load(open(out_p)) if os.path.exists(out_p) else {}
 
     print(f"judging {len(samples)} queries in '{mode}' mode with {model} ...")
@@ -121,14 +172,15 @@ if __name__ == "__main__":
     # ---- grade the judge's output on the SAME grader as everything else
     gc = GradeCache()
     n = int(os.environ.get("GRADER_SAMPLES", str(FROZEN_GRADER_SAMPLES)))
-    scorer = ReferenceGrader(base, model, key, call=frontier_call, samples=n, cache=gc)
+    scorer = ReferenceGrader(g_base, g_model, g_key, call=frontier_call, samples=n, cache=gc)
     rows = []
     for qid, j in judged.items():
         if not j.get("answer"):
             continue
         s = scorer.score(qs[qid], j["answer"])
         if s is not None:
-            rows.append({"id": qid, "score": s, "chosen": j["chosen"]})
+            rows.append({"id": qid, "score": s, "chosen": j["chosen"],
+                         "truncated": j.get("truncated", False)})
 
     rep = _load("eval_selfmoa_report")
     oracle = rep.get("oracle_at_n")
@@ -142,6 +194,12 @@ if __name__ == "__main__":
     lo, hi = statistics.fmean(d) - 1.96 * sem, statistics.fmean(d) + 1.96 * sem
 
     wrote_own = sum(1 for r in rows if r["chosen"] == -1)
+    n_trunc = sum(1 for r in rows if r.get("truncated"))
+    if n_trunc:
+        print(f"\n  NOTE: candidates were TRUNCATED on {n_trunc}/{len(rows)} queries "
+              f"(budget {MAX_CANDIDATE_TOKENS} tok).")
+        print(f"        A judge that never saw the material is not evidence that "
+              f"synthesis fails.")
 
     # ------------------------------------------------------------------ THE TRAP GUARD
     # A judge STRONGER than the candidates does not synthesize them — it IGNORES them and
@@ -154,8 +212,7 @@ if __name__ == "__main__":
     # chosen == -1 on 29/30, grader == judge == claude-sonnet-5, score 1.000. Void.
     #
     # Refuse to report it rather than let a 1.000 look like a triumph.
-    judge_is_grader = model.strip().lower() == os.environ.get(
-        "GRADER_MODEL", "").strip().lower()
+    judge_is_grader = model.strip().lower() == g_model.strip().lower()
     ignored_candidates = len(rows) > 0 and wrote_own / len(rows) > 0.5
     if ignored_candidates:
         print(f"\n!!!!!! RESULT VOID — THE JUDGE IGNORED THE CANDIDATES !!!!!!")
@@ -190,10 +247,12 @@ if __name__ == "__main__":
         print(f"     The ceiling is real ({oracle:.3f}) but nothing can reach it —")
         print(f"     the bottleneck is the SELECTOR, not the candidates.")
 
-    json.dump({"mode": mode, "n": len(rows), "judge": round(judge_score, 4),
+    tag = f"{mode}_{model.replace(chr(47), chr(95))}"
+    json.dump({"mode": mode, "judge_model": model, "grader_model": g_model,
+               "n": len(rows), "judge": round(judge_score, 4),
                "baseline": baseline, "oracle_at_n": oracle,
                "gain": round(statistics.fmean(d), 4), "gain_ci95": [round(lo, 4), round(hi, 4)],
                "wrote_own_answer": wrote_own, "per_query": rows},
-              open(_p(f"eval_selfmoa_judge_{mode}"), "w"), indent=2)
+              open(_p(f"eval_selfmoa_judge_{tag}"), "w"), indent=2)
     print(f"\ngrader calls: {gc.misses} live, {gc.hits} cached")
-    print(f"saved -> {_p(f'eval_selfmoa_judge_{mode}')}")
+    print(f"saved -> {_p(f'eval_selfmoa_judge_{tag}')}")

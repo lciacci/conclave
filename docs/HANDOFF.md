@@ -45,7 +45,68 @@ Nothing running. No instances. **$0 spent this session.**
 > **A synthesis judge must be NO STRONGER than the candidates** (or it has no reason to read
 > them), **and the grader must be a different house than the judge.**
 >
-> ### ➡️ NEXT — the candidate-budget-matched experiment
+> ## 🔬 THE ONE NEXT ACTION — SYNTHESIS with the IN-FLEET judge
+>
+> **The only untested mechanism, and the only path that can exceed the 0.813 ceiling.**
+> Selection is *bounded* by ORACLE@8 = 0.813. **Synthesis is not** — its output need not be any
+> candidate, so it can in principle beat the best sample. Nobody has measured it here.
+>
+> **The design (both guard conditions satisfied — this is why it is valid where the last one was VOID):**
+> | | | why |
+> |---|---|---|
+> | **judge** | **in-fleet Gemma-2-9B** (`general`) | **WEAKER than the coder**, so it cannot simply out-answer the candidates — it has to *read* them. That is what makes it a real synthesis test. |
+> | **grader** | **claude-sonnet-5** (Anthropic) | **A DIFFERENT HOUSE from Gemma (Google)**, and **≠ the judge**. Nothing marks its own homework. |
+> | **candidates** | **the 8 FROZEN coder samples** | Already committed in `eval_fixtures/`. **One variable changes: the judge.** |
+>
+> **Run BOTH modes** — the comparison is the point:
+> ```sh
+> # boot ANY small Ada/Hopper GPU (driver >= CUDA 12.8) and load ONLY gemma (~6GB):
+> #   --model hugging-quants/gemma-2-9b-it-AWQ-INT4 --served-model-name general --port 8003
+> export JUDGE_URL=http://localhost:18003 JUDGE_MODEL=general JUDGE_API_KEY=none
+> export GRADER_URL=https://api.anthropic.com GRADER_MODEL=claude-sonnet-5 \
+>   GRADER_API_KEY=$(aws ssm get-parameter --name /conclave/judge-api-key --with-decryption \
+>     --profile yeti-conclave --query Parameter.Value --output text)
+> CONCLAVE_QUERYSET=hard python3 orchestrator/selfmoa_judge.py --mode select      # vs frontier's 0.753
+> CONCLAVE_QUERYSET=hard python3 orchestrator/selfmoa_judge.py --mode synthesize   # CAN IT BEAT 0.813?
+> ```
+> `selfmoa_judge.py` takes `JUDGE_*` independently of `GRADER_*`, scopes its output files by
+> judge model (so a Gemma run cannot overwrite the frontier run), and **REFUSES to report a
+> result** if the judge ignores the candidates on >50% of queries or if judge == grader.
+>
+> ### ⚠️ LANDMINE (already handled in code, but you MUST honour the fairness rule)
+> **Gemma-2's context is 8192 tokens and the 8 samples do not always fit.** Measured on the
+> frozen samples: the candidate block is a median of ~4,600 tokens but a **max of 7,695** — so
+> 6/30 queries overflow once you add the prompt and leave room for the judge to *write*.
+>
+> `selfmoa_judge.py` now truncates to `MAX_CANDIDATE_TOKENS` (**default 6000** — the largest
+> budget that still fits: 6000 + ~300 prompt + ~1200 output = 7,500 < 8,192) and **reports how
+> many queries were truncated**. Silent truncation is the dangerous version: it starves the
+> judge, the judge scores badly, and you wrongly conclude *"synthesis doesn't work"* when the
+> judge simply never saw the material.
+>
+> **🔴 THE FAIRNESS RULE — do not skip this.** The frontier numbers on record (**select
+> 0.753**) were taken with **NO truncation**. A truncated Gemma run is therefore **NOT directly
+> comparable** to them — the truncated judge would lose for the wrong reason. **Re-run the
+> frontier arm at the SAME `MAX_CANDIDATE_TOKENS`** (it is offline and costs ~30 API calls), or
+> compare only within a single budget. Otherwise you are measuring truncation, not judgment.
+>
+> **Also: Gemma has NO system role** — fold everything into the user turn (`judge_once` already does).
+>
+> ### PRE-REGISTERED PREDICTIONS (write these down before looking — that is the whole discipline)
+> - **Gemma-select < frontier-select (0.753)**, but **> baseline (0.696)**. A weaker selector
+>   still captures *some* of a +0.118 gap.
+> - **Gemma-synthesize is the genuine unknown.** MoA's central claim is that *aggregation is
+>   easier than generation* — a weak aggregator can still beat strong candidates. If true here,
+>   Gemma-synthesize **exceeds 0.813** and the ceiling was never a ceiling. If it lands below
+>   Gemma-select, then synthesis by a weaker model **destroys** information rather than combining
+>   it, and selection is the only mechanism that works at this scale.
+> - **If Gemma-synthesize beats 0.813, that is the headline of the whole project** — the
+>   self-hosted small judge finally earns its keep, which is the v3 thesis, arriving by a route
+>   nobody planned.
+>
+> Cost: ~$0.30 GPU (Gemma is 6GB — any cheap Ada card) + ~$0.50 grading.
+>
+> ### ➡️ THEN — the candidate-budget-matched experiment
 > **Hold the candidate count at 8; vary only the SOURCE:**
 > | arm | candidates | |
 > |---|---|---|
