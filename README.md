@@ -157,17 +157,51 @@ information:
 router  ≤  judge  ≤  oracle  =  best single + headroom
 ```
 
-So a *perfect* router also buys at most **+0.027** on this fleet, and a real one buys
-less. Headroom doesn't merely condemn the judge — **it condemns every selection policy
-over this fleet.** The honest conclusion isn't "route instead of judging." It's: **just
-call the strongest model.** Routing is only the *cheaper way to chase a prize that isn't
-there.*
+So a *perfect* router also buys at most **+0.027** on this fleet. Headroom doesn't merely
+condemn the judge — **it condemns every *selection* policy over this fleet.**
 
-This doesn't falsify fan-out + judge; it shows one fleet failing the pattern's
-**precondition**. Getting real value requires models of *comparable strength* that win
-on *different inputs* — enough that the oracle pulls meaningfully away from the best
-single model. Only then is there a prize worth paying a judge (3× inference + a judge
-call + a measured ~30% GPU-contention tax) to capture.
+## But the pattern does pay — from **sampling**, not from a fleet
+
+The oracle bounds **selection**. It does **not** bound **generation** — anything that
+produces candidates that weren't in the set escapes it entirely.
+
+So we dropped the two weaker models and sampled the **best** model 8× instead
+(temperature 0.8), on the same 30 queries, with the same judge and the same grader.
+**The only thing that changed is where the candidates come from:**
+
+| | candidates | judge score | vs. no judge |
+|---|---|---|---|
+| **Fleet** (the original design) | 3 models × 1 sample | 0.883 | **−0.050** — the judge is *worse than no judge* |
+| **Self-MoA** | 1 model × 8 samples | **0.753** | **+0.058** ✅ CI [+0.005, +0.110] |
+
+```
+baseline   the model, one sample        0.696
+mean       an average temp-0.8 sample   0.695   ← sampling costs nothing
+ORACLE@8   the best of 8 samples        0.813   ← the whole fleet's oracle: 0.722
+```
+
+**Eight draws from one model reach a ceiling 0.091 above what three different models could
+ever reach.** Sampling headroom is **+0.118** against the fleet's **+0.027** — 4.4× larger —
+and a real judge captures **49%** of it (inside the 21–61% band the literature predicts).
+
+**The fleet was never the point. The candidate set size was.**
+
+The pattern works. It just doesn't work with a fleet of weaker specialists — it works with
+**repeated samples of your best model**. And that's *cheaper* than the fleet design: one
+model, `n=8` in a single request (vLLM processes the prompt once and forks 8 continuations
+sharing the prefill KV cache), plus a selector. No co-residency, no contention tax, no fleet
+to decorrelate.
+
+### Still untested: synthesis
+
+Selection is bounded by that 0.813 oracle. **Synthesis isn't** — its output need not be any
+candidate. Testing it honestly requires a judge that is **weaker** than the candidates (so it
+has to actually read them) and a grader from a **different house** than the judge. That's the
+next experiment, and it's the one place a fleet might still earn its keep.
+
+*(An earlier synthesis run scored a perfect 1.000 and was **void**: the judge ignored the
+candidates and wrote its own answer, and the grader was the same model as the judge. The
+harness now detects and refuses that.)*
 
 **The reusable output of this phase is the instrument, not the judge.**
 `orchestrator/divergence.py` measures headroom, ties, and ceiling saturation for any
@@ -176,9 +210,24 @@ fleet or query set — offline, for $0, **before** you build a judge for it.
 ## Reproducing the eval (no GPU, no API key, $0)
 
 ```sh
-python3 orchestrator/judge_eval.py --score   # replays the published run: 0.883 / 1.000
+python3 orchestrator/judge_eval.py --score   # replays the judge-vs-judge run: 0.883 / 1.000
 python3 orchestrator/divergence.py --demo    # fleet-headroom instrument's self-checks
 python3 orchestrator/ensemble.py             # offline demo of the fan-out + judge pipeline
+python3 orchestrator/selfmoa.py --demo       # the sampling (generation) instrument
+```
+
+Re-deriving the two headline numbers needs only a grader key (no GPU — every candidate
+response is frozen):
+
+```sh
+export GRADER_URL=https://api.anthropic.com GRADER_MODEL=claude-sonnet-5 GRADER_API_KEY=...
+
+python3 orchestrator/divergence.py                          # easy set: +0.028, 31/36 AT CEILING
+CONCLAVE_QUERYSET=hard python3 orchestrator/divergence.py   # hard set: +0.027,  6/30 at ceiling
+                                                            #   ...and: does each specialist even
+                                                            #   win its OWN category? (it doesn't)
+CONCLAVE_QUERYSET=hard python3 orchestrator/selfmoa.py      # ORACLE@8 = 0.813 vs fleet's 0.722
+CONCLAVE_QUERYSET=hard python3 orchestrator/selfmoa_judge.py --mode select   # 0.753 (+0.058)
 ```
 
 All candidate responses, judgments, and grades are frozen in
