@@ -38,7 +38,18 @@ answer not at all. Why? Because **divergence is NOT headroom**:
 
 The models disagree constantly — but **when they disagree, coder is usually the one that is
 RIGHT.** That is HIERARCHY, not complementarity. A *perfect* oracle judge therefore barely
-beats "always call coder", and a real judge does worse. Route; don't vote.
+beats "always call coder", and a real judge does worse.
+
+**AND THE ORACLE BOUNDS ROUTERS TOO — so "route instead of judging" is NOT the escape.**
+The oracle is perfect PER-QUERY SELECTION. A judge selects after seeing the answers; a
+router selects seeing only the QUERY, so it has strictly LESS information:
+
+    router  <=  judge  <=  oracle  =  best_single + headroom
+
+A perfect router therefore also buys at most +0.027 here, and a real one buys less. Headroom
+does not merely condemn the judge — **it condemns EVERY selection policy over this fleet.**
+The honest conclusion is not "route, don't judge". It is: **just call the strongest model.**
+Routing is only the cheaper way to chase a prize that is not there.
 
 And hierarchy is the DEFAULT, not a quirk of this fleet: any fleet with one genuinely
 stronger member behaves this way, and a 14B coder simply IS better than a 7B reasoner and a

@@ -147,11 +147,27 @@ with one genuinely stronger member behaves this way, and a 14B coder simply *is*
 better than a 7B reasoner and a 9B general model at most tasks. A fleet can disagree
 loudly and still be worthless to ensemble — **and you cannot tell by looking.**
 
+### The headroom bounds routers too — so "just route instead" is not the escape
+
+The oracle is perfect **per-query selection**. A judge selects *after seeing the
+answers*; a router selects seeing only the *query*, so it has strictly **less**
+information:
+
+```
+router  ≤  judge  ≤  oracle  =  best single + headroom
+```
+
+So a *perfect* router also buys at most **+0.027** on this fleet, and a real one buys
+less. Headroom doesn't merely condemn the judge — **it condemns every selection policy
+over this fleet.** The honest conclusion isn't "route instead of judging." It's: **just
+call the strongest model.** Routing is only the *cheaper way to chase a prize that isn't
+there.*
+
 This doesn't falsify fan-out + judge; it shows one fleet failing the pattern's
-**precondition**. Getting real value requires models of *comparable strength* that
-win on *different inputs* — and that fleet must still beat a **router**, which costs
-1× inference instead of 3× plus a judge plus a measured ~30% GPU-contention tax.
-That's a high bar, and it's why production multi-model systems mostly route.
+**precondition**. Getting real value requires models of *comparable strength* that win
+on *different inputs* — enough that the oracle pulls meaningfully away from the best
+single model. Only then is there a prize worth paying a judge (3× inference + a judge
+call + a measured ~30% GPU-contention tax) to capture.
 
 **The reusable output of this phase is the instrument, not the judge.**
 `orchestrator/divergence.py` measures headroom, ties, and ceiling saturation for any

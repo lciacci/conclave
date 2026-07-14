@@ -139,10 +139,23 @@ what's serving behind it. Also the natural seam for per-model token/cost account
 > model at most tasks. **A fleet can disagree loudly and still be worthless to ensemble — and you
 > cannot tell by looking.** That is precisely why the instrument runs BEFORE the judge.
 >
+> ### ⚠️ THE HEADROOM BOUNDS **ROUTERS** TOO — "just route instead" is NOT the escape hatch.
+> The oracle is perfect **per-query selection**. A judge selects *after seeing the answers*; a
+> router selects seeing only the *query*, so it carries strictly **less** information:
+>
+>     router  <=  judge  <=  oracle  =  best_single + headroom
+>
+> A *perfect* router therefore also buys at most **+0.027** here, and a real one buys less.
+> Headroom does not merely condemn the judge — **it condemns EVERY selection policy over this
+> fleet.** The honest conclusion is NOT "route, don't judge". It is: **just call the strongest
+> model.** Routing is only the *cheaper way to chase a prize that is not there.* (An earlier
+> version of this doc said "route, don't judge" — that was imprecise and is corrected here.)
+>
 > **The bar a future fleet must clear:** comparable strength, genuinely different lineages, models
-> that win on *different inputs* — and it must beat a **router** costing 1× inference rather than
-> 3× + a judge + the measured ~30% contention tax. That is a high bar, and it is why production
-> multi-model systems mostly route.
+> that win on *different inputs* — enough that **the ORACLE pulls meaningfully away from the best
+> single model.** Only then does a prize exist that is worth paying a judge (3× inference + a
+> judge call + the measured ~30% contention tax) to capture. Routing is the cheap way to capture
+> such a prize; it is not a way to create one.
 >
 > **Caveat, stated:** the CI upper bound is 0.0498 against a 0.05 threshold — resolved by 0.0002.
 > Razor-thin. But both known biases (winner's curse on the oracle; in-sample pick of best-single)
