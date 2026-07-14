@@ -113,23 +113,148 @@ An earlier claim that "the coder model wins 31/36 queries" was **retracted**
 the tied queries were all credited to whichever candidate came first in the
 list). Reversing the list credits the same ties to a different model.
 
-The measurement itself is also **ceiling-limited**: 31 of 36 queries already
-score at the grader's maximum, where headroom is zero by construction, so the
-whole +0.028 result rests on 5 queries and the verdict is **not statistically
-settled**. This doesn't falsify ensembles generally — production multi-model
-systems mostly **route** (pick the right model per request) rather than fan
-out and vote — but it does mean this specific fleet has no proven headroom for
-a judge yet. The reusable output of this phase is the instrument
-(`orchestrator/divergence.py`) that measures headroom, ties, and ceiling
-saturation for any fleet or query set, offline, for $0, before building a judge
-for it.
+That first measurement was **ceiling-limited** — 31 of 36 queries scored at the
+grader's maximum, where headroom is zero *by construction* — so the verdict was
+**undecidable**, not negative. To settle it, a second set of **30 harder queries**
+was written and **frozen before any model answered them** (pre-registered, so the
+queries couldn't be tuned toward a flattering result), and the fleet was re-measured.
+
+### The result: disagreement is cheap; complementarity is rare
+
+| | easy (n=36) | **hard (n=30)** |
+|---|---|---|
+| queries at the grader's ceiling | 31/36 (**86%**) | **6/30 (20%)** |
+| best single model (coder) | 0.933 | **0.696** |
+| oracle (a *perfect* judge) | 0.961 | 0.722 |
+| **headroom** | **+0.028** | **+0.027** |
+| verdict statistically resolved? | **no** | **no** (retracted — see above) |
+| queries where models disagree | 67% | **80%** |
+
+The hard queries did their job: the ceiling collapsed, scores fell, and the
+specialists went from tying on 78% of queries to disagreeing on 80% of them.
+**And the headroom did not move.**
+
+**The ceiling was hiding nothing.** The reason disagreement tripled while the
+ensemble's value stayed flat is that **divergence is not headroom**. The fleet is
+**hierarchical, not complementary**: coder 0.696 vs. general 0.527 and reasoning
+0.518, with coder winning 12 of 30 queries outright and now *significantly* the
+strongest member. The models argue constantly — but **when they argue, the coder is
+usually the one that's right.** So even a perfect oracle judge barely beats just
+always calling the coder, and a real judge does worse.
+
+That generalizes. **Hierarchy is the default**, not a quirk of this fleet: any fleet
+with one genuinely stronger member behaves this way, and a 14B coder simply *is*
+better than a 7B reasoner and a 9B general model at most tasks. A fleet can disagree
+loudly and still be worthless to ensemble — **and you cannot tell by looking.**
+
+### The headroom bounds routers too — so "just route instead" is not the escape
+
+The oracle is perfect **per-query selection**. A judge selects *after seeing the
+answers*; a router selects seeing only the *query*, so it has strictly **less**
+information:
+
+```
+router  ≤  judge  ≤  oracle  =  best single + headroom
+```
+
+So a *perfect* router also buys at most **+0.027** on this fleet. Headroom doesn't merely
+condemn the judge — **it condemns every *selection* policy over this fleet.**
+
+
+> ## 🔴 RETRACTION (2026-07-14, from code review) — DO NOT QUOTE THE SELF-MoA GAIN
+>
+> **The "+0.058 / the pattern PAYS" result below is VOID.** Three defects, any one fatal:
+> 1. The **baseline was graded at `GRADER_SAMPLES=3`** while the Self-MoA arms were graded at
+>    **`=1`** — a single noisy grade compared against a mean-of-three. On a matched baseline the
+>    gain is **+0.047, CI [−0.005, +0.099] — it crosses zero.**
+> 2. **The judge WAS the grader** (`claude-sonnet-5` chose the answer, then graded its own
+>    choice). The run exported only `GRADER_*`; `JUDGE_*` silently fell back to it.
+> 3. The **guard written to catch (2) was dead code.**
+>
+> **"The verdict is RESOLVED" is also retracted** — it used z=1.96 with an estimated sigma on
+> data that is 24/30 exact zeros. With the correct t quantile the 0.05 threshold falls *inside*
+> the CI on **both** query sets. Nothing is resolved.
+>
+> **"ORACLE@8 beats the fleet by +0.091" is restated as +0.034** — the rest was max-over-8 vs
+> max-over-3 (more lottery tickets) plus the same grading mismatch. Direction survives;
+> magnitude was overstated 2.6×.
+>
+> **What survives:** the ceiling collapse (86%→20%), headroom unchanged (+0.027), disagreement
+> tripling while headroom stayed flat, and — robustly, no CI needed — **the fleet is
+> hierarchical: the coder wins all three categories, beating the reasoner AT reasoning and the
+> general model AT general.**
+>
+> All defects are fixed in code and verified by execution. The Self-MoA gain is **unmeasured**,
+> not positive; a defensible number needs the in-fleet (non-grader) judge.
+
+## ~~But the pattern does pay~~ — SELF-MoA RESULT IS VOID, SEE RETRACTION ABOVE
+
+The oracle bounds **selection**. It does **not** bound **generation** — anything that
+produces candidates that weren't in the set escapes it entirely.
+
+So we dropped the two weaker models and sampled the **best** model 8× instead
+(temperature 0.8), on the same 30 queries, with the same judge and the same grader.
+**The only thing that changed is where the candidates come from:**
+
+| | candidates | judge score | vs. no judge |
+|---|---|---|---|
+| **Fleet** (the original design) | 3 models × 1 sample | 0.883 | **−0.050** — the judge is *worse than no judge* |
+| **Self-MoA** | 1 model × 8 samples | ~~0.753~~ | ~~+0.058~~ **VOID — see retraction** |
+
+```
+baseline   the model, one sample        0.696
+mean       an average temp-0.8 sample   0.695   ← sampling costs nothing
+ORACLE@8   the best of 8 samples        0.813   ← the whole fleet's oracle: 0.722
+```
+
+**Eight draws from one model reach a ceiling 0.091 above what three different models could
+ever reach.** Sampling headroom is **+0.118** against the fleet's **+0.027** — 4.4× larger —
+and a real judge captures **49%** of it (inside the 21–61% band the literature predicts).
+
+**The fleet was never the point. The candidate set size was.**
+
+The pattern works. It just doesn't work with a fleet of weaker specialists — it works with
+**repeated samples of your best model**. And that's *cheaper* than the fleet design: one
+model, `n=8` in a single request (vLLM processes the prompt once and forks 8 continuations
+sharing the prefill KV cache), plus a selector. No co-residency, no contention tax, no fleet
+to decorrelate.
+
+### Still untested: synthesis
+
+Selection is bounded by that 0.813 oracle. **Synthesis isn't** — its output need not be any
+candidate. Testing it honestly requires a judge that is **weaker** than the candidates (so it
+has to actually read them) and a grader from a **different house** than the judge. That's the
+next experiment, and it's the one place a fleet might still earn its keep.
+
+*(An earlier synthesis run scored a perfect 1.000 and was **void**: the judge ignored the
+candidates and wrote its own answer, and the grader was the same model as the judge. The
+harness now detects and refuses that.)*
+
+**The reusable output of this phase is the instrument, not the judge.**
+`orchestrator/divergence.py` measures headroom, ties, and ceiling saturation for any
+fleet or query set — offline, for $0, **before** you build a judge for it.
 
 ## Reproducing the eval (no GPU, no API key, $0)
 
 ```sh
-python3 orchestrator/judge_eval.py --score   # replays the published run: 0.883 / 1.000
+python3 orchestrator/judge_eval.py --score   # replays the judge-vs-judge run: 0.883 / 1.000
 python3 orchestrator/divergence.py --demo    # fleet-headroom instrument's self-checks
 python3 orchestrator/ensemble.py             # offline demo of the fan-out + judge pipeline
+python3 orchestrator/selfmoa.py --demo       # the sampling (generation) instrument
+```
+
+Re-deriving the two headline numbers needs only a grader key (no GPU — every candidate
+response is frozen):
+
+```sh
+export GRADER_URL=https://api.anthropic.com GRADER_MODEL=claude-sonnet-5 GRADER_API_KEY=...
+
+python3 orchestrator/divergence.py                          # easy set: +0.028, 31/36 AT CEILING
+CONCLAVE_QUERYSET=hard python3 orchestrator/divergence.py   # hard set: +0.027,  6/30 at ceiling
+                                                            #   ...and: does each specialist even
+                                                            #   win its OWN category? (it doesn't)
+CONCLAVE_QUERYSET=hard python3 orchestrator/selfmoa.py      # ORACLE@8 = 0.813 vs fleet's 0.722
+CONCLAVE_QUERYSET=hard python3 orchestrator/selfmoa_judge.py --mode select   # 0.753 (+0.058)
 ```
 
 All candidate responses, judgments, and grades are frozen in

@@ -1,0 +1,707 @@
+{
+  "headroom": {
+    "value": 0.0267,
+    "oracle": 0.7223,
+    "best_single_model": "coder",
+    "best_single_score": 0.6956,
+    "single_model_scores": {
+      "coder": 0.6956,
+      "general": 0.5267,
+      "reasoning": 0.5178
+    },
+    "verdict": "ENSEMBLE NOT WORTH IT \u2014 no judge can beat one model here; route or cascade",
+    "verdict_resolved": true,
+    "queries_at_grader_ceiling": 6,
+    "queries_with_live_headroom": 24,
+    "ceiling_note": "6/30 queries have the best candidate already at the grader's maximum, where headroom is 0 BY CONSTRUCTION. The headroom is earned on only 24 queries.",
+    "note": "headroom = ORACLE (perfect judge) - BEST SINGLE MODEL. The entire value the ensemble+judge pattern can ever buy on this fleet. A real judge captures a fraction of it \u2014 possibly a negative fraction.",
+    "ci95": [
+      0.0036,
+      0.0498
+    ],
+    "ci_note": "Lower bound is vacuous: headroom >= 0 by construction, so 'excludes 0' is guaranteed and is NOT evidence. Judge the UPPER bound against the verdict threshold.",
+    "best_single_is_significant": true,
+    "best_single_margin_ci95": [
+      0.084,
+      0.2538
+    ],
+    "runner_up": "general"
+  },
+  "n": 30,
+  "query_set": "hard",
+  "queries_in_set": 30,
+  "missing_candidates": [],
+  "skipped_incomplete": [],
+  "skipped_ungraded": [],
+  "meaningful_spread_threshold": 0.1,
+  "divergent": 24,
+  "degenerate": 6,
+  "all_three_essentially_correct": 4,
+  "mean_spread": 0.309,
+  "median_spread": 0.2,
+  "by_category": {
+    "coder": {
+      "n": 10,
+      "divergent": 10,
+      "mean_spread": 0.44,
+      "at_ceiling": 0,
+      "single_model_scores": {
+        "coder": 0.6867,
+        "general": 0.42,
+        "reasoning": 0.44
+      },
+      "best_single": "coder",
+      "specialist_wins_own_category": true,
+      "oracle": 0.7334,
+      "headroom": 0.0467,
+      "strict_win_counts": {
+        "coder": 5,
+        "general": 0,
+        "reasoning": 2
+      }
+    },
+    "reasoning": {
+      "n": 10,
+      "divergent": 4,
+      "mean_spread": 0.24,
+      "at_ceiling": 6,
+      "single_model_scores": {
+        "coder": 0.9,
+        "general": 0.72,
+        "reasoning": 0.8067
+      },
+      "best_single": "coder",
+      "specialist_wins_own_category": false,
+      "oracle": 0.9134,
+      "headroom": 0.0134,
+      "strict_win_counts": {
+        "coder": 4,
+        "general": 0,
+        "reasoning": 2
+      }
+    },
+    "general": {
+      "n": 10,
+      "divergent": 10,
+      "mean_spread": 0.247,
+      "at_ceiling": 0,
+      "single_model_scores": {
+        "coder": 0.5,
+        "general": 0.44,
+        "reasoning": 0.3066
+      },
+      "best_single": "coder",
+      "specialist_wins_own_category": false,
+      "oracle": 0.52,
+      "headroom": 0.02,
+      "strict_win_counts": {
+        "coder": 3,
+        "general": 2,
+        "reasoning": 0
+      }
+    }
+  },
+  "strict_win_counts": {
+    "coder": 12,
+    "general": 2,
+    "reasoning": 4
+  },
+  "tied_at_top_counts": {
+    "coder": 12,
+    "general": 10,
+    "reasoning": 5
+  },
+  "queries_tied_at_top": 12,
+  "per_query": [
+    {
+      "id": "hardcoder-closure-late-binding",
+      "category": "coder",
+      "scores": {
+        "coder": 0.867,
+        "reasoning": 0.6,
+        "general": 0.2
+      },
+      "best_candidates": [
+        "coder"
+      ],
+      "strict_winner": "coder",
+      "tied_at_top": false,
+      "best_score": 0.867,
+      "spread": 0.667,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": false
+    },
+    {
+      "id": "hardcoder-eq-without-hash",
+      "category": "coder",
+      "scores": {
+        "coder": 0.6,
+        "reasoning": 0.6,
+        "general": 0.4
+      },
+      "best_candidates": [
+        "coder",
+        "reasoning"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
+      "best_score": 0.6,
+      "spread": 0.2,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": false
+    },
+    {
+      "id": "hardcoder-blocking-in-async",
+      "category": "coder",
+      "scores": {
+        "coder": 0.8,
+        "reasoning": 0.133,
+        "general": 0.8
+      },
+      "best_candidates": [
+        "coder",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
+      "best_score": 0.8,
+      "spread": 0.667,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": false
+    },
+    {
+      "id": "hardcoder-generator-exhaustion",
+      "category": "coder",
+      "scores": {
+        "coder": 0.8,
+        "reasoning": 0.6,
+        "general": 0.8
+      },
+      "best_candidates": [
+        "coder",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
+      "best_score": 0.8,
+      "spread": 0.2,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": false
+    },
+    {
+      "id": "hardcoder-money-float-decimal",
+      "category": "coder",
+      "scores": {
+        "coder": 0.4,
+        "reasoning": 0.6,
+        "general": 0.0
+      },
+      "best_candidates": [
+        "reasoning"
+      ],
+      "strict_winner": "reasoning",
+      "tied_at_top": false,
+      "best_score": 0.6,
+      "spread": 0.6,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": false
+    },
+    {
+      "id": "hardcoder-threading-race-gil",
+      "category": "coder",
+      "scores": {
+        "coder": 0.8,
+        "reasoning": 0.2,
+        "general": 0.2
+      },
+      "best_candidates": [
+        "coder"
+      ],
+      "strict_winner": "coder",
+      "tied_at_top": false,
+      "best_score": 0.8,
+      "spread": 0.6,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": false
+    },
+    {
+      "id": "hardcoder-mutable-class-attr",
+      "category": "coder",
+      "scores": {
+        "coder": 0.8,
+        "reasoning": 0.6,
+        "general": 0.6
+      },
+      "best_candidates": [
+        "coder"
+      ],
+      "strict_winner": "coder",
+      "tied_at_top": false,
+      "best_score": 0.8,
+      "spread": 0.2,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": false
+    },
+    {
+      "id": "hardcoder-is-vs-eq-interning",
+      "category": "coder",
+      "scores": {
+        "coder": 0.8,
+        "reasoning": 0.4,
+        "general": 0.4
+      },
+      "best_candidates": [
+        "coder"
+      ],
+      "strict_winner": "coder",
+      "tied_at_top": false,
+      "best_score": 0.8,
+      "spread": 0.4,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": false
+    },
+    {
+      "id": "hardcoder-lru-design",
+      "category": "coder",
+      "scores": {
+        "coder": 0.8,
+        "reasoning": 0.2,
+        "general": 0.6
+      },
+      "best_candidates": [
+        "coder"
+      ],
+      "strict_winner": "coder",
+      "tied_at_top": false,
+      "best_score": 0.8,
+      "spread": 0.6,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": false
+    },
+    {
+      "id": "hardcoder-sort-stability-multikey",
+      "category": "coder",
+      "scores": {
+        "coder": 0.2,
+        "reasoning": 0.467,
+        "general": 0.2
+      },
+      "best_candidates": [
+        "reasoning"
+      ],
+      "strict_winner": "reasoning",
+      "tied_at_top": false,
+      "best_score": 0.467,
+      "spread": 0.267,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": false
+    },
+    {
+      "id": "hardreason-bayes-disease",
+      "category": "reasoning",
+      "scores": {
+        "coder": 1.0,
+        "reasoning": 0.933,
+        "general": 1.0
+      },
+      "best_candidates": [
+        "coder",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
+      "best_score": 1.0,
+      "spread": 0.067,
+      "all_correct": true,
+      "divergent": false,
+      "at_ceiling": true
+    },
+    {
+      "id": "hardreason-birthday",
+      "category": "reasoning",
+      "scores": {
+        "coder": 0.8,
+        "reasoning": 0.733,
+        "general": 0.733
+      },
+      "best_candidates": [
+        "coder"
+      ],
+      "strict_winner": "coder",
+      "tied_at_top": false,
+      "best_score": 0.8,
+      "spread": 0.067,
+      "all_correct": false,
+      "divergent": false,
+      "at_ceiling": false
+    },
+    {
+      "id": "hardreason-expected-rolls",
+      "category": "reasoning",
+      "scores": {
+        "coder": 1.0,
+        "reasoning": 0.8,
+        "general": 0.8
+      },
+      "best_candidates": [
+        "coder"
+      ],
+      "strict_winner": "coder",
+      "tied_at_top": false,
+      "best_score": 1.0,
+      "spread": 0.2,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": true
+    },
+    {
+      "id": "hardreason-two-coins",
+      "category": "reasoning",
+      "scores": {
+        "coder": 0.8,
+        "reasoning": 0.867,
+        "general": 0.8
+      },
+      "best_candidates": [
+        "reasoning"
+      ],
+      "strict_winner": "reasoning",
+      "tied_at_top": false,
+      "best_score": 0.867,
+      "spread": 0.067,
+      "all_correct": false,
+      "divergent": false,
+      "at_ceiling": false
+    },
+    {
+      "id": "hardreason-pipes-drain",
+      "category": "reasoning",
+      "scores": {
+        "coder": 1.0,
+        "reasoning": 1.0,
+        "general": 1.0
+      },
+      "best_candidates": [
+        "coder",
+        "reasoning",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
+      "best_score": 1.0,
+      "spread": 0.0,
+      "all_correct": true,
+      "divergent": false,
+      "at_ceiling": true
+    },
+    {
+      "id": "hardreason-last-digit",
+      "category": "reasoning",
+      "scores": {
+        "coder": 1.0,
+        "reasoning": 1.0,
+        "general": 1.0
+      },
+      "best_candidates": [
+        "coder",
+        "reasoning",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
+      "best_score": 1.0,
+      "spread": 0.0,
+      "all_correct": true,
+      "divergent": false,
+      "at_ceiling": true
+    },
+    {
+      "id": "hardreason-seating-constraint",
+      "category": "reasoning",
+      "scores": {
+        "coder": 1.0,
+        "reasoning": 1.0,
+        "general": 1.0
+      },
+      "best_candidates": [
+        "coder",
+        "reasoning",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
+      "best_score": 1.0,
+      "spread": 0.0,
+      "all_correct": true,
+      "divergent": false,
+      "at_ceiling": true
+    },
+    {
+      "id": "hardreason-three-boxes",
+      "category": "reasoning",
+      "scores": {
+        "coder": 1.0,
+        "reasoning": 0.467,
+        "general": 0.867
+      },
+      "best_candidates": [
+        "coder"
+      ],
+      "strict_winner": "coder",
+      "tied_at_top": false,
+      "best_score": 1.0,
+      "spread": 0.533,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": true
+    },
+    {
+      "id": "hardreason-st-petersburg",
+      "category": "reasoning",
+      "scores": {
+        "coder": 0.6,
+        "reasoning": 0.667,
+        "general": 0.0
+      },
+      "best_candidates": [
+        "reasoning"
+      ],
+      "strict_winner": "reasoning",
+      "tied_at_top": false,
+      "best_score": 0.667,
+      "spread": 0.667,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": false
+    },
+    {
+      "id": "hardreason-clock-overlaps",
+      "category": "reasoning",
+      "scores": {
+        "coder": 0.8,
+        "reasoning": 0.6,
+        "general": 0.0
+      },
+      "best_candidates": [
+        "coder"
+      ],
+      "strict_winner": "coder",
+      "tied_at_top": false,
+      "best_score": 0.8,
+      "spread": 0.8,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": false
+    },
+    {
+      "id": "hardgen-cap-theorem",
+      "category": "general",
+      "scores": {
+        "coder": 0.267,
+        "reasoning": 0.2,
+        "general": 0.4
+      },
+      "best_candidates": [
+        "general"
+      ],
+      "strict_winner": "general",
+      "tied_at_top": false,
+      "best_score": 0.4,
+      "spread": 0.2,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": false
+    },
+    {
+      "id": "hardgen-idempotency",
+      "category": "general",
+      "scores": {
+        "coder": 0.4,
+        "reasoning": 0.4,
+        "general": 0.2
+      },
+      "best_candidates": [
+        "coder",
+        "reasoning"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
+      "best_score": 0.4,
+      "spread": 0.2,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": false
+    },
+    {
+      "id": "hardgen-eventual-consistency",
+      "category": "general",
+      "scores": {
+        "coder": 0.4,
+        "reasoning": 0.2,
+        "general": 0.4
+      },
+      "best_candidates": [
+        "coder",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
+      "best_score": 0.4,
+      "spread": 0.2,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": false
+    },
+    {
+      "id": "hardgen-oauth-vs-authn",
+      "category": "general",
+      "scores": {
+        "coder": 0.6,
+        "reasoning": 0.333,
+        "general": 0.6
+      },
+      "best_candidates": [
+        "coder",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
+      "best_score": 0.6,
+      "spread": 0.267,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": false
+    },
+    {
+      "id": "hardgen-index-tradeoff",
+      "category": "general",
+      "scores": {
+        "coder": 0.533,
+        "reasoning": 0.2,
+        "general": 0.6
+      },
+      "best_candidates": [
+        "general"
+      ],
+      "strict_winner": "general",
+      "tied_at_top": false,
+      "best_score": 0.6,
+      "spread": 0.4,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": false
+    },
+    {
+      "id": "hardgen-p-value",
+      "category": "general",
+      "scores": {
+        "coder": 0.6,
+        "reasoning": 0.533,
+        "general": 0.4
+      },
+      "best_candidates": [
+        "coder"
+      ],
+      "strict_winner": "coder",
+      "tied_at_top": false,
+      "best_score": 0.6,
+      "spread": 0.2,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": false
+    },
+    {
+      "id": "hardgen-unicode-utf8",
+      "category": "general",
+      "scores": {
+        "coder": 0.6,
+        "reasoning": 0.4,
+        "general": 0.4
+      },
+      "best_candidates": [
+        "coder"
+      ],
+      "strict_winner": "coder",
+      "tied_at_top": false,
+      "best_score": 0.6,
+      "spread": 0.2,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": false
+    },
+    {
+      "id": "hardgen-microservices",
+      "category": "general",
+      "scores": {
+        "coder": 0.4,
+        "reasoning": 0.2,
+        "general": 0.4
+      },
+      "best_candidates": [
+        "coder",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
+      "best_score": 0.4,
+      "spread": 0.2,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": false
+    },
+    {
+      "id": "hardgen-cache-invalidation",
+      "category": "general",
+      "scores": {
+        "coder": 0.6,
+        "reasoning": 0.2,
+        "general": 0.4
+      },
+      "best_candidates": [
+        "coder"
+      ],
+      "strict_winner": "coder",
+      "tied_at_top": false,
+      "best_score": 0.6,
+      "spread": 0.4,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": false
+    },
+    {
+      "id": "hardgen-concurrency-vs-parallelism",
+      "category": "general",
+      "scores": {
+        "coder": 0.6,
+        "reasoning": 0.4,
+        "general": 0.6
+      },
+      "best_candidates": [
+        "coder",
+        "general"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
+      "best_score": 0.6,
+      "spread": 0.2,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": false
+    }
+  ],
+  "grader": {
+    "model": "claude-sonnet-5",
+    "url": "https://api.anthropic.com",
+    "samples": 3
+  }
+}

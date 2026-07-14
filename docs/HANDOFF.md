@@ -1,27 +1,384 @@
 # HANDOFF — resume here
 
-Last updated: **2026-07-12 (end of session).** Read this + `design.md` to resume cold.
-Nothing running. No instances. No live spend authorization. **$0.**
-
-> ## ⚠️ ALL OF THIS LIVES ON BRANCH `v3-judge-eval-rigor` — **NOT** ON `main` (PR #9, open)
+> # 🔴🔴 RETRACTIONS — 2026-07-14, from the code review on PR #10. READ BEFORE QUOTING ANY NUMBER.
 >
-> **`main` IS STALE AND WRONG.** Its `docs/HANDOFF.md` still says *"v3 thesis is proven — the
-> small self-hosted judge holds up"*, which was **retracted**, and `orchestrator/divergence.py`
-> (the instrument that produced the real result) **does not exist on `main` at all.**
+> Two headline claims from this session **do not survive review and are WITHDRAWN.** A third is
+> **restated at a third of its advertised size.** Every error ran in the same direction: making
+> the result look better than it was.
 >
-> ```sh
-> git checkout v3-judge-eval-rigor   # <- do this FIRST. Do not trust main's docs.
+> ### ❌ RETRACTED: "Self-MoA — the judge gains +0.058, the pattern PAYS."
+> **The number is VOID.** Three independent defects, any one of which sinks it:
+> 1. **The baseline was graded differently from the thing compared against it.** To save money
+>    the Self-MoA grading ran at `GRADER_SAMPLES=1`; the baseline (0.696) came from the
+>    divergence run at `GRADER_SAMPLES=3`. **A single noisy grade was compared against a
+>    mean-of-three.** A mean-of-3 is variance-reduced and sits ~0.011 *below* its own
+>    single-grade counterpart on identical answers — so the baseline was depressed *by
+>    construction* while the oracle (a MAX) was inflated by full-noise grades. On a matched
+>    baseline: **gain +0.047, CI [−0.005, +0.099] — CROSSES ZERO** (under z, t *and* bootstrap).
+> 2. **The judge WAS the grader.** The run exported only `GRADER_*`, so `JUDGE_*` silently fell
+>    back to it: `claude-sonnet-5` chose the answer and then `claude-sonnet-5` graded the answer
+>    it had chosen. It picks what it will score highly.
+> 3. **The guard written to catch (2) was dead code** — `judge_is_grader` was computed and then
+>    only ever read *inside* `if ignored_candidates:`, so a judge that selected properly while
+>    *being* the grader sailed through with no warning.
+>
+> **The Self-MoA gain is UNMEASURED, not positive.** A defensible number needs a judge that is
+> not the grader (→ the in-fleet Gemma run, below) and matched grader configs.
+>
+> ### ❌ RETRACTED: "the verdict is now RESOLVED."
+> `divergence.py` used **z = 1.96 with an estimated sigma** at n=30, on paired diffs that are
+> **24/30 exact zeros** — badly anti-conservative. With the correct **t** quantile (df=29,
+> 2.045) the upper bound is **0.051**, so the 0.05 threshold falls **inside** the CI. Bootstrap
+> agrees. **Neither query set resolves the verdict:**
+> ```
+> hard (n=30):  +0.0267  CI [+0.003, +0.051]  -> NOT RESOLVED
+> base (n=36):  +0.0278  CI [+0.002, +0.053]  -> NOT RESOLVED
 > ```
 >
-> PR #9 is mergeable and clean; it was deliberately left open because every one of the three
-> review rounds found real bugs (two of them introduced by the previous round's fixes).
-> Merge it when you're satisfied — or review once more first.
+> ### ⚠️ RESTATED: "ORACLE@8 (0.813) beats the whole fleet's oracle (0.722) by +0.091."
+> **Confounded by N and by grading.** The +0.091 decomposes *exactly*:
+> `+0.039` (max-over-8 vs max-over-3 — just more lottery tickets) `+ 0.018` (single-grade vs
+> mean-of-3 on the fleet side) `+ 0.034` (**the real, matched effect**). At matched N and
+> matched grading, the coder's own oracle@3 is **0.775** vs the fleet's **0.740**.
+> **The direction survives; the magnitude was overstated 2.6×.** The oracle@k curve
+> (`@1 0.695 · @2 0.752 · @3 0.775 · @4 0.787 · @8 0.813`) is a textbook winner's curse and was
+> nowhere acknowledged.
+>
+> ### ✅ WHAT SURVIVES (and it is the qualitative core)
+> - The ceiling collapsed **86% → 20%**. The instrument is genuinely unsaturated now.
+> - Headroom did **not** move: **+0.028 → +0.027**. The ceiling was hiding nothing.
+> - Disagreement **tripled** (ties 78% → 40%; divergent 67% → 80%) while headroom stayed flat —
+>   **divergence is not headroom.**
+> - **The fleet is HIERARCHICAL**: the coder wins **all three categories**, beating the *reasoner*
+>   at reasoning (0.900 vs 0.807) and the *general* model at general (0.500 vs 0.440), on a
+>   balanced 10/10/10 split. **The fleet has no specialists. Parameter count beats
+>   specialization.** This does not depend on any confidence interval.
+>
+> **All defects are fixed in code and verified by execution:** the `judge == grader` guard now
+> **fails fast before a single paid call**; a `grader-config mismatch` guard refuses to emit a
+> number when the baseline and the run are graded differently; all intervals use **t**; VOID is
+> **persisted to the JSON** (it was print-only, so a void run wrote a clean-looking number);
+> select-mode grades the **original** sample, not the truncated one; and `runpod/watchdog.sh`
+> had **no key fallback** — with no `/workspace/.runpod_key` it would 401, `pkill` the fleet, and
+> **exit 0 while the GPU kept billing.**
 
-**THE ONE NEXT ACTION: write HARDER QUERIES, then re-run `orchestrator/divergence.py`.**
-No GPU boot, no API key, ~$1. See the READ FIRST block below for why — the current measurement
-is *ceiling-limited* (31/36 queries are pinned at the grader's maximum), so **the verdict is
-not settled** and the fleet cannot yet be diagnosed. *Not* v4, *not* pairwise, *not* a new
-fleet — those are all downstream.
+
+Last updated: **2026-07-13 (end of session).** Read this + `design.md` to resume cold.
+Nothing running. No instances. **$0 spent this session.**
+
+> ## ✅ PR #9 IS MERGED. `main` is now CORRECT and current. Work continues on `v3-hard-queries`.
+>
+> The old warning that "main is stale and wrong" is **resolved** — PR #9 merged 2026-07-13, so
+> `divergence.py` and the corrected docs are on `main`. Current branch: **`v3-hard-queries`**
+> (branched off `origin/main`, one commit: `2e03a0c`).
+>
+> **Local-git oddity, already diagnosed, NOT a problem:** local `main` and `origin/main` have
+> **no common ancestor** (git refuses to fast-forward). The remote history was rewritten at some
+> point — same commit messages, same author dates, different SHAs. `origin/main` is a content
+> superset of local main. If local `main` annoys you: `git reset --hard origin/main` (back it up
+> first). Nothing is lost.
+
+> # ~~🎯 THE PATTERN PAYS — from SAMPLING, not from a fleet~~ 🔴 **RETRACTED — SEE THE TOP OF THIS FILE**
+>
+> **EVERY NUMBER IN THIS BLOCK IS VOID.** Kept only so the retraction has something to point at.
+> The judge was the grader; the baseline was graded at 3 samples while the arms used 1; the
+> oracle comparison is confounded by sample count. **Do not quote any of it.**
+>
+> | | candidates | judge | vs no judge |
+> |---|---|---|---|
+> | **FLEET** (the v3 design) | 3 models × 1 sample | 0.883 | **−0.050** ← *this one stands* |
+> | ~~**SELF-MoA**~~ | ~~1 model × 8 samples~~ | ~~0.753~~ | ~~+0.058~~ **VOID** |
+>
+> ```
+> baseline   temp-0 coder, one sample     0.696   <- graded at 3 grader samples
+> ORACLE@8   the best of 8 samples        0.813   <- graded at 1. NOT COMPARABLE.
+> ```
+> The matched, defensible statement is only this: **sampling one model 3× (oracle@3 = 0.775)
+> beats the 3-model fleet's oracle (0.740) at matched N and matched grading — +0.034, not
+> +0.091.** Whether a *real judge* can capture any of that is **UNMEASURED**.
+>
+> ### ⚠️ SYNTHESIZE MODE IS VOID — and it is a trap this project fell into TWICE
+> It scored **1.000** and was nearly reported as a triumph. It is worthless: the judge **wrote
+> its own answer on 29/30 queries** (`chosen == -1`) — it ignored the samples entirely — **and
+> the grader is the SAME MODEL as the judge** (`claude-sonnet-5`), so it marked its own homework.
+> This is the **same artifact already retracted once** (the base run's frontier judge did
+> `chosen == -1` on 34/36). `selfmoa_judge.py` now **detects and refuses it**.
+> **A synthesis judge must be NO STRONGER than the candidates** (or it has no reason to read
+> them), **and the grader must be a different house than the judge.**
+>
+> ## 🔬 THE ONE NEXT ACTION — SYNTHESIS with the IN-FLEET judge
+>
+> **The only untested mechanism, and the only path that can exceed the 0.813 ceiling.**
+> Selection is *bounded* by ORACLE@8 = 0.813. **Synthesis is not** — its output need not be any
+> candidate, so it can in principle beat the best sample. Nobody has measured it here.
+>
+> **The design (both guard conditions satisfied — this is why it is valid where the last one was VOID):**
+> | | | why |
+> |---|---|---|
+> | **judge** | **in-fleet Gemma-2-9B** (`general`) | **WEAKER than the coder**, so it cannot simply out-answer the candidates — it has to *read* them. That is what makes it a real synthesis test. |
+> | **grader** | **claude-sonnet-5** (Anthropic) | **A DIFFERENT HOUSE from Gemma (Google)**, and **≠ the judge**. Nothing marks its own homework. |
+> | **candidates** | **the 8 FROZEN coder samples** | Already committed in `eval_fixtures/`. **One variable changes: the judge.** |
+>
+> **Run BOTH modes** — the comparison is the point:
+> ```sh
+> # boot ANY small Ada/Hopper GPU (driver >= CUDA 12.8) and load ONLY gemma (~6GB):
+> #   --model hugging-quants/gemma-2-9b-it-AWQ-INT4 --served-model-name general --port 8003
+> export JUDGE_URL=http://localhost:18003 JUDGE_MODEL=general JUDGE_API_KEY=none
+> export GRADER_URL=https://api.anthropic.com GRADER_MODEL=claude-sonnet-5 \
+>   GRADER_API_KEY=$(aws ssm get-parameter --name /conclave/judge-api-key --with-decryption \
+>     --profile yeti-conclave --query Parameter.Value --output text)
+> CONCLAVE_QUERYSET=hard python3 orchestrator/selfmoa_judge.py --mode select      # vs frontier's 0.753
+> CONCLAVE_QUERYSET=hard python3 orchestrator/selfmoa_judge.py --mode synthesize   # CAN IT BEAT 0.813?
+> ```
+> `selfmoa_judge.py` takes `JUDGE_*` independently of `GRADER_*`, scopes its output files by
+> judge model (so a Gemma run cannot overwrite the frontier run), and **REFUSES to report a
+> result** if the judge ignores the candidates on >50% of queries or if judge == grader.
+>
+> ### ⚠️ LANDMINE (already handled in code, but you MUST honour the fairness rule)
+> **Gemma-2's context is 8192 tokens and the 8 samples do not always fit.** Measured on the
+> frozen samples: the candidate block is a median of ~4,600 tokens but a **max of 7,695** — so
+> 6/30 queries overflow once you add the prompt and leave room for the judge to *write*.
+>
+> `selfmoa_judge.py` now truncates to `MAX_CANDIDATE_TOKENS` (**default 6000** — the largest
+> budget that still fits: 6000 + ~300 prompt + ~1200 output = 7,500 < 8,192) and **reports how
+> many queries were truncated**. Silent truncation is the dangerous version: it starves the
+> judge, the judge scores badly, and you wrongly conclude *"synthesis doesn't work"* when the
+> judge simply never saw the material.
+>
+> **🔴 THE FAIRNESS RULE — do not skip this.** The frontier numbers on record (**select
+> 0.753**) were taken with **NO truncation**. A truncated Gemma run is therefore **NOT directly
+> comparable** to them — the truncated judge would lose for the wrong reason. **Re-run the
+> frontier arm at the SAME `MAX_CANDIDATE_TOKENS`** (it is offline and costs ~30 API calls), or
+> compare only within a single budget. Otherwise you are measuring truncation, not judgment.
+>
+> **Also: Gemma has NO system role** — fold everything into the user turn (`judge_once` already does).
+>
+> ### PRE-REGISTERED PREDICTIONS (write these down before looking — that is the whole discipline)
+> - **Gemma-select < frontier-select (0.753)**, but **> baseline (0.696)**. A weaker selector
+>   still captures *some* of a +0.118 gap.
+> - **Gemma-synthesize is the genuine unknown.** MoA's central claim is that *aggregation is
+>   easier than generation* — a weak aggregator can still beat strong candidates. If true here,
+>   Gemma-synthesize **exceeds 0.813** and the ceiling was never a ceiling. If it lands below
+>   Gemma-select, then synthesis by a weaker model **destroys** information rather than combining
+>   it, and selection is the only mechanism that works at this scale.
+> - **If Gemma-synthesize beats 0.813, that is the headline of the whole project** — the
+>   self-hosted small judge finally earns its keep, which is the v3 thesis, arriving by a route
+>   nobody planned.
+>
+> Cost: ~$0.30 GPU (Gemma is 6GB — any cheap Ada card) + ~$0.50 grading.
+>
+> ### ➡️ THEN — the candidate-budget-matched experiment
+> **Hold the candidate count at 8; vary only the SOURCE:**
+> | arm | candidates | |
+> |---|---|---|
+> | **Self-MoA** | 8 samples from the best model | **incumbent: 0.753** |
+> | **Mixed-MoA** | 8 samples across 3 comparable-strength, different-lineage models | challenger |
+>
+> The bar has MOVED: a new fleet no longer needs to beat "always call the coder" (0.696). It must
+> beat **Self-MoA (0.753)** while carrying 3× the model footprint. Fleet research (27B/31B/30B,
+> three orgs/architectures) is in the agent log; ~50% chance it is hierarchical too.
+>
+> **PRODUCTION SHAPE:** don't run 8 model copies. Use **`n=8` in ONE request** — vLLM processes
+> the prompt once and forks 8 continuations sharing the prefill KV cache. 1× prefill + 8× decode,
+> batched, latency ≈ a single request. **This guts the "3× inference cost" objection to the whole
+> pattern.** (The sampler used 8 sequential calls — wasteful; `n=8` is the production shape.)
+>
+> ---
+>
+> # ✅ V3 (the FLEET question) IS ANSWERED. The verdict is SETTLED, on a SOUND instrument.
+>
+> **The ceiling was hiding NOTHING. The fleet is HIERARCHICAL, not complementary.
+> ROUTE — do not judge.** (2026-07-14, n=30 pre-registered hard queries, H100.
+> Everything below replays for **$0**: `CONCLAVE_QUERYSET=hard python3
+> orchestrator/divergence.py`.)
+>
+> | | BASE (n=36) | **HARD (n=30)** |
+> |---|---|---|
+> | queries **at grader ceiling** | 31/36 (**86%**) | **6/30 (20%)** ← instrument FIXED |
+> | best single (coder) | 0.933 | **0.696** |
+> | oracle (a *perfect* judge) | 0.961 | 0.722 |
+> | **HEADROOM** | **+0.0278** | **+0.0267** ← UNCHANGED |
+> | 95% CI | [0.003, 0.052] | [0.004, 0.050] |
+> | **verdict RESOLVED?** | **NO** | **NO** — was claimed YES, **RETRACTED** (z vs t; see the retraction block at the top) |
+> | tied at top | 28/36 (78%) | 12/30 (40%) |
+> | divergent | 24/36 (67%) | 24/30 (**80%**) |
+>
+> **The hard set did its job.** The ceiling collapsed 86% → 20%, scores fell
+> 0.933 → 0.696, ties fell 78% → 40%, and the specialists now visibly disagree on
+> **80%** of queries. **And the headroom did not move.** The old measurement was not
+> wrong because it was saturated — it was *undecidable*. Now it is decided.
+>
+> ### Why disagreement TRIPLED but headroom stayed flat — **divergence ≠ headroom**
+> The fleet is **hierarchical**: `coder 0.696 · general 0.527 · reasoning 0.518`.
+> Strict wins **coder 12/30**, reasoning 4, general 2. And coder is now
+> **SIGNIFICANTLY** the best single model — margin CI **[+0.084, +0.254]**, excludes
+> zero (on the base set it did **not**: [−0.014, +0.136]).
+>
+> **The models disagree — but when they disagree, CODER IS USUALLY RIGHT.** So a
+> *perfect* judge picking best-of-3 barely beats always calling coder. That is the exact
+> signature of a fleet you **route to**, not one you **vote over**. `design.md` already
+> called routing "the cheap sibling"; it is now the **measured recommendation**.
+>
+> ### The caveat, stated plainly
+> The CI upper bound is **0.0498** against a 0.05 threshold — it clears "resolved" by
+> **0.0002**. Razor-thin. Read it as *"not worth it, at the boundary"*, not a landslide.
+> It cuts the right way though: both known biases (winner's curse on the oracle; in-sample
+> pick of best-single) inflate headroom **in the ensemble's favour**, so the true value is
+> if anything **lower**.
+>
+> ### What is NOT un-retracted
+> **"The 14B coder is best on 31/36 queries" REMAINS FALSE** — a config-ordering artifact
+> of a tie-blind `max()`. What is **newly established**, on a tie-aware counter and an
+> unsaturated grader, is the weaker and real claim: **coder is significantly the strongest
+> member.** The base set could not distinguish that. This one can.
+>
+> ### Pre-registration held
+> The 30 queries were written and frozen **before any candidate was generated**, and **not
+> one was re-worded after seeing a result.** That is what makes this null result credible.
+>
+> ## ➡️ WHAT TO DO NEXT (the v3 arc is complete)
+> 1. **A ROUTER, not a judge.** The measured recommendation. Pick the right model per
+>    request; do not fan out and vote. Cheap, and it is what the data supports.
+> 2. **Or a DIFFERENT FLEET.** This one is one strong model plus two weaker ones — two of
+>    the three are Qwen-lineage, which HANDOFF has flagged as denting decorrelation since
+>    v2. A fleet with *comparable strength* and *genuinely different lineages* is the only
+>    way the ensemble+judge pattern gets a fair test. **The AWS 8-vCPU quota chose this
+>    fleet, not you** (it forced a 14B coder instead of 32B). That constraint is now gone
+>    on RunPod. **Re-run `divergence.py` on any new fleet BEFORE building a judge for it** —
+>    that is exactly what this instrument is for, and it costs one boot.
+> 3. **Judge metrics (select mode, pairwise) are DOWNSTREAM of both.** Improving a judge
+>    cannot recover value that is not there. Do not start here.
+
+> ### ⛔ CORRECTION — the previous HANDOFF was WRONG about this step's cost.
+> It said *"write HARDER QUERIES, then re-run divergence.py. **No GPU boot, no API key, ~$1.**"*
+> **That is false.** New queries have **no cached candidates**, and candidates come only from the
+> **self-hosted fleet**. There is no offline path: grading the hard set **REQUIRES A GPU BOOT.**
+> Realistic cost: **~$3–5** (~45–75 min on a g6e + ~270 small grader calls). Budget accordingly.
+
+### 🖥️ THE FLEET NOW RUNS ON RUNPOD (AWS g6e had no capacity). Read this before booting.
+
+`runpod/` holds the whole path: `boot.sh` (kill-switch-first boot), `watchdog.sh`,
+`fleet.json`, `fanout_direct.py`, `topup_coder.py`.
+
+**Known-good pod config** (every field here was learned by it failing):
+| field | value | why |
+|---|---|---|
+| GPU | **H100** (or L40S/L40/RTX-6000-Ada **IF driver ≥ 12.8**) | see driver trap below |
+| image | RunPod **PyTorch** image — **NOT** `vllm/vllm-openai` | see entrypoint trap |
+| start command | **EMPTY** | RunPod's start-command field overrides Docker **CMD, not ENTRYPOINT** |
+| container disk | **80 GB** | weights are ~38 GB |
+| network volume | **NONE** | network volumes are **datacenter-pinned** |
+| ports | TCP **22** only, no HTTP | vLLM/LiteLLM bind to 127.0.0.1; reach them over an SSH tunnel |
+| vLLM | `pip install --break-system-packages vllm==0.24.0` | the image is a Debian **PEP 668** env |
+
+**Five RunPod traps, all hit live:**
+1. **DRIVER.** vLLM 0.24's torch is **cu128**; it hard-fails on an older host driver
+   (*"The NVIDIA driver on your system is too old (found version 12040)"*). **Three L40s
+   in a row shipped driver 550 / CUDA 12.4.** The driver is a **HOST** property — **no
+   image fixes it.** The H100 had driver 580 / CUDA 13.0 and worked. **Check
+   `nvidia-smi` FIRST, before loading anything** — it costs 20 seconds and saves a boot.
+2. **ENTRYPOINT.** `vllm/vllm-openai`'s entrypoint is `vllm serve`. RunPod's start
+   command only overrides **CMD**, so your command is passed as *arguments to vllm serve*
+   (it parsed `bash -c` as `--compilation-config`). The image then loads its own model and
+   **eats 43 GB of the card**, and your fleet dies with *"Free memory ... less than desired
+   GPU memory utilization"*. Killing that rogue `vllm serve` **kills the container** — it
+   IS PID 1's child. **Use a PyTorch image instead.**
+3. **PORT 8001 IS TAKEN** by RunPod's own proxy. `coder` died with *"Address already in
+   use"* while 8002/8003 were fine; curl to 8001 returns RunPod's 502 HTML. **coder now
+   runs on 8011.**
+4. **A STOPPED POD LOSES ITS GPU.** RunPod has no reservation system — stop a pod and the
+   card goes back to the pool. Ours was taken within minutes. **Do not stop-and-resume
+   mid-workflow.** Either keep it running (the watchdog manages it) or terminate outright.
+5. **ENV DOESN'T REACH SSH, AND IS FIXED AT CONTAINER START.** RunPod injects env into
+   **PID 1 only** (`sshd` spawns a clean env — read `/proc/1/environ`), and *editing a
+   secret does not reach a running pod*. So `boot.sh` prefers `/workspace/.runpod_key` and
+   `/workspace/.hf_token`, which is how you fix a bad key **without a rebuild**.
+   Push them from SSM: `aws ssm get-parameter ... | ssh pod 'cat > /workspace/.runpod_key'`.
+
+**COST SAFETY — AWS's out-of-band kill switch does NOT survive this move.** CloudWatch
+stopped a *wedged* box because the stopper lived **outside** it. RunPod has no equivalent;
+everything runs on the pod. Three layers, weakest last:
+1. **Prepaid credit balance** — outside the pod, absolute, survives total pod failure.
+   **This is the real cap. Keep it small.**
+2. **HARD TTL** (`watchdog.sh`) — stops the pod after `MAX_LIFETIME_MIN` no matter what.
+   An idle rule **cannot** catch a crash-looping box (it is not idle); this can.
+3. **Idle rule** — stops after `IDLE_MIN` of GPU <5%. **GATED on `/workspace/.fleet-ready`**
+   because weight download is not GPU work: an ungated idle rule stops the pod
+   **mid-download** and you pay to do it all again. That bug fired live.
+
+`boot.sh` **FAILS CLOSED**: it proves the API key authenticates *and* can see this pod
+**before loading a single model**. It caught a broken key twice. `podStop` is the
+documented mutation (`podTerminate` is **not** in RunPod's docs — do not guess at an
+undocumented call on a safety-critical path).
+
+### ⛔ AWS capacity — escalation `esc-20260713-201140` (2026-07-13). Superseded by RunPod, kept for the fallback path.
+Tried to boot and **could not**. g6e (the L40S 48GB box) is **exhausted in us-east-1**:
+- `g6e.xlarge` **on-demand** — `InsufficientInstanceCapacity` in **all four** AZs (1c/1a/1d/1b).
+- `g6e.2xlarge` **on-demand** (different pool, same single L40S, mem_utils unchanged) — **all four dry.**
+- `g6e.xlarge` **spot** (a genuinely different pool) — dry too, then the documented silent stall.
+
+**Smaller boxes are ruled out by physics, not preference:** quota is **G+VT = 8 vCPU**, and the
+3-model fleet needs **~35 GiB**, so only the **48 GB L40S** fits. Every `g5.*`/`g6.*` is a 24 GB
+A10G/L4 and **cannot hold the fleet**. Shrinking the fleet would change the very thing being
+measured (fleet decorrelation *is* the experiment).
+
+**What to do:** g6e capacity is **day-volatile** — dry in all AZs on 2026-07-09, then 1c launched
+in ~20s the next morning. **Just retry on another day:**
+```sh
+aws sso login --profile yeti-conclave
+python3 scripts/spend/authorize.py grant --usd 5 --ttl 2h --note "hard-set boot"   # RUN FROM THE REPO ROOT
+scripts/sweep-gpu-capacity.sh g6e.xlarge us-east-1c us-east-1a us-east-1d us-east-1b
+```
+Then, **on the same boot** (a second boot doubles the GPU spend for the same information):
+```sh
+CONCLAVE_QUERYSET=hard CONCLAVE_GW=<ts-ip>:4000 python3 orchestrator/candidate_cache.py   # 30 x 3 = 90 calls
+CONCLAVE_QUERYSET=hard CONCLAVE_GW=<ts-ip>:4000 python3 orchestrator/judge_eval.py --generate
+cd infra && terraform apply -var enable_gpu=false     # TEAR DOWN before grading — grading is offline
+CONCLAVE_QUERYSET=hard python3 orchestrator/divergence.py    # the headroom number
+```
+
+### 🐛 A LANDMINE FIXED THIS SESSION — `divergence.py` was CRASHING, so the "one next action" was impossible
+`print_report()` read `best_candidate_counts`, a key the round-3 fix had renamed to
+`strict_win_counts`. So `python3 orchestrator/divergence.py` died with `KeyError` **before**
+`json.dump` — the report never saved. `--demo` never called the renderer, which is how three
+review rounds missed it. Fixed; the demo now renders into a buffer so a missing key fails the
+self-check. The committed `eval_divergence.json` **could not have been written by that code**;
+regenerating it reproduces the numbers exactly (+0.0278, 31/36 at ceiling) and adds the round-3
+fields the crash had prevented from ever being written.
+
+### 🧪 THE HARD QUERY SET — `orchestrator/eval_queryset_hard.py` (n=30, 10/category)
+The instrument that replaces the ceiling-limited base 36. **PRE-REGISTERED: written and frozen
+BEFORE any candidate was generated.** Do **not** re-word a query after seeing which model wins —
+that selects for disagreement and *manufactures* the headroom this exists to measure. If a query
+is broken, **delete** it and say so.
+
+Why the base 36 can't settle anything: **31 of them pin the best candidate at the grader's
+maximum**, where headroom is 0 *by construction*. Their references are single-point facts
+($0.05; 3 minutes), so a model that lands the point scores 5/5 and saturates. Every hard
+reference instead enumerates **several independently checkable components**, giving the grader
+resolution in the range these models actually occupy.
+
+**Both outcomes are informative:** headroom still ~0 on *unsaturated* queries ⇒ the fleet is
+genuinely **REDUNDANT** (route or cascade, don't judge). Headroom appears ⇒ the ceiling was
+hiding real disagreement and the ensemble+judge question is live again.
+
+Two gold references were **factually wrong** and were fixed before any candidate existed (both
+would have marked *correct* answers down): `functools.lru_cache` is **not** built on
+`OrderedDict`, and RFC 9110 defines **four** safe methods (TRACE was missing).
+
+### ⚠️ Select the query set with `$CONCLAVE_QUERYSET=base|hard|all` (default `base`)
+All candidate/judgment/report/divergence paths are now **scoped per set**. They were fixed at the
+base filenames, so a hard-set `--generate` would have **overwritten the frozen published run**.
+The base set keeps its historical filenames and still replays byte-for-byte for **$0**.
+`judge_eval.py` and `divergence.py` both honour the selector; a query the fleet never answered is
+now reported **loudly** instead of silently vanishing from `n`.
+
+### 🐞 Known bug, not yet fixed: the spend guard's `AUTH_PATH` is relative to CWD
+`scripts/spend/authorize.py` writes `.tessera/spend-auth.json` **relative to wherever you are**.
+Grant from `~` and it lands in `~/.tessera/` and the guard (which also resolves relative to cwd)
+never sees it. Fails *closed* there, which is safe — but it can also fail **OPEN**: run an agent
+from a directory holding a stale grant and it is authorized by accident. **Resolve `AUTH_PATH`
+against the repo root.** Always run the grant **from the repo root** until this is fixed.
 
 **Verify the world still works in 10 seconds, for $0:**
 ```sh

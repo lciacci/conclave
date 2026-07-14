@@ -77,9 +77,17 @@ class _Throttle:
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ensemble import EnsembleConfig, http_call, run_judge
-from eval_queryset import QUERY_SET
+from eval_queryset import active_query_set, active_set_name
 import candidate_cache
 
+# Honour $CONCLAVE_QUERYSET here too. A bare `from eval_queryset import QUERY_SET` pinned
+# this module to the BASE 36 regardless of the selector, so `CONCLAVE_QUERYSET=hard
+# judge_eval.py --generate/--score` would judge and grade only the base queries and report
+# a confident number about the wrong set — silently, because judge_over_cache/evaluate
+# filter through QUERY_BY_ID and a query that is not in it simply never appears.
+# Defaults to `base`, so the frozen published run still replays byte-for-byte.
+SET_NAME = active_set_name()
+QUERY_SET = active_query_set(SET_NAME)
 QUERY_BY_ID = {q["id"]: q for q in QUERY_SET}
 
 
@@ -169,8 +177,21 @@ def _retry_after(e: urllib.error.HTTPError) -> float | None:
         return None
     return min(float(m.group(1)) + 1.0, _BACKOFF_CAP) if m else None
 _HERE = os.path.dirname(os.path.abspath(__file__))
-GEMMA_JUDGMENTS = os.path.join(_HERE, "eval_judgments_gemma.json")
-FRONTIER_JUDGMENTS = os.path.join(_HERE, "eval_judgments_frontier.json")
+
+
+def _set_scoped(basename: str) -> str:
+    """One judgments/report file PER QUERY SET. These paths were FIXED at the base names,
+    so `CONCLAVE_QUERYSET=hard ... --generate` would have written hard-set judgments
+    straight into eval_judgments_gemma.json — overwriting the frozen, published run whose
+    whole value is that it still replays byte-for-byte. The base set keeps its historical
+    filename; every other set gets its own."""
+    if SET_NAME == "base":
+        return os.path.join(_HERE, f"{basename}.json")
+    return os.path.join(_HERE, f"{basename}_{SET_NAME}.json")
+
+
+GEMMA_JUDGMENTS = _set_scoped("eval_judgments_gemma")
+FRONTIER_JUDGMENTS = _set_scoped("eval_judgments_frontier")
 
 _STOP = {"the", "a", "an", "is", "are", "to", "of", "and", "or", "in", "on", "for",
          "with", "it", "its", "as", "by", "be", "not", "no", "one", "so", "if",
@@ -1498,7 +1519,7 @@ if __name__ == "__main__":
         if "--heuristic" not in sys.argv:
             print(f"\ngrader calls: {gc.misses} live, {gc.hits} from cache ({gc.path})")
         if "--save" in sys.argv:
-            out = os.path.join(_HERE, "eval_report_rigor.json")
+            out = _set_scoped("eval_report_rigor")
             _save(reports, out)
             print(f"\nsaved -> {out}")
 

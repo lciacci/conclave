@@ -19,14 +19,29 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ensemble import EnsembleConfig, fan_out, http_call
-from eval_queryset import QUERY_SET
+from eval_queryset import QUERY_SET, active_query_set, active_set_name
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_PATH = os.path.join(_HERE, "eval_candidates.json")
 FIXTURE_PATH = os.path.join(_HERE, "eval_fixtures", "eval_candidates.json")
 
 
-def load(path: str = DEFAULT_PATH, allow_fixture: bool = True) -> dict[str, list[dict]]:
+def cache_path(name: str | None = None) -> str:
+    """One candidate file PER QUERY SET. The base set keeps its historical filename so the
+    published run still replays byte-for-byte; `hard` gets its own. They must not share a
+    file: `populate` resumes by skipping ids already present, so a mixed file would let a
+    hard-set run believe the base set's 36 entries were already generated."""
+    name = name or active_set_name()
+    return DEFAULT_PATH if name == "base" else os.path.join(_HERE, f"eval_candidates_{name}.json")
+
+
+def fixture_path(name: str | None = None) -> str:
+    name = name or active_set_name()
+    return (FIXTURE_PATH if name == "base"
+            else os.path.join(_HERE, "eval_fixtures", f"eval_candidates_{name}.json"))
+
+
+def load(path: str | None = None, allow_fixture: bool = True) -> dict[str, list[dict]]:
     """Live cache if present, else (for READERS) the committed fixture. The live file is
     gitignored, so without the fallback a fresh clone finds no candidates and --score
     cannot replay the published run at all.
@@ -35,25 +50,29 @@ def load(path: str = DEFAULT_PATH, allow_fixture: bool = True) -> dict[str, list
     read-only fixture as its own resume state: it would boot the GPU, make ZERO fan-out
     calls, and silently adopt the frozen candidates as if this fleet had produced them —
     paying for a box and generating nothing."""
-    if not os.path.exists(path) and allow_fixture and os.path.exists(FIXTURE_PATH):
-        path = FIXTURE_PATH
+    path = path or cache_path()
+    fixture = fixture_path()
+    if not os.path.exists(path) and allow_fixture and os.path.exists(fixture):
+        path = fixture
     if not os.path.exists(path):
         return {}
     with open(path) as f:
         return json.load(f)
 
 
-def save(cache: dict[str, list[dict]], path: str = DEFAULT_PATH) -> None:
-    with open(path, "w") as f:
+def save(cache: dict[str, list[dict]], path: str | None = None) -> None:
+    with open(path or cache_path(), "w") as f:
         json.dump(cache, f, indent=2, ensure_ascii=False)
 
 
-def populate(cfg: EnsembleConfig, call=http_call, path: str = DEFAULT_PATH,
-             query_set: list[dict] = QUERY_SET, refresh: bool = False) -> dict[str, list[dict]]:
+def populate(cfg: EnsembleConfig, call=http_call, path: str | None = None,
+             query_set: list[dict] | None = None, refresh: bool = False) -> dict[str, list[dict]]:
     """Fan each query out to the fleet, caching candidates by query id. Skips ids
     already cached unless refresh=True, so a re-run after a crash resumes cheaply.
     A candidate set with every content None (whole fleet errored) is NOT cached —
     so a transient gateway blip doesn't freeze bad data into the cache."""
+    path = path or cache_path()
+    query_set = active_query_set() if query_set is None else query_set
     # allow_fixture=False: resume only from OUR OWN live cache, never from the committed
     # fixture. Otherwise a fresh clone's --generate would boot the box, adopt the fixture's
     # 36 candidate sets as already-done, and call the fleet zero times.
@@ -107,6 +126,8 @@ if __name__ == "__main__":
             sys.exit("set CONCLAVE_GW=<ts-ip>:4000 to populate against the live fleet "
                      "(or pass --demo for the offline self-check)")
         cfg = EnsembleConfig(gateway_url=gw if gw.startswith("http") else f"http://{gw}")
-        print(f"populating candidate cache from {cfg.gateway_url} ...")
-        cache = populate(cfg)
-        print(f"done — {len(cache)} queries cached to {DEFAULT_PATH}")
+        name, qs, out = active_set_name(), active_query_set(), cache_path()
+        print(f"populating '{name}' candidate cache ({len(qs)} queries) "
+              f"from {cfg.gateway_url} ...")
+        cache = populate(cfg, query_set=qs, path=out)
+        print(f"done — {len(cache)}/{len(qs)} queries cached to {out}")
