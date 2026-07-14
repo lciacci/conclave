@@ -43,17 +43,62 @@
     "coder": {
       "n": 10,
       "divergent": 10,
-      "mean_spread": 0.44
+      "mean_spread": 0.44,
+      "at_ceiling": 0,
+      "single_model_scores": {
+        "coder": 0.6867,
+        "general": 0.42,
+        "reasoning": 0.44
+      },
+      "best_single": "coder",
+      "specialist_wins_own_category": true,
+      "oracle": 0.7334,
+      "headroom": 0.0467,
+      "strict_win_counts": {
+        "coder": 5,
+        "general": 0,
+        "reasoning": 2
+      }
     },
     "reasoning": {
       "n": 10,
       "divergent": 4,
-      "mean_spread": 0.24
+      "mean_spread": 0.24,
+      "at_ceiling": 6,
+      "single_model_scores": {
+        "coder": 0.9,
+        "general": 0.72,
+        "reasoning": 0.8067
+      },
+      "best_single": "coder",
+      "specialist_wins_own_category": false,
+      "oracle": 0.9134,
+      "headroom": 0.0134,
+      "strict_win_counts": {
+        "coder": 4,
+        "general": 0,
+        "reasoning": 2
+      }
     },
     "general": {
       "n": 10,
       "divergent": 10,
-      "mean_spread": 0.247
+      "mean_spread": 0.247,
+      "at_ceiling": 0,
+      "single_model_scores": {
+        "coder": 0.5,
+        "general": 0.44,
+        "reasoning": 0.3066
+      },
+      "best_single": "coder",
+      "specialist_wins_own_category": false,
+      "oracle": 0.52,
+      "headroom": 0.02,
+      "strict_win_counts": {
+        "coder": 3,
+        "general": 2,
+        "reasoning": 0
+      }
     }
   },
   "strict_win_counts": {

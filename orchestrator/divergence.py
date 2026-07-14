@@ -260,9 +260,40 @@ def analyse(cache: dict[str, list[dict]], scorer) -> dict:
         "all_three_essentially_correct": len(allc),
         "mean_spread": round(statistics.fmean([r["spread"] for r in rows]), 3) if rows else 0,
         "median_spread": round(statistics.median([r["spread"] for r in rows]), 3) if rows else 0,
+        # PER-CATEGORY HEADROOM — and, the killer diagnostic, WHO WINS EACH CATEGORY.
+        #
+        # The obvious objection to a null headroom result is "your query set is skewed —
+        # of course the coder won, your queries were code-heavy". This refutes it with
+        # data you already have, for $0: compute the best single model WITHIN each
+        # category. If the nominal specialist for a category is not the best model ON ITS
+        # OWN CATEGORY, the fleet has no specialists — it has one good model and some
+        # worse ones, and no query mix will change that.
+        #
+        # Conclave's fleet (hard set): coder is the best single model in ALL THREE
+        # categories. It beats the reasoner at REASONING (0.900 vs 0.807) and beats the
+        # general model at GENERAL (0.500 vs 0.440), on a balanced 10/10/10 split. At this
+        # scale PARAMETER COUNT BEATS SPECIALIZATION: a 14B model is simply better than a
+        # 7B and a 9B, even on their home turf. "Specialist" was a label, not a capability.
         "by_category": {
-            c: {"n": len(v), "divergent": sum(r["divergent"] for r in v),
-                "mean_spread": round(statistics.fmean([r["spread"] for r in v]), 3)}
+            c: {
+                "n": len(v),
+                "divergent": sum(r["divergent"] for r in v),
+                "mean_spread": round(statistics.fmean([r["spread"] for r in v]), 3),
+                "at_ceiling": sum(r["at_ceiling"] for r in v),
+                "single_model_scores": {
+                    m: round(statistics.fmean([r["scores"][m] for r in v]), 4) for m in models},
+                # THE DIAGNOSTIC: is the category's own specialist the best model on it?
+                "best_single": max(
+                    models, key=lambda m: statistics.fmean([r["scores"][m] for r in v])),
+                "specialist_wins_own_category": max(
+                    models, key=lambda m: statistics.fmean([r["scores"][m] for r in v])) == c,
+                "oracle": round(statistics.fmean([r["best_score"] for r in v]), 4),
+                "headroom": round(
+                    statistics.fmean([r["best_score"] for r in v])
+                    - max(statistics.fmean([r["scores"][m] for r in v]) for m in models), 4),
+                "strict_win_counts": {
+                    m: sum(r["strict_winner"] == m for r in v) for m in models},
+            }
             for c, v in by_cat.items()},
         # STRICT wins only (a tie is not a win for anybody), plus how often each model was
         # merely tied at the top. The old tie-blind count credited every tie to whichever
@@ -329,9 +360,27 @@ def print_report(r: dict) -> None:
     print(f"  DEGENERATE (candidates interchangeable): {r['degenerate']}/{n}"
           f"  ({100*r['degenerate']/n:.0f}%)  <- nothing to judge")
     print(f"  all three specialists essentially correct: {r['all_three_essentially_correct']}/{n}")
-    print("\nby category:")
+    print("\n=== per-category — DOES THE SPECIALIST EVEN WIN ITS OWN CATEGORY? ===")
+    print("  (if not, the fleet has no specialists: it has one good model and some worse")
+    print("   ones — and NO query mix can fix that. This refutes 'your query set is skewed'.)")
+    any_usurped = False
     for c, v in r["by_category"].items():
-        print(f"  {c:10s} divergent {v['divergent']:2d}/{v['n']:2d}   mean spread {v['mean_spread']:.3f}")
+        bs = v.get("best_single", "?")
+        own = v.get("specialist_wins_own_category")
+        flag = "" if own else f"  <<< '{bs}' BEATS THE '{c}' SPECIALIST ON ITS OWN TURF"
+        if not own:
+            any_usurped = True
+        print(f"\n  {c.upper():10s} n={v['n']}  at-ceiling {v.get('at_ceiling', 0)}/{v['n']}"
+              f"  divergent {v['divergent']}/{v['n']}  headroom {v.get('headroom', 0):+.4f}")
+        for m, s in sorted(v.get("single_model_scores", {}).items(), key=lambda kv: -kv[1]):
+            mark = " <- best" if m == bs else ""
+            print(f"      {m:10s} {s:.3f}  strict wins "
+                  f"{v.get('strict_win_counts', {}).get(m, 0)}/{v['n']}{mark}")
+        print(f"      ORACLE     {v.get('oracle', 0):.3f}{flag}")
+    if any_usurped:
+        print(f"\n  !! At least one specialist is NOT the best model on its OWN category.")
+        print(f"     PARAMETER COUNT IS BEATING SPECIALIZATION. This fleet has no specialists,")
+        print(f"     and no reshuffling of the query mix will produce headroom that is not there.")
     print(f"\nVERDICT: ", end="")
     frac = d / n if n else 0
     if frac < 0.34:
