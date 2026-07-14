@@ -185,8 +185,13 @@ def report(r: dict, fleet_oracle: float | None = None) -> None:
 
 
 def demo() -> None:
-    """Offline self-check — no network, no GPU."""
-    qs = active_query_set("hard")[:2]
+    """Offline self-check — no network, no GPU.
+
+    Uses the ACTIVE query set, not a hard-coded one: score() resolves queries via
+    active_query_set(), so pinning the demo to "hard" made it pass only when
+    CONCLAVE_QUERYSET=hard happened to be exported, and fail otherwise. A self-check that
+    depends on an env var you forgot to set is not a self-check."""
+    qs = active_query_set()[:2]
 
     class Fake:
         name = "fake"
