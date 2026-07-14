@@ -109,6 +109,50 @@ what's serving behind it. Also the natural seam for per-model token/cost account
 > vote. The "cheap sibling" named in the next paragraph now looks like the better bet on a fleet
 > this skewed, and "always pick the strongest model" is the baseline any future design must beat.
 > See `docs/chunk3-judge-eval-results.md`.
+>
+> ---
+>
+> ## ✅ SETTLED 2026-07-14 (n=30 pre-registered HARD queries). **Disagreement is cheap; COMPLEMENTARITY is rare.**
+>
+> The verdict above was **undecidable**, not negative: 31/36 of its queries were pinned at the
+> grader's ceiling, where headroom is 0 *by construction*. A second set of 30 harder queries was
+> written and **frozen before any model answered them**, and the fleet was re-measured.
+>
+> | | easy (n=36) | **hard (n=30)** |
+> |---|---|---|
+> | at the grader's ceiling | 31/36 (**86%**) | **6/30 (20%)** |
+> | best single (coder) | 0.933 | **0.696** |
+> | oracle (a *perfect* judge) | 0.961 | 0.722 |
+> | **HEADROOM** | **+0.028** | **+0.027** ← unchanged |
+> | verdict resolved? | **NO** | **YES** |
+> | models disagree | 67% | **80%** |
+>
+> **The ceiling was hiding nothing.** Removing it TRIPLED the disagreement and moved the answer
+> not at all — because **divergence is NOT headroom.** The fleet is **HIERARCHICAL, not
+> complementary**: `coder 0.696 / general 0.527 / reasoning 0.518`; strict wins coder **12/30**;
+> coder is now *significantly* the best member (margin CI [+0.084, +0.254] — on the easy set it
+> was **not**). **The models disagree constantly — but when they disagree, CODER IS USUALLY
+> RIGHT.** So even a *perfect* judge barely beats always calling coder, and a real one does worse.
+>
+> **Hierarchy is the DEFAULT, not a quirk of this fleet.** Any fleet with one genuinely stronger
+> member behaves this way, and a 14B coder simply *is* better than a 7B reasoner and a 9B general
+> model at most tasks. **A fleet can disagree loudly and still be worthless to ensemble — and you
+> cannot tell by looking.** That is precisely why the instrument runs BEFORE the judge.
+>
+> **The bar a future fleet must clear:** comparable strength, genuinely different lineages, models
+> that win on *different inputs* — and it must beat a **router** costing 1× inference rather than
+> 3× + a judge + the measured ~30% contention tax. That is a high bar, and it is why production
+> multi-model systems mostly route.
+>
+> **Caveat, stated:** the CI upper bound is 0.0498 against a 0.05 threshold — resolved by 0.0002.
+> Razor-thin. But both known biases (winner's curse on the oracle; in-sample pick of best-single)
+> inflate headroom *in the ensemble's favour*, so the true value is if anything **lower**.
+>
+> **A confound worth naming:** the AWS 8-vCPU quota **chose this fleet**, not the designer — it
+> forced one GPU, hence co-residency, hence a 14B coder instead of 32B; and the Llama distill's
+> byte-marker leak forced a *second Qwen*, denting lineage decorrelation. So this fleet was never
+> selected for the property the pattern needs. **That is context, not an excuse** — the models
+> did diverge on 80% of queries; they just diverged *hierarchically*.
 
 Fan out a query to N models in parallel; a judge model selects the best response or synthesizes.
 Routing by task type is the cheap sibling (router picks one specialist; no fan-out cost).

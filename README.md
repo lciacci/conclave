@@ -113,16 +113,49 @@ An earlier claim that "the coder model wins 31/36 queries" was **retracted**
 the tied queries were all credited to whichever candidate came first in the
 list). Reversing the list credits the same ties to a different model.
 
-The measurement itself is also **ceiling-limited**: 31 of 36 queries already
-score at the grader's maximum, where headroom is zero by construction, so the
-whole +0.028 result rests on 5 queries and the verdict is **not statistically
-settled**. This doesn't falsify ensembles generally — production multi-model
-systems mostly **route** (pick the right model per request) rather than fan
-out and vote — but it does mean this specific fleet has no proven headroom for
-a judge yet. The reusable output of this phase is the instrument
-(`orchestrator/divergence.py`) that measures headroom, ties, and ceiling
-saturation for any fleet or query set, offline, for $0, before building a judge
-for it.
+That first measurement was **ceiling-limited** — 31 of 36 queries scored at the
+grader's maximum, where headroom is zero *by construction* — so the verdict was
+**undecidable**, not negative. To settle it, a second set of **30 harder queries**
+was written and **frozen before any model answered them** (pre-registered, so the
+queries couldn't be tuned toward a flattering result), and the fleet was re-measured.
+
+### The result: disagreement is cheap; complementarity is rare
+
+| | easy (n=36) | **hard (n=30)** |
+|---|---|---|
+| queries at the grader's ceiling | 31/36 (**86%**) | **6/30 (20%)** |
+| best single model (coder) | 0.933 | **0.696** |
+| oracle (a *perfect* judge) | 0.961 | 0.722 |
+| **headroom** | **+0.028** | **+0.027** |
+| verdict statistically resolved? | **no** | **yes** |
+| queries where models disagree | 67% | **80%** |
+
+The hard queries did their job: the ceiling collapsed, scores fell, and the
+specialists went from tying on 78% of queries to disagreeing on 80% of them.
+**And the headroom did not move.**
+
+**The ceiling was hiding nothing.** The reason disagreement tripled while the
+ensemble's value stayed flat is that **divergence is not headroom**. The fleet is
+**hierarchical, not complementary**: coder 0.696 vs. general 0.527 and reasoning
+0.518, with coder winning 12 of 30 queries outright and now *significantly* the
+strongest member. The models argue constantly — but **when they argue, the coder is
+usually the one that's right.** So even a perfect oracle judge barely beats just
+always calling the coder, and a real judge does worse.
+
+That generalizes. **Hierarchy is the default**, not a quirk of this fleet: any fleet
+with one genuinely stronger member behaves this way, and a 14B coder simply *is*
+better than a 7B reasoner and a 9B general model at most tasks. A fleet can disagree
+loudly and still be worthless to ensemble — **and you cannot tell by looking.**
+
+This doesn't falsify fan-out + judge; it shows one fleet failing the pattern's
+**precondition**. Getting real value requires models of *comparable strength* that
+win on *different inputs* — and that fleet must still beat a **router**, which costs
+1× inference instead of 3× plus a judge plus a measured ~30% GPU-contention tax.
+That's a high bar, and it's why production multi-model systems mostly route.
+
+**The reusable output of this phase is the instrument, not the judge.**
+`orchestrator/divergence.py` measures headroom, ties, and ceiling saturation for any
+fleet or query set — offline, for $0, **before** you build a judge for it.
 
 ## Reproducing the eval (no GPU, no API key, $0)
 

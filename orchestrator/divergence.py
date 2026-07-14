@@ -19,11 +19,36 @@ worse than not judging). So:
     headroom large  -> the models genuinely disagree in useful ways. A judge has something
                        to arbitrate, and building/tuning one is worth the spend.
 
-**Conclave's own fleet scores +0.028** (n=36) — even a perfect judge barely beats calling the
-strongest model alone (0.961 vs 0.933), while the real judge lands *below* it (0.883). The
-candidates are largely REDUNDANT: **28/36 queries are an exact tie at the top**, and the
-grader is already saturated on 28/36, so the whole headroom is earned on ~8 queries.
-Not a failure of the pattern; a failure of the fleet to satisfy the pattern's precondition.
+## THE LESSON THIS TOOL EXISTS TO TEACH: **disagreement is cheap; COMPLEMENTARITY is rare.**
+
+Conclave's fleet was measured TWICE, and the pair is the whole point:
+
+    n=36 easy queries : headroom +0.028, but 31/36 were AT THE GRADER'S CEILING
+                        -> the verdict was UNDECIDABLE, not negative.
+    n=30 HARD queries : ceiling collapses 86% -> 20%. Scores fall 0.933 -> 0.696.
+                        Ties fall 78% -> 40%. The models now DISAGREE on 80% of
+                        queries. AND HEADROOM DOES NOT MOVE: +0.027.
+
+**The ceiling was hiding nothing.** Removing it TRIPLED the disagreement and changed the
+answer not at all. Why? Because **divergence is NOT headroom**:
+
+    coder 0.696  |  general 0.527  |  reasoning 0.518
+    strict wins: coder 12/30, reasoning 4, general 2
+    coder is SIGNIFICANTLY best: margin CI [+0.084, +0.254]
+
+The models disagree constantly — but **when they disagree, coder is usually the one that is
+RIGHT.** That is HIERARCHY, not complementarity. A *perfect* oracle judge therefore barely
+beats "always call coder", and a real judge does worse. Route; don't vote.
+
+And hierarchy is the DEFAULT, not a quirk of this fleet: any fleet with one genuinely
+stronger member behaves this way, and a 14B coder simply IS better than a 7B reasoner and a
+9B general model at most tasks. **You cannot tell by looking — a fleet can disagree loudly
+and still be worthless to ensemble.** That is exactly why this tool runs BEFORE the judge.
+
+What this does NOT show: that fan-out+judge never pays. It shows ONE fleet failing the
+pattern's PRECONDITION. A fleet of comparable-strength, genuinely different-lineage models
+may well have real headroom — and it must clear a high bar, because it has to beat a router
+that costs 1x inference instead of 3x + a judge + the measured ~30% contention tax.
 
 TWO TRAPS THIS TOOL EXISTS TO AVOID — both were live, both produced published nonsense:
 
