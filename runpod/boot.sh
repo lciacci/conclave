@@ -80,7 +80,11 @@ fi
 MAX_LIFETIME_MIN="${MAX_LIFETIME_MIN:-120}"
 IDLE_MIN="${IDLE_MIN:-20}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
-FLEET="$HERE/fleet.json"
+# FLEET_JSON overrides the fleet. The judge experiments need ONE model on the card (the
+# candidates are frozen on disk — there is nothing for the other two to do, and paying to
+# load 38GB of weights to run a 6GB judge is money set on fire). Defaults to the full
+# 3-model fleet so every existing invocation is unchanged.
+FLEET="${FLEET_JSON:-$HERE/fleet.json}"
 LOG=/workspace/conclave-boot.log
 mkdir -p /workspace
 exec > >(tee -a "$LOG") 2>&1

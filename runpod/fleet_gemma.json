@@ -1,0 +1,14 @@
+[
+  {
+    "_comment": "GEMMA ALONE — the judge-only fleet, for the SYNTHESIS experiment. The 8 coder candidates are FROZEN in eval_fixtures/, so coder and reasoning have nothing to serve: loading them would cost ~38GB of weight download and a 48GB+ card to run a 6GB judge. This fleet fits a 24GB RTX 4090 (~$0.40/hr) instead of an H100 (~$2.99/hr). mem_util is 0.6 (NOT the fleet's 0.25): that fraction is of TOTAL VRAM, and 0.25 of a 24GB card is 6GB — enough for the AWQ-INT4 weights and NOTHING for the KV cache, so vLLM would either OOM or serve a uselessly short context. 0.6 x 24GB = 14.4GB: ~6GB weights + ~8GB KV, which comfortably holds the 8192 window. On a 48GB card 0.6 is merely generous, not wrong. WHY GEMMA IS THE RIGHT JUDGE HERE: it is WEAKER than the coder that produced the candidates, so it cannot simply out-answer them and must actually READ them. A judge stronger than the candidates ignores them and writes its own answer — this project has retracted that exact artifact TWICE. NB Gemma-2's context is 8192 and the 8 candidates do not always fit: run with MAX_CANDIDATE_TOKENS=6000, and compare only against a frontier arm run at the SAME budget (gpt-5.2 select = 0.767 was taken at 6000).",
+    "name": "general",
+    "repo": "hugging-quants/gemma-2-9b-it-AWQ-INT4",
+    "port": 8003,
+    "mem_util": 0.6,
+    "max_len": 8192,
+    "dtype": "",
+    "cost_in": 3e-07,
+    "cost_out": 3e-07,
+    "gated": true
+  }
+]
