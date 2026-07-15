@@ -162,6 +162,25 @@ def _fit(samples: list[str]) -> tuple[list[str], bool]:
 
 
 def judge_once(query: dict, samples: list[str], mode: str, call, base, model, key) -> dict:
+    # SOLO — the ABLATION. Same judge, same question, NO CANDIDATES.
+    #
+    # This is the control that makes a synthesize number interpretable, and without it the
+    # headline claim is unfalsifiable. In synthesize mode the judge is TOLD to write its own
+    # answer, so `chosen == -1` on every query and nothing in the output reveals whether it
+    # USED the candidates or ignored them and answered from its own knowledge. The two are
+    # observationally identical.
+    #
+    # Solo separates them:
+    #   synthesize >> solo  -> the candidates carried information. Aggregation worked.
+    #   synthesize ~= solo  -> the judge ignored them. The "synthesis" is just the judge
+    #                          answering the question, and the ensemble contributed NOTHING.
+    # A weak judge scoring near the strong candidates is only impressive if it could NOT have
+    # done it alone.
+    if mode == "solo":
+        msgs = [{"role": "user", "content": query["prompt"]}]   # Gemma has no system role
+        raw = call(base, model, msgs, 180.0, response_format=None, api_key=key, temperature=0)
+        return {"answer": raw, "chosen": -1, "truncated": False}
+
     original = samples                       # keep the FULL texts — see below
     samples, truncated = _fit(samples)
     blocks = "\n\n".join(f"[Answer {i}]\n{s}" for i, s in enumerate(samples))
@@ -203,7 +222,7 @@ if __name__ == "__main__":
     mode = "synthesize"
     if "--mode" in sys.argv:
         mode = sys.argv[sys.argv.index("--mode") + 1]
-    assert mode in ("select", "synthesize"), mode
+    assert mode in ("select", "synthesize", "solo"), mode
 
     samples = _load("eval_selfmoa_samples")
     if not samples:
@@ -257,7 +276,11 @@ if __name__ == "__main__":
     _assert_grader_matches_baseline(_load("eval_divergence"), g_base, g_model, _n_grader)
 
     out_p = _p(f"eval_selfmoa_judged_{mode}_{model.replace('/', '_')}")
-    judged = json.load(open(out_p)) if os.path.exists(out_p) else {}
+    # Fall back to the committed fixture, so a FRESH CLONE (which has only eval_fixtures/)
+    # replays the judge's answers for $0 instead of trying to re-judge against a GPU that is
+    # not there. Without this, every OTHER arm replays offline but this one silently needs a
+    # live judge — the exact reproducibility gap the rest of the harness closes.
+    judged = _load(f"eval_selfmoa_judged_{mode}_{model.replace('/', '_')}")
 
     print(f"judging {len(samples)} queries in '{mode}' mode with {model} ...")
     for i, (qid, ss) in enumerate(samples.items(), 1):
@@ -315,7 +338,21 @@ if __name__ == "__main__":
     #
     # Refuse to report it rather than let a 1.000 look like a triumph.
     judge_is_grader = model.strip().lower() == g_model.strip().lower()
-    ignored_candidates = len(rows) > 0 and wrote_own / len(rows) > 0.5
+
+    # MODE-AWARE. `chosen == -1` means OPPOSITE things in the two modes:
+    #   select    — the judge was told to pick an index. -1 means it IGNORED the task. Bad.
+    #   synthesize— the judge was TOLD to emit {"chosen": -1, "answer": "<its own>"}. -1 is the
+    #               INSTRUCTED output. Voiding on it made synthesize mode UNRUNNABLE: wrote_own
+    #               is 30/30 BY CONSTRUCTION, so every synthesis run voided itself.
+    #
+    # And in synthesize mode `chosen` CANNOT distinguish the thing we actually fear — a judge
+    # that ignored the candidates and answered from its own knowledge looks EXACTLY like one
+    # that synthesized them. Both emit -1. The discriminating evidence is not in this field at
+    # all; it is the SOLO ABLATION (--mode solo): the same judge, same query, NO candidates.
+    # Run `--mode solo` as a separate arm and compare its score to synthesize by hand:
+    # synthesize ~= solo means the candidates contributed nothing.
+    ignored_candidates = (mode == "select"
+                          and len(rows) > 0 and wrote_own / len(rows) > 0.5)
 
     # THE BUG THAT LET THE HEADLINE THROUGH. `judge_is_grader` was computed and then only ever
     # READ INSIDE `if ignored_candidates:` — so a judge that SELECTED properly (chosen != -1 on
