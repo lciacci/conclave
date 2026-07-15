@@ -1,8 +1,49 @@
 # HANDOFF — resume here
 
-> # ✅ 2026-07-14 (latest) — THE MODERN FLEET IS BUILT. Route-don't-judge CONFIRMED on it.
+> # ✅ 2026-07-15 (latest) — PAIRWISE RESOLVED THE SATURATION. The ROUTER has a real signal.
 >
-> **Branch: `selfmoa-honest-judge`.** A working PRIVATE fleet: **Qwen3-32B-AWQ / Gemma-3-27B-FP8
+> **All merged to `main`** (PRs #11 modern fleet, #12 pairwise). Everything replays from
+> `eval_fixtures/` for **$0**.
+>
+> **The problem pairwise fixed:** absolute reference grading topped out — **20/30 modern-fleet
+> queries were exact 5/5 ties**, so the +0.040 headroom was *saturated* and blind to which strong
+> model was actually better. `fleet_pairwise.py` round-robins the 3 models (blinded, both orders,
+> position-debiased, reusing `PairwiseScorer`; grader **gpt-5.2**, neutral to Alibaba/Google/
+> Mistral; 180 calls, $0 GPU).
+> ```
+> round-robin (mean pts/query, max 2): qwen3 1.117 · mistral 0.967 · gemma3 0.917
+> clear pairwise winner 22/30 (only 8 true ties, down from 20 absolute)
+> per-query wins: mistral 10 · qwen3 6 · gemma3 6
+> on the 20 absolute "ties": mistral 6 · qwen3 4 · gemma3 2 → SPLIT (top only 50%)
+> position flips 11/90 (12%) — reliable
+> ```
+> **The absolute headroom UNDERSTATED the routing signal — it was ceiling-limited.** The "ties"
+> hid real per-query variation across all 3 models. qwen3 stays the strongest *default*, but
+> different models genuinely win different queries → **a router has a signal to exploit.**
+>
+> ### ⚠️ THE HONEST BOUND — read before building the router
+> This is an **ORACLE-router ceiling** (post-hoc best pick). A REAL router picks from the QUERY
+> ALONE, so it captures only the **predictable** part of this variation — **untested, and it is
+> the first thing building the router must measure.** And the variation is among already-good
+> (5/5) answers, so the *quality* gain is modest; the router's surer win is **cost/latency** (1
+> call, not 3). Does NOT revive fan-out+judge (a judge pays 3× to pick *after* generating).
+>
+> ### ➡️ THE NEXT STEP — build the router, measure PREDICTABILITY
+> Can a cheap **query-only** picker (small classifier, or query features) predict the per-query
+> winner better than "always qwen3"? That number says how much of the pairwise oracle ceiling a
+> real router captures. Replay the signal: `MODERN_FLEET=modern2 CONCLAVE_QUERYSET=hard <gpt-5.2
+> grader env> python3 orchestrator/fleet_pairwise.py`. Per-query winners are in
+> `eval_fixtures/eval_pairwise_modern2_hard.json` — that IS the router's training label.
+>
+> ### The architecture the discovery settled on
+> **diagnostic (`divergence.py`) → operational (router) → continuous fitness monitor** (divergence
+> run on a schedule vs live traffic + candidate new models: flag drift, vet swaps). **Judge is
+> PARKED with a trigger:** revisit only if the model landscape re-diverges (genuinely specialized
+> or deliberately-diverse models emerge) — convergence makes judging pay *less* as models improve.
+
+> # ✅ 2026-07-14 — THE MODERN FLEET IS BUILT. Route-don't-judge CONFIRMED on it.
+>
+> **A working PRIVATE fleet: **Qwen3-32B-AWQ / Gemma-3-27B-FP8
 > / Mistral-Small-3.2-24B-FP8**, one per L40S card, served **Tailscale-only** (no public ports,
 > no SSH tunnel). Reproducible; `runpod/boot.sh` handles CUDA-13→vllm-0.24. Everything below
 > replays from `eval_fixtures/` for **$0**:
