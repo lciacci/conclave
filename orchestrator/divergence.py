@@ -305,10 +305,16 @@ def analyse(cache: dict[str, list[dict]], scorer) -> dict:
                 "single_model_scores": {
                     m: round(statistics.fmean([r["scores"][m] for r in v]), 4) for m in models},
                 # THE DIAGNOSTIC: is the category's own specialist the best model on it?
+                # Only DEFINED when the category name IS a model name — a role-specialized
+                # fleet (coder/reasoning/general). For a general-purpose fleet (qwen3/gemma3/
+                # mistral) no model is named after a category, so "does the category's own
+                # specialist win" is undefined -> None. Returning False there falsely triggered
+                # the "PARAMETER COUNT BEATS SPECIALIZATION" conclusion for EVERY category.
                 "best_single": max(
                     models, key=lambda m: statistics.fmean([r["scores"][m] for r in v])),
-                "specialist_wins_own_category": max(
-                    models, key=lambda m: statistics.fmean([r["scores"][m] for r in v])) == c,
+                "specialist_wins_own_category": (
+                    (max(models, key=lambda m: statistics.fmean([r["scores"][m] for r in v])) == c)
+                    if c in models else None),
                 "oracle": round(statistics.fmean([r["best_score"] for r in v]), 4),
                 "headroom": round(
                     statistics.fmean([r["best_score"] for r in v])
@@ -382,15 +388,26 @@ def print_report(r: dict) -> None:
     print(f"  DEGENERATE (candidates interchangeable): {r['degenerate']}/{n}"
           f"  ({100*r['degenerate']/n:.0f}%)  <- nothing to judge")
     print(f"  all three specialists essentially correct: {r['all_three_essentially_correct']}/{n}")
-    print("\n=== per-category — DOES THE SPECIALIST EVEN WIN ITS OWN CATEGORY? ===")
-    print("  (if not, the fleet has no specialists: it has one good model and some worse")
-    print("   ones — and NO query mix can fix that. This refutes 'your query set is skewed'.)")
+    # The "specialist wins own category" framing ONLY applies to a role-specialized fleet
+    # (models named after categories). For a general-purpose fleet it is undefined (None), and
+    # printing "BEATS THE SPECIALIST" / "PARAMETER COUNT BEATS SPECIALIZATION" there is a
+    # category error — the categories are query TOPICS, not model roles.
+    role_fleet = any(v.get("specialist_wins_own_category") is not None
+                     for v in r["by_category"].values())
+    if role_fleet:
+        print("\n=== per-category — DOES THE SPECIALIST EVEN WIN ITS OWN CATEGORY? ===")
+        print("  (if not, the fleet has no specialists: it has one good model and some worse")
+        print("   ones — and NO query mix can fix that. This refutes 'your query set is skewed'.)")
+    else:
+        print("\n=== per-category winners (general-purpose fleet — categories are query TOPICS,")
+        print("    not model roles, so 'specialist wins own category' does not apply) ===")
     any_usurped = False
     for c, v in r["by_category"].items():
         bs = v.get("best_single", "?")
         own = v.get("specialist_wins_own_category")
-        flag = "" if own else f"  <<< '{bs}' BEATS THE '{c}' SPECIALIST ON ITS OWN TURF"
-        if not own:
+        # flag only when DEFINED and False (a real role-specialist got beaten on its own turf)
+        flag = f"  <<< '{bs}' BEATS THE '{c}' SPECIALIST ON ITS OWN TURF" if own is False else ""
+        if own is False:
             any_usurped = True
         print(f"\n  {c.upper():10s} n={v['n']}  at-ceiling {v.get('at_ceiling', 0)}/{v['n']}"
               f"  divergent {v['divergent']}/{v['n']}  headroom {v.get('headroom', 0):+.4f}")

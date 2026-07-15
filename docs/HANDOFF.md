@@ -1,5 +1,178 @@
 # HANDOFF — resume here
 
+> # ✅ 2026-07-14 (latest) — THE MODERN FLEET IS BUILT. Route-don't-judge CONFIRMED on it.
+>
+> **Branch: `selfmoa-honest-judge`.** A working PRIVATE fleet: **Qwen3-32B-AWQ / Gemma-3-27B-FP8
+> / Mistral-Small-3.2-24B-FP8**, one per L40S card, served **Tailscale-only** (no public ports,
+> no SSH tunnel). Reproducible; `runpod/boot.sh` handles CUDA-13→vllm-0.24. Everything below
+> replays from `eval_fixtures/` for **$0**:
+> `MODERN_FLEET=modern2 CONCLAVE_QUERYSET=hard python3 orchestrator/divergence_modern.py`.
+>
+> ### The result — the ideal fleet, and a judge STILL doesn't pay
+> ```
+> qwen3   0.935   each model wins EXACTLY ONE category (qwen3 coder / gemma3 reasoning /
+> gemma3  0.911   mistral general) — comparable strength (within 0.028, statistically tied),
+> mistral 0.907   genuine complementarity, 3 lineages = the textbook ideal ensemble regime.
+> ORACLE  0.976
+> HEADROOM +0.040  CI [+0.012, +0.068]  NOT RESOLVED, leaning not-worth-it
+> JUDGE (gemma3 select) 0.920  <  best-single 0.935   ← NEGATIVE capture
+> ```
+> **Even the ideal modern fleet does not benefit from a self-hosted judge.** Route, don't judge,
+> now confirmed on the GOOD fleet — not the quota-crippled old one. Fixing qwen3 (stronger)
+> *lowered* headroom (+0.056→+0.040): the literature's **convergence** effect, live.
+>
+> ### 🔧 qwen3 CONFOUND — fixed, keep in mind for any reasoning model
+> The FIRST modern run scored qwen3 at 0.764 and nearly called it dead weight. Artifact:
+> `max_tokens=1024` let its `<think>` block eat the budget, truncating the answer that got
+> graded. With **2048 tokens + `chat_template_kwargs:{enable_thinking:false}`** it is **0.935**
+> — the strongest single. Reasoning models need budget and/or thinking-off for a fair grade.
+> `eval_candidates_modern_hard` (handicapped) is kept only so the confound is auditable;
+> `modern2` is the real fleet.
+>
+> ### 🖥️ Two hard-won infra facts
+> - **The driver is a PER-MACHINE lottery, not per-GPU-type.** L40S seen with 550/570/580 this
+>   session; a $2.99 H100 shipped an OLDER driver than a $0.39 L4. **Deploy cheap, `nvidia-smi`
+>   FIRST, terminate + re-roll if CUDA<13** (vllm 0.24 needs CUDA-13/driver-580). Do NOT pay up.
+> - **Tailscale on RunPod works** (userspace mode — no `/dev/net/tun`): `tailscaled
+>   --tun=userspace-networking` + `tailscale up --authkey` (ephemeral key in SSM
+>   `/conclave/tailscale-authkey`) + `tailscale serve --http=PORT http://localhost:PORT`. Laptop
+>   reaches it by MagicDNS name (`http://conclave-<name>:PORT`). **Run the orchestrator POD-SIDE**
+>   (scp `orchestrator/` + grader key), NOT over an SSH tunnel — a dropped tunnel looks identical
+>   to an idle GPU and the watchdog correctly reaps the pod.
+>
+> ### ➡️ NEXT (all optional; nothing running, verdict is DIRECTIONAL not resolved)
+> 1. **Harder query set** — 25/30 are at the grader ceiling, so the verdict "leans" not-worth-it
+>    rather than resolving. A harder set unsaturates these stronger models and settles it. $0 GPU
+>    to write; one boot to generate.
+> 2. **Build the ROUTER** — the capability the data actually supports (pick the right model per
+>    request, don't fan out and vote).
+> 3. **More judges** — only gemma3-select was tested; qwen3-as-judge or synthesis mode could
+>    differ (though Self-MoA already showed judges often capture negative value).
+> The reusable asset is `divergence_modern.py` + `divergence.py` — point them at any new fleet's
+> candidates to get a $0 headroom verdict BEFORE building a judge.
+
+> # ✅ 2026-07-14 (earlier) — THE RETRACTED CLAIM IS NOW MEASURED, AND IT HOLDS.
+>
+> **Branch: `selfmoa-honest-judge`.** Everything below replays from the committed fixtures for
+> **$0** (`CONCLAVE_QUERYSET=hard python3 orchestrator/selfmoa_judge.py --mode select`).
+>
+> ### The headline, on a sound instrument
+> ```
+> baseline (temp-0 coder, ONE sample)        0.696
+> SELF-MoA SELECT over 8 samples             0.767
+> >>> gain +0.0711   95% CI [+0.024, +0.118]   <- excludes zero, under t
+> ```
+> **Every defect that voided the old +0.058 is closed, and the number came back BIGGER:**
+> | defect | fix |
+> |---|---|
+> | judge WAS the grader | judge = **`gpt-5.2-2025-12-11` (OpenAI)**, grader = `claude-sonnet-5` (Anthropic). Different houses. |
+> | baseline graded at 3, arms at 1 | both at **`GRADER_SAMPLES=3`**. The mismatch guard hard-exits otherwise. |
+> | judge ignored the candidates | it **selected on 29/30**. |
+> | grading provenance unrecorded | the report now persists `grader: {model,url,samples}` — in the shape the guard reads. |
+>
+> Truncation (`MAX_CANDIDATE_TOKENS=6000`) hit 6/30 queries, biasing **against** the judge — so
+> +0.071 is **conservative**.
+>
+> ### The oracle was re-graded at samples=3, and the N-confound is now decomposed
+> ```
+> ORACLE@k:  @1 0.701 · @2 0.760 · @3 0.783 · @4 0.796 · @5 0.804 · @6 0.811 · @7 0.816 · @8 0.820
+> ```
+> **AT MATCHED CANDIDATE COUNT (k=3): self-MoA 0.783 vs the 3-model fleet's oracle 0.722
+> = +0.0606, 95% CI [+0.018, +0.103].** *Sampling ONE model 3× reaches a higher ceiling than
+> running 3 DIFFERENT models, with the candidate count held FIXED.* The old, confounded +0.0977
+> is still printed but **explicitly marked**: +0.0371 of it was bought by nothing but extra draws.
+> `selfmoa.py` now **refuses** to state an oracle-relative statistic unless the oracle was graded
+> exactly as the run is graded.
+>
+> ### 🔴 STALE FIXTURES WERE SHIPPING RETRACTED NUMBERS TO ANY FRESH CLONE — fixed
+> `eval_divergence_hard.json` still said **`verdict_resolved: TRUE`** off the withdrawn *z*
+> interval. Regenerated under *t*: **`ci95 [0.0025, 0.0509]`, `verdict_resolved: FALSE`** — the
+> 0.05 threshold lies inside the interval, exactly as the retraction said. The working copies are
+> **gitignored**, so the corrected artifacts existed only on one laptop. They are now committed.
+>
+> ### Keys (changed this session)
+> - `/conclave/grader-api-key` → **OpenAI** (`sk-proj…`). Restricted key: *Model capabilities =
+>   Write*, *Models = Read*, everything else None.
+> - `/conclave/gemini-api-key` → the **Gemini** key, moved off the grader slot (hash-verified).
+> - **`gpt-5.5` REJECTS `temperature` outright.** `gpt-5.2` accepts it at 0 and 0.3. The eval
+>   *depends* on that knob (temp 0 = reproducible single grade; 0.3 = probes grader spread), so
+>   **pin `gpt-5.2-2025-12-11`** — a dated snapshot, never a `-latest` alias, or the frozen
+>   GradeCache silently stops being comparable.
+>
+> ### ✅ THE GEMMA SYNTHESIZE ARM RAN. The v3 "small in-fleet judge" thesis DOES NOT PAY.
+> In-fleet Gemma-2-9B judging the 8 frozen coder candidates. Grader = claude-sonnet-5 (different
+> house), samples=3. **All replay from `eval_fixtures/` for $0.**
+> ```
+> solo       (Gemma alone, NO candidates)   0.522
+> synthesize (Gemma + 8 candidates)         0.653   CI vs baseline [-0.092, +0.008]
+> select     (Gemma picks one)              0.673   CI vs baseline [-0.108, +0.063]
+> baseline (coder, one sample)              0.696
+> gpt-5.2 select                            0.767   <- the ONLY judge that beat baseline
+> ORACLE@8                                  0.820
+> ```
+> **The pre-registered "synthesize beats 0.820" prediction is FALSIFIED.** A weak aggregator does
+> not beat strong candidates — synthesize (0.653) lands *below* baseline (0.696). But the **solo
+> ablation** shows this is NOT "the judge ignored the candidates": `synthesize − solo = +0.131`,
+> so Gemma read the material and improved on its own answer by 13 points — it just cannot
+> synthesize strong candidates into something that beats the best of them. And `select − synthesize
+> = +0.020`: for a weak judge, **picking beats synthesizing**. **Only a strong judge (gpt-5.2,
+> +0.071) captured value.** A small self-hosted meta-reasoner does not earn its keep at this scale.
+> **This is the v3 thesis, answered — negatively, on a sound instrument.**
+>
+> ### 🎰 THE DRIVER IS A PER-MACHINE LOTTERY, not a per-GPU-type property. Do NOT pay up to fix it.
+> Seen across five boots this session: **L4 → 580/CUDA13, 570/CUDA12.8, 550/CUDA12.4; H100 →
+> 570/CUDA12.8.** The $2.99 H100 shipped an OLDER driver than a $0.39 L4. So: **deploy the cheap
+> card, `nvidia-smi` FIRST, terminate and re-roll if CUDA<13.** `boot.sh` now installs the matched
+> vLLM either way (CUDA≥13 → 0.24; 12.x → 0.11+transformers<5), but for comparability with the
+> frozen candidates you want **CUDA 13 / vllm 0.24** — re-roll a cheap L4 until you get driver 580.
+>
+> ### 🔌 RUN THE ORCHESTRATOR POD-SIDE, not over an SSH tunnel.
+> A dropped tunnel looks *identical* to an idle GPU: the judge calls fail, Gemma goes to 0%, and
+> the idle watchdog correctly reaps the pod mid-experiment (it did, once). Fix: `scp` the
+> `orchestrator/` dir + `eval_fixtures/` + the grader key onto the pod and run there against
+> `http://127.0.0.1:8003`. No tunnel, and the pod stays busy so the idle rule never fires. The
+> recipe is `/workspace/run_arms.sh` (rebuild it — it was pod-local).
+>
+> ### (historical) The first Gemma boot FAILED — `boot.sh` had three bugs, now all fixed.
+> Cost of the failed boot: **$0.43.** Nothing is running; RunPod balance **$8.02**, zero pods.
+> Three real bugs found, all now fixed and committed:
+> 1. **`boot.sh` never installed vLLM.** It assumed the image had it (the H100 boot had it
+>    pip-installed *by hand*). Every server died `ModuleNotFoundError: No module named 'vllm'`.
+> 2. **THE DRIVER RULE IN THIS FILE WAS WRONG.** It said "driver ≥ CUDA 12.8". An **L4 WITH CUDA
+>    12.8** was rejected: *"The NVIDIA driver on your system is too old (found version 12080)"*.
+>    vllm 0.24 is built on torch 2.11+**cu130** and links `libcudart.so.13` → it needs **CUDA
+>    13.0 / driver ≥ 580**. Swapping torch to cu128 does **not** help (vllm's own `.so` still
+>    wants cu13). `boot.sh` now reads the host CUDA and picks: **≥13 → vllm 0.24.0**;
+>    **12.x → vllm 0.11.0 + `transformers<5`** (vllm 0.11 declares `transformers>=4.55.2` with no
+>    upper bound; pip takes 5.x; 5.x dropped an attribute vllm reads → *"GemmaTokenizer has no
+>    attribute all_special_tokens_extended"*).
+> 3. **A dead fleet reported SUCCESS.** A model that failed to start was a *warning*, and
+>    `.fleet-ready` was touched **unconditionally** — so a boot where nothing loaded armed the
+>    idle rule and left a GPU billing with nothing serving. Now: `kill_pod` + exit, flag never
+>    written.
+>
+> **RTX 4090 / RTX 4000 Ada were capacity-dry on RunPod; only the L4 deployed.** If you want the
+> frozen fleet's exact stack (vllm 0.24), you need an **H100** — it is the only card we have seen
+> ship driver 580.
+>
+> ### ➡️ THE ONE NEXT ACTION (unchanged in substance, now unblocked)
+> **Boot Gemma and run `--mode synthesize`.** It is the only untested mechanism and the only one
+> that can exceed the ORACLE@8 = **0.820** ceiling (selection is *bounded* by it; synthesis is
+> not). The frontier comparator now exists at the SAME truncation budget: **gpt-5.2 select =
+> 0.767**. Run `--mode select` with Gemma too — that is the control.
+> ```sh
+> # fleet_gemma.json = Gemma ALONE (mem_util 0.6 — 0.25 of a 24GB card starves the KV cache)
+> FLEET_JSON=/workspace/runpod/fleet_gemma.json MAX_LIFETIME_MIN=120 IDLE_MIN=25 bash boot.sh
+> export JUDGE_URL=http://localhost:18003 JUDGE_MODEL=general JUDGE_API_KEY=none
+> export GRADER_URL=https://api.anthropic.com GRADER_MODEL=claude-sonnet-5 GRADER_SAMPLES=3
+> export MAX_CANDIDATE_TOKENS=6000 CONCLAVE_QUERYSET=hard
+> python3 orchestrator/selfmoa_judge.py --mode select      # control: vs gpt-5.2's 0.767
+> python3 orchestrator/selfmoa_judge.py --mode synthesize   # CAN IT BEAT 0.820?
+> ```
+> **AWS quota was approved: on-demand G+VT is now 64 vCPU** (was 8; spot still 8). That reopens a
+> 32B coder and multi-GPU — but **quota was never the blocker, CAPACITY was**, and g6e is still
+> dry. Stay on RunPod; keep the Terraform as an unmaintained fallback.
+
 > # 🔴🔴 RETRACTIONS — 2026-07-14, from the code review on PR #10. READ BEFORE QUOTING ANY NUMBER.
 >
 > Two headline claims from this session **do not survive review and are WITHDRAWN.** A third is

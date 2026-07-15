@@ -45,3 +45,8 @@ orchestrator/eval_divergence*.json
 orchestrator/eval_selfmoa_*.json
 .runpod_key
 .hf_token
+# modern-fleet working eval outputs — committed copies live in eval_fixtures/
+orchestrator/eval_candidates_modern*.json
+orchestrator/eval_divergence_modern*.json
+orchestrator/qwen3_*.json
+orchestrator/fleet_judge_picks.json

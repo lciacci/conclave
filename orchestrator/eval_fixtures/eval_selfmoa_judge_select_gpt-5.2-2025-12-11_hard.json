@@ -1,0 +1,209 @@
+{
+  "mode": "select",
+  "judge_model": "gpt-5.2-2025-12-11",
+  "grader_model": "claude-sonnet-5",
+  "grader": {
+    "model": "claude-sonnet-5",
+    "url": "https://api.anthropic.com",
+    "samples": 3
+  },
+  "judge_url": "https://api.openai.com",
+  "VOID": false,
+  "void_reason": null,
+  "n_truncated": 6,
+  "max_candidate_tokens": 6000,
+  "grader_samples": 3,
+  "n": 30,
+  "judge": 0.7667,
+  "baseline": 0.6956,
+  "oracle_at_n": 0.82,
+  "oracle_grading_matched": true,
+  "gain": 0.0711,
+  "gain_ci95": [
+    0.024,
+    0.1183
+  ],
+  "wrote_own_answer": 1,
+  "per_query": [
+    {
+      "id": "hardcoder-closure-late-binding",
+      "score": 1.0,
+      "chosen": 0,
+      "truncated": false
+    },
+    {
+      "id": "hardcoder-eq-without-hash",
+      "score": 0.6,
+      "chosen": 0,
+      "truncated": false
+    },
+    {
+      "id": "hardcoder-blocking-in-async",
+      "score": 0.8,
+      "chosen": 0,
+      "truncated": false
+    },
+    {
+      "id": "hardcoder-generator-exhaustion",
+      "score": 0.8,
+      "chosen": 2,
+      "truncated": false
+    },
+    {
+      "id": "hardcoder-money-float-decimal",
+      "score": 0.4,
+      "chosen": 0,
+      "truncated": false
+    },
+    {
+      "id": "hardcoder-threading-race-gil",
+      "score": 1.0,
+      "chosen": 0,
+      "truncated": false
+    },
+    {
+      "id": "hardcoder-mutable-class-attr",
+      "score": 0.8,
+      "chosen": 0,
+      "truncated": false
+    },
+    {
+      "id": "hardcoder-is-vs-eq-interning",
+      "score": 0.6,
+      "chosen": 1,
+      "truncated": false
+    },
+    {
+      "id": "hardcoder-lru-design",
+      "score": 1.0,
+      "chosen": 2,
+      "truncated": false
+    },
+    {
+      "id": "hardcoder-sort-stability-multikey",
+      "score": 0.467,
+      "chosen": 0,
+      "truncated": true
+    },
+    {
+      "id": "hardreason-bayes-disease",
+      "score": 1.0,
+      "chosen": 0,
+      "truncated": false
+    },
+    {
+      "id": "hardreason-birthday",
+      "score": 0.867,
+      "chosen": 0,
+      "truncated": false
+    },
+    {
+      "id": "hardreason-expected-rolls",
+      "score": 1.0,
+      "chosen": 5,
+      "truncated": false
+    },
+    {
+      "id": "hardreason-two-coins",
+      "score": 1.0,
+      "chosen": 0,
+      "truncated": false
+    },
+    {
+      "id": "hardreason-pipes-drain",
+      "score": 1.0,
+      "chosen": 3,
+      "truncated": false
+    },
+    {
+      "id": "hardreason-last-digit",
+      "score": 1.0,
+      "chosen": 4,
+      "truncated": false
+    },
+    {
+      "id": "hardreason-seating-constraint",
+      "score": 1.0,
+      "chosen": 3,
+      "truncated": false
+    },
+    {
+      "id": "hardreason-three-boxes",
+      "score": 1.0,
+      "chosen": 1,
+      "truncated": false
+    },
+    {
+      "id": "hardreason-st-petersburg",
+      "score": 0.8,
+      "chosen": -1,
+      "truncated": false
+    },
+    {
+      "id": "hardreason-clock-overlaps",
+      "score": 0.667,
+      "chosen": 4,
+      "truncated": false
+    },
+    {
+      "id": "hardgen-cap-theorem",
+      "score": 0.4,
+      "chosen": 1,
+      "truncated": true
+    },
+    {
+      "id": "hardgen-idempotency",
+      "score": 0.6,
+      "chosen": 2,
+      "truncated": false
+    },
+    {
+      "id": "hardgen-eventual-consistency",
+      "score": 0.4,
+      "chosen": 4,
+      "truncated": true
+    },
+    {
+      "id": "hardgen-oauth-vs-authn",
+      "score": 0.6,
+      "chosen": 5,
+      "truncated": false
+    },
+    {
+      "id": "hardgen-index-tradeoff",
+      "score": 0.6,
+      "chosen": 1,
+      "truncated": false
+    },
+    {
+      "id": "hardgen-p-value",
+      "score": 1.0,
+      "chosen": 7,
+      "truncated": false
+    },
+    {
+      "id": "hardgen-unicode-utf8",
+      "score": 0.6,
+      "chosen": 0,
+      "truncated": false
+    },
+    {
+      "id": "hardgen-microservices",
+      "score": 0.4,
+      "chosen": 3,
+      "truncated": true
+    },
+    {
+      "id": "hardgen-cache-invalidation",
+      "score": 0.8,
+      "chosen": 4,
+      "truncated": true
+    },
+    {
+      "id": "hardgen-concurrency-vs-parallelism",
+      "score": 0.8,
+      "chosen": 0,
+      "truncated": true
+    }
+  ]
+}

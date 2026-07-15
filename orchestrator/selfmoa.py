@@ -43,6 +43,7 @@ the oracle is a lie. We sample at 0.8.
 """
 from __future__ import annotations
 
+import itertools
 import json
 import math
 import os
@@ -149,8 +150,17 @@ def generate() -> dict:
 
 
 # ---------------------------------------------------------------- scoring (offline, $0)
-def score(cache: dict, scorer, baseline: dict) -> dict:
-    """baseline = {qid: temp-0 single-sample score for MODEL} from the divergence run."""
+def _oracle_at_k(scores: list[float], k: int) -> float:
+    """Expected best-of-k when k candidates are drawn from this query's samples. Exact — the
+    mean of max() over all C(n,k) subsets (n<=8, so 56 subsets at worst)."""
+    return statistics.fmean([max(c) for c in itertools.combinations(scores, k)])
+
+
+def score(cache: dict, scorer, baseline: dict, fleet_oracle_by_q: dict | None = None,
+          fleet_k: int = 0) -> dict:
+    """baseline = {qid: temp-0 single-sample score for MODEL} from the divergence run.
+    fleet_oracle_by_q = {qid: max over the FLEET's candidates} — for the matched-k paired CI.
+    fleet_k = how many candidates the fleet's oracle maxes over (its model count)."""
     qs = {q["id"]: q for q in active_query_set()}
     rows = []
     for qid, samples in cache.items():
@@ -178,8 +188,19 @@ def score(cache: dict, scorer, baseline: dict) -> dict:
     have_base = [r for r in rows if r["baseline"] is not None]
     base = statistics.fmean([r["baseline"] for r in have_base]) if have_base else None
 
+    # RECORD HOW THE ORACLE WAS GRADED. Without this the report mixes two grading configs and
+    # says nothing about either: `baseline` is copied from the DIVERGENCE run (samples=3), while
+    # `oracle_at_n` is graded HERE at whatever GRADER_SAMPLES happened to be set to — it was 1 in
+    # the run that produced the retracted +0.058. An oracle is a MAX, so noisy single grades
+    # INFLATE it while the mean-of-3 baseline is variance-reduced: the gap was manufactured by
+    # the grader config. Nothing in the file recorded that, so nobody could see it. Downstream
+    # (selfmoa_judge) now refuses to quote an oracle-relative number unless this block matches
+    # its own grader — which it can only do if the block exists.
     out = {
         "n": len(rows), "model": MODEL, "n_samples": N_SAMPLES, "temperature": TEMPERATURE,
+        "grader": {"model": getattr(scorer, "model", None),
+                   "url": getattr(scorer, "base_url", None),
+                   "samples": getattr(scorer, "samples", None)},
         "oracle_at_n": round(oracle_n, 4),
         "mean_sample": round(mean_sample, 4),
         "baseline_temp0": round(base, 4) if base is not None else None,
@@ -193,10 +214,44 @@ def score(cache: dict, scorer, baseline: dict) -> dict:
         out["gain_oracle_over_baseline"] = round(statistics.fmean(d), 4)
         out["gain_ci95"] = [round(statistics.fmean(d) - t * sem, 4),
                             round(statistics.fmean(d) + t * sem, 4)]
+
+    # THE ORACLE@k CURVE — because an ORACLE OVER 8 CANDIDATES CANNOT BE COMPARED TO AN
+    # ORACLE OVER 3. A max over more draws is higher REGARDLESS of where the draws come from:
+    # that is the winner's curse, not a finding about generation. Comparing self-MoA's
+    # oracle@8 against the 3-model fleet's oracle@3 confounds the SOURCE of the candidates
+    # (one model vs three) with the NUMBER of them (8 vs 3) — and the project has already
+    # published that confounded number once (+0.091, of which +0.039 was pure candidate count).
+    # So compute the ceiling at EVERY k and let the fleet be compared at ITS k.
+    # Exact expectation over all C(n,k) subsets — n<=8, so this is 56 subsets at worst.
+    out["oracle_at_k"] = {}
+    for k in range(1, N_SAMPLES + 1):
+        per_q = [_oracle_at_k(r["scores"], k) for r in rows if len(r["scores"]) >= k]
+        if per_q:
+            out["oracle_at_k"][str(k)] = round(statistics.fmean(per_q), 4)
+
+    # THE MATCHED-k COMPARISON, WITH AN INTERVAL. A point estimate with no CI is how this
+    # project has repeatedly published a number it had to withdraw. Pair per query: self-MoA's
+    # best-of-k against the FLEET's best-of-its-own-k on the SAME query, then t-interval the
+    # diffs. (z with an estimated sigma at n=30 is anti-conservative — that error is what
+    # un-resolved the divergence verdict.)
+    if fleet_oracle_by_q and fleet_k:
+        paired = [(_oracle_at_k(r["scores"], fleet_k), fleet_oracle_by_q[r["id"]])
+                  for r in rows
+                  if r["id"] in fleet_oracle_by_q and len(r["scores"]) >= fleet_k]
+        if len(paired) > 1:
+            dm = [a - b for a, b in paired]
+            sem = statistics.stdev(dm) / math.sqrt(len(dm))
+            t = _t95(len(dm))
+            out["matched_k"] = fleet_k
+            out["gain_vs_fleet_matched_k"] = round(statistics.fmean(dm), 4)
+            out["gain_vs_fleet_matched_k_ci95"] = [
+                round(statistics.fmean(dm) - t * sem, 4),
+                round(statistics.fmean(dm) + t * sem, 4)]
+            out["gain_vs_fleet_matched_k_n"] = len(dm)
     return out
 
 
-def report(r: dict, fleet_oracle: float | None = None) -> None:
+def report(r: dict, fleet_oracle: float | None = None, fleet_n: int = 3) -> None:
     print(f"\n=== SELF-MoA — N={r['n_samples']} samples of '{r['model']}' @ temp "
           f"{r['temperature']} (n={r['n']} queries) ===")
     print(f"  baseline  — the temp-0 coder, ONE sample        {r['baseline_temp0']:.3f}")
@@ -208,16 +263,45 @@ def report(r: dict, fleet_oracle: float | None = None) -> None:
         lo, hi = r["gain_ci95"]
         print(f"\n  >>> ORACLE@{r['n_samples']} - baseline = "
               f"{r['gain_oracle_over_baseline']:+.4f}  95% CI [{lo:+.3f}, {hi:+.3f}]")
+    curve = r.get("oracle_at_k") or {}
+    if curve:
+        print("\n  ORACLE@k — the ceiling as a function of CANDIDATE COUNT:")
+        print("    " + " · ".join(f"@{k} {v:.3f}" for k, v in curve.items()))
+        print("    This curve is a WINNER'S CURSE: a max over more draws rises on its own.")
+        print("    Any oracle-vs-oracle comparison must therefore be made at MATCHED k.")
+
     if fleet_oracle is not None:
-        d = r["oracle_at_n"] - fleet_oracle
-        print(f"\n  vs THE WHOLE FLEET's oracle (3 models, 1 sample each): {fleet_oracle:.3f}")
-        print(f"  >>> sampling ONE model {r['n_samples']}x beats the 3-model oracle by "
-              f"{d:+.4f}")
-        if d > 0:
-            print(f"      GENERATION ESCAPES THE BOUND that SELECTION could not. The fleet was")
-            print(f"      never the point — the CANDIDATE SET SIZE was.")
-        else:
-            print(f"      even N samples of the best model do NOT beat the 3-model oracle.")
+        # MATCHED-k COMPARISON, and ONLY that. The fleet's oracle is a max over its
+        # fleet_n candidates (3 models x 1 sample). Comparing it against a max over 8
+        # measures "8 lottery tickets beat 3", which is true of any candidate source and
+        # says nothing about whether SAMPLING ONE MODEL beats RUNNING THREE. The honest
+        # question is: at the SAME candidate budget, does one model sampled k times reach a
+        # higher ceiling than k different models? Answer that; refuse to print the other.
+        k_matched = str(fleet_n)
+        print(f"\n  vs THE WHOLE FLEET's oracle ({fleet_n} models, 1 sample each): "
+              f"{fleet_oracle:.3f}")
+        if k_matched in curve:
+            dm = curve[k_matched] - fleet_oracle
+            ci = r.get("gain_vs_fleet_matched_k_ci95")
+            ci_s = f"  95% CI [{ci[0]:+.3f}, {ci[1]:+.3f}]" if ci else "  (no CI)"
+            print(f"  >>> AT MATCHED CANDIDATE COUNT (k={fleet_n}): self-MoA "
+                  f"{curve[k_matched]:.3f} vs fleet {fleet_oracle:.3f} = {dm:+.4f}{ci_s}")
+            if dm > 0:
+                print(f"      Sampling ONE model {fleet_n}x reaches a HIGHER ceiling than "
+                      f"running {fleet_n} DIFFERENT models.")
+                print(f"      The fleet was never the point — and this is not just the "
+                      f"candidate count, because")
+                print(f"      the count is held fixed here.")
+            else:
+                print(f"      At equal candidate budget the FLEET's ceiling is higher — the "
+                      f"decorrelation is real.")
+        if curve:
+            d_raw = r["oracle_at_n"] - fleet_oracle
+            print(f"\n  (For the record, the UNMATCHED figure is {d_raw:+.4f} — oracle@"
+                  f"{r['n_samples']} vs oracle@{fleet_n}. It is CONFOUNDED BY CANDIDATE COUNT")
+            print(f"   and must not be quoted: of it, "
+                  f"{r['oracle_at_n'] - curve.get(k_matched, r['oracle_at_n']):+.4f} is bought "
+                  f"by nothing but extra draws.)")
 
 
 def demo() -> None:
@@ -274,6 +358,14 @@ if __name__ == "__main__":
                              f"eval_divergence_{active_set_name()}.json"))
     baseline = {r["id"]: r["scores"].get(MODEL) for r in div.get("per_query", [])}
     fleet_oracle = div.get("headroom", {}).get("oracle")
+    # The fleet's candidate count, from the data — NOT a hardcoded 3. The whole point of the
+    # matched-k comparison is that k is the confound; reading it from the report means a
+    # 5-model fleet gets compared at k=5 without anyone remembering to change a constant.
+    fleet_n = len(div.get("headroom", {}).get("single_model_scores") or {}) or 3
+    # Per-query fleet oracle = max over the fleet's candidates on that query. Pairs against
+    # self-MoA's best-of-fleet_n on the SAME query, which is what makes a paired CI legitimate.
+    fleet_oracle_by_q = {r["id"]: max(r["scores"].values())
+                         for r in div.get("per_query", []) if r.get("scores")}
 
     base_url, model, key = _grader_from_env()
     n = int(os.environ.get("GRADER_SAMPLES", str(FROZEN_GRADER_SAMPLES)))
@@ -281,8 +373,8 @@ if __name__ == "__main__":
     gc = GradeCache()
     scorer = ReferenceGrader(base_url, model, key, call=frontier_call, samples=n, cache=gc)
     print(f"grading {sum(len(v) for v in cache.values())} samples with {model} ...")
-    r = score(cache, scorer, baseline)
-    report(r, fleet_oracle)
+    r = score(cache, scorer, baseline, fleet_oracle_by_q, fleet_n)
+    report(r, fleet_oracle, fleet_n)
     print(f"\ngrader calls: {gc.misses} live (paid), {gc.hits} from cache")
     out = path("eval_selfmoa_report")
     with open(out, "w") as f:
