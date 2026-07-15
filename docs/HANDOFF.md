@@ -48,7 +48,41 @@
 >   **pin `gpt-5.2-2025-12-11`** — a dated snapshot, never a `-latest` alias, or the frozen
 >   GradeCache silently stops being comparable.
 >
-> ### ❌ THE GEMMA SYNTHESIZE ARM IS STILL UNRUN — the boot FAILED. `boot.sh` is now fixed.
+> ### ✅ THE GEMMA SYNTHESIZE ARM RAN. The v3 "small in-fleet judge" thesis DOES NOT PAY.
+> In-fleet Gemma-2-9B judging the 8 frozen coder candidates. Grader = claude-sonnet-5 (different
+> house), samples=3. **All replay from `eval_fixtures/` for $0.**
+> ```
+> solo       (Gemma alone, NO candidates)   0.522
+> synthesize (Gemma + 8 candidates)         0.653   CI vs baseline [-0.092, +0.008]
+> select     (Gemma picks one)              0.673   CI vs baseline [-0.108, +0.063]
+> baseline (coder, one sample)              0.696
+> gpt-5.2 select                            0.767   <- the ONLY judge that beat baseline
+> ORACLE@8                                  0.820
+> ```
+> **The pre-registered "synthesize beats 0.820" prediction is FALSIFIED.** A weak aggregator does
+> not beat strong candidates — synthesize (0.653) lands *below* baseline (0.696). But the **solo
+> ablation** shows this is NOT "the judge ignored the candidates": `synthesize − solo = +0.131`,
+> so Gemma read the material and improved on its own answer by 13 points — it just cannot
+> synthesize strong candidates into something that beats the best of them. And `select − synthesize
+> = +0.020`: for a weak judge, **picking beats synthesizing**. **Only a strong judge (gpt-5.2,
+> +0.071) captured value.** A small self-hosted meta-reasoner does not earn its keep at this scale.
+> **This is the v3 thesis, answered — negatively, on a sound instrument.**
+>
+> ### 🎰 THE DRIVER IS A PER-MACHINE LOTTERY, not a per-GPU-type property. Do NOT pay up to fix it.
+> Seen across five boots this session: **L4 → 580/CUDA13, 570/CUDA12.8, 550/CUDA12.4; H100 →
+> 570/CUDA12.8.** The $2.99 H100 shipped an OLDER driver than a $0.39 L4. So: **deploy the cheap
+> card, `nvidia-smi` FIRST, terminate and re-roll if CUDA<13.** `boot.sh` now installs the matched
+> vLLM either way (CUDA≥13 → 0.24; 12.x → 0.11+transformers<5), but for comparability with the
+> frozen candidates you want **CUDA 13 / vllm 0.24** — re-roll a cheap L4 until you get driver 580.
+>
+> ### 🔌 RUN THE ORCHESTRATOR POD-SIDE, not over an SSH tunnel.
+> A dropped tunnel looks *identical* to an idle GPU: the judge calls fail, Gemma goes to 0%, and
+> the idle watchdog correctly reaps the pod mid-experiment (it did, once). Fix: `scp` the
+> `orchestrator/` dir + `eval_fixtures/` + the grader key onto the pod and run there against
+> `http://127.0.0.1:8003`. No tunnel, and the pod stays busy so the idle rule never fires. The
+> recipe is `/workspace/run_arms.sh` (rebuild it — it was pod-local).
+>
+> ### (historical) The first Gemma boot FAILED — `boot.sh` had three bugs, now all fixed.
 > Cost of the failed boot: **$0.43.** Nothing is running; RunPod balance **$8.02**, zero pods.
 > Three real bugs found, all now fixed and committed:
 > 1. **`boot.sh` never installed vLLM.** It assumed the image had it (the H100 boot had it
