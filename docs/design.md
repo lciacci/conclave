@@ -1,7 +1,44 @@
 # Conclave — Design
 
-Multi-model inference lab on AWS. Self-hosted open-weight models behind a LiteLLM gateway,
-Tailscale-only access, ensemble + judge orchestration as the pedagogical core.
+Multi-model inference lab. Self-hosted open-weight models, Tailscale-only access. The
+pedagogical core STARTED as ensemble + judge; the project measured that thesis and disproved
+it. The decision log below is preserved as-made; read the current-state banner first.
+
+> ## ▶ WHERE THIS LANDED (2026-07-15) — read before the historical log below
+>
+> **The ensemble+judge thesis was DISPROVED, and the project's actual answer is ROUTING.**
+> Measured on two fleets, including a deliberately ideal modern one (Qwen3-32B / Gemma-3-27B /
+> Mistral-3.2-24B — comparable strength, three lineages, the regime an ensemble *should* win):
+> - **Headroom = oracle − best single = +0.040** (the entire value any selection policy can add).
+> - **An in-fleet judge scores 0.920 — BELOW just always calling the strongest model (0.935).**
+>   Making the fleet stronger *lowered* headroom — the **convergence** effect: as strong models
+>   agree more, a perfect judge beats the best single by less.
+> - **Pairwise grading** (blinded, position-debiased — the fix for absolute-grading saturation,
+>   which topped out 20/30 queries at the ceiling) shows the per-query winner **splits across all
+>   three models**: a **router has a real signal** the saturated headroom number was blind to.
+>
+> **The settled architecture:** **diagnostic → operational → monitor.**
+> 1. **Diagnostic:** `divergence.py` / `divergence_modern.py` / `fleet_pairwise.py` — measure a
+>    fleet's headroom and per-query winners for $0, offline, BEFORE building anything. *This is
+>    the reusable deliverable.*
+> 2. **Operational (NEXT):** a **router** — pick the model from the query alone. A judge picks
+>    *after* generating N answers (N× cost, saturated gap); a router picks *before* (1/N cost).
+>    The open question: how much of the pairwise *oracle* ceiling a *predictable* router captures.
+> 3. **Continuous fitness monitor:** the diagnostic run on a schedule vs live traffic + candidate
+>    new models — flag drift, vet swaps. Keeps the lab good as models churn.
+>
+> **Judge is PARKED with a trigger:** revisit only if the model landscape re-diverges (genuine
+> specialists or deliberately-diverse models emerge). Convergence makes judging pay *less* as
+> models improve, so it is not the near-term path.
+>
+> **One mechanism DID pay** (earlier fleet): **Self-MoA** — sample the single best model N times
+> and select, +0.071 over baseline. A generation trick, not a fleet trick; production shape is
+> `n=8` in one vLLM request. Untested on the modern fleet.
+>
+> Infra facts the sections below predate: the fleet now runs on **RunPod** (AWS g6e capacity
+> exhaustion; AWS remains the fallback), reached via **Tailscale userspace mode**, one model per
+> L40S card (no co-residency). The **GPU driver is a per-machine lottery** — `boot.sh` is
+> driver-aware and fail-closed. Full current state: `docs/HANDOFF.md`.
 
 Decision log below. Locked decisions carry their reasoning — reopen only if the stated
 assumptions break.
