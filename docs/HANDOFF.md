@@ -1,6 +1,57 @@
 # HANDOFF — resume here
 
-> # ✅ 2026-07-14 (later session) — THE RETRACTED CLAIM IS NOW MEASURED, AND IT HOLDS.
+> # ✅ 2026-07-14 (latest) — THE MODERN FLEET IS BUILT. Route-don't-judge CONFIRMED on it.
+>
+> **Branch: `selfmoa-honest-judge`.** A working PRIVATE fleet: **Qwen3-32B-AWQ / Gemma-3-27B-FP8
+> / Mistral-Small-3.2-24B-FP8**, one per L40S card, served **Tailscale-only** (no public ports,
+> no SSH tunnel). Reproducible; `runpod/boot.sh` handles CUDA-13→vllm-0.24. Everything below
+> replays from `eval_fixtures/` for **$0**:
+> `MODERN_FLEET=modern2 CONCLAVE_QUERYSET=hard python3 orchestrator/divergence_modern.py`.
+>
+> ### The result — the ideal fleet, and a judge STILL doesn't pay
+> ```
+> qwen3   0.935   each model wins EXACTLY ONE category (qwen3 coder / gemma3 reasoning /
+> gemma3  0.911   mistral general) — comparable strength (within 0.028, statistically tied),
+> mistral 0.907   genuine complementarity, 3 lineages = the textbook ideal ensemble regime.
+> ORACLE  0.976
+> HEADROOM +0.040  CI [+0.012, +0.068]  NOT RESOLVED, leaning not-worth-it
+> JUDGE (gemma3 select) 0.920  <  best-single 0.935   ← NEGATIVE capture
+> ```
+> **Even the ideal modern fleet does not benefit from a self-hosted judge.** Route, don't judge,
+> now confirmed on the GOOD fleet — not the quota-crippled old one. Fixing qwen3 (stronger)
+> *lowered* headroom (+0.056→+0.040): the literature's **convergence** effect, live.
+>
+> ### 🔧 qwen3 CONFOUND — fixed, keep in mind for any reasoning model
+> The FIRST modern run scored qwen3 at 0.764 and nearly called it dead weight. Artifact:
+> `max_tokens=1024` let its `<think>` block eat the budget, truncating the answer that got
+> graded. With **2048 tokens + `chat_template_kwargs:{enable_thinking:false}`** it is **0.935**
+> — the strongest single. Reasoning models need budget and/or thinking-off for a fair grade.
+> `eval_candidates_modern_hard` (handicapped) is kept only so the confound is auditable;
+> `modern2` is the real fleet.
+>
+> ### 🖥️ Two hard-won infra facts
+> - **The driver is a PER-MACHINE lottery, not per-GPU-type.** L40S seen with 550/570/580 this
+>   session; a $2.99 H100 shipped an OLDER driver than a $0.39 L4. **Deploy cheap, `nvidia-smi`
+>   FIRST, terminate + re-roll if CUDA<13** (vllm 0.24 needs CUDA-13/driver-580). Do NOT pay up.
+> - **Tailscale on RunPod works** (userspace mode — no `/dev/net/tun`): `tailscaled
+>   --tun=userspace-networking` + `tailscale up --authkey` (ephemeral key in SSM
+>   `/conclave/tailscale-authkey`) + `tailscale serve --http=PORT http://localhost:PORT`. Laptop
+>   reaches it by MagicDNS name (`http://conclave-<name>:PORT`). **Run the orchestrator POD-SIDE**
+>   (scp `orchestrator/` + grader key), NOT over an SSH tunnel — a dropped tunnel looks identical
+>   to an idle GPU and the watchdog correctly reaps the pod.
+>
+> ### ➡️ NEXT (all optional; nothing running, verdict is DIRECTIONAL not resolved)
+> 1. **Harder query set** — 25/30 are at the grader ceiling, so the verdict "leans" not-worth-it
+>    rather than resolving. A harder set unsaturates these stronger models and settles it. $0 GPU
+>    to write; one boot to generate.
+> 2. **Build the ROUTER** — the capability the data actually supports (pick the right model per
+>    request, don't fan out and vote).
+> 3. **More judges** — only gemma3-select was tested; qwen3-as-judge or synthesis mode could
+>    differ (though Self-MoA already showed judges often capture negative value).
+> The reusable asset is `divergence_modern.py` + `divergence.py` — point them at any new fleet's
+> candidates to get a $0 headroom verdict BEFORE building a judge.
+
+> # ✅ 2026-07-14 (earlier) — THE RETRACTED CLAIM IS NOW MEASURED, AND IT HOLDS.
 >
 > **Branch: `selfmoa-honest-judge`.** Everything below replays from the committed fixtures for
 > **$0** (`CONCLAVE_QUERYSET=hard python3 orchestrator/selfmoa_judge.py --mode select`).

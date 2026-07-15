@@ -16,8 +16,21 @@ from divergence import analyse, print_report
 from judge_eval import (FROZEN_GRADER_SAMPLES, GradeCache, ReferenceGrader,
                         _grader_from_env, frontier_call)
 
-CANDS = os.path.join(_HERE, "eval_candidates_modern_hard.json")
-OUT = os.path.join(_HERE, "eval_divergence_modern_hard.json")
+
+def _load_first(*paths):
+    """First existing path — working copy, else committed fixture (fresh-clone $0 replay)."""
+    for p in paths:
+        if os.path.exists(p):
+            return p
+    return paths[0]
+
+# MODERN_FLEET selects which candidate set: "modern2" (default) is the CORRECTED fleet
+# (qwen3-nothink, the real number) — this is the headline result. "modern" is the first run
+# where qwen3 was handicapped by a 1024-token budget (kept only so the confound is auditable).
+FLEET = os.environ.get("MODERN_FLEET", "modern2")
+CANDS = _load_first(os.path.join(_HERE, f"eval_candidates_{FLEET}_hard.json"),
+                    os.path.join(_HERE, "eval_fixtures", f"eval_candidates_{FLEET}_hard.json"))
+OUT = os.path.join(_HERE, f"eval_divergence_{FLEET}_hard.json")
 
 cache = json.load(open(CANDS))
 base, model, key = _grader_from_env()
