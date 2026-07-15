@@ -133,8 +133,14 @@
 >
 > ### Keys (changed this session)
 > - `/conclave/grader-api-key` → **OpenAI** (`sk-proj…`). Restricted key: *Model capabilities =
->   Write*, *Models = Read*, everything else None.
+>   Write*, *Models = Read*, everything else None. **This is the current grader** (gpt-5.2).
 > - `/conclave/gemini-api-key` → the **Gemini** key, moved off the grader slot (hash-verified).
+> - `/conclave/judge-api-key` → **Anthropic** (`claude-sonnet-5`). The **legacy grader** — only
+>   the early self-MoA / old-fleet work used it (~$9.99 over 3 days), and those replay for **$0**
+>   (cached). **Modern grading is `gpt-5.2`/OpenAI**, so nothing on the router path needs this
+>   key. Owner keeps it topped up, so live Anthropic grading still works if ever needed — but
+>   default to the OpenAI grader for anything new (neutral to the current fleet, and the number
+>   everything modern is already on).
 > - **`gpt-5.5` REJECTS `temperature` outright.** `gpt-5.2` accepts it at 0 and 0.3. The eval
 >   *depends* on that knob (temp 0 = reproducible single grade; 0.3 = probes grader spread), so
 >   **pin `gpt-5.2-2025-12-11`** — a dated snapshot, never a `-latest` alias, or the frozen
