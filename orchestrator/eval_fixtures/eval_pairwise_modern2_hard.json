@@ -1,0 +1,68 @@
+{
+  "fleet": "modern2",
+  "grader": {
+    "model": "gpt-5.2-2025-12-11",
+    "url": "https://api.openai.com"
+  },
+  "round_robin_mean": {
+    "gemma3": 0.9167,
+    "mistral": 0.9667,
+    "qwen3": 1.1167
+  },
+  "per_query_winner": {
+    "hardcoder-closure-late-binding": null,
+    "hardcoder-eq-without-hash": "qwen3",
+    "hardcoder-blocking-in-async": "mistral",
+    "hardcoder-generator-exhaustion": "gemma3",
+    "hardcoder-money-float-decimal": "mistral",
+    "hardcoder-threading-race-gil": "mistral",
+    "hardcoder-mutable-class-attr": null,
+    "hardcoder-is-vs-eq-interning": "mistral",
+    "hardcoder-lru-design": "qwen3",
+    "hardcoder-sort-stability-multikey": "qwen3",
+    "hardreason-bayes-disease": null,
+    "hardreason-birthday": "gemma3",
+    "hardreason-expected-rolls": null,
+    "hardreason-two-coins": "qwen3",
+    "hardreason-pipes-drain": null,
+    "hardreason-last-digit": null,
+    "hardreason-seating-constraint": null,
+    "hardreason-three-boxes": "gemma3",
+    "hardreason-st-petersburg": null,
+    "hardreason-clock-overlaps": "qwen3",
+    "hardgen-cap-theorem": "mistral",
+    "hardgen-idempotency": "gemma3",
+    "hardgen-eventual-consistency": "mistral",
+    "hardgen-oauth-vs-authn": "qwen3",
+    "hardgen-index-tradeoff": "mistral",
+    "hardgen-p-value": "gemma3",
+    "hardgen-unicode-utf8": "mistral",
+    "hardgen-microservices": "gemma3",
+    "hardgen-cache-invalidation": "mistral",
+    "hardgen-concurrency-vs-parallelism": "mistral"
+  },
+  "strict_wins": {
+    "qwen3": 6,
+    "mistral": 10,
+    "gemma3": 6
+  },
+  "abs_tied_query_winners": {
+    "gemma3": 2,
+    "qwen3": 4,
+    "mistral": 6
+  },
+  "position_flips": [
+    "hardcoder-blocking-in-async",
+    "hardcoder-threading-race-gil",
+    "hardcoder-mutable-class-attr",
+    "hardcoder-is-vs-eq-interning",
+    "hardcoder-is-vs-eq-interning",
+    "hardgen-cap-theorem",
+    "hardgen-eventual-consistency",
+    "hardgen-eventual-consistency",
+    "hardgen-oauth-vs-authn",
+    "hardgen-oauth-vs-authn",
+    "hardgen-microservices"
+  ],
+  "n_compared": 90
+}
