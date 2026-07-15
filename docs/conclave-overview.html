@@ -319,9 +319,9 @@
 <header class="hero">
   <div class="hero-glow" aria-hidden="true"></div>
   <div class="wrap">
-    <p class="eyebrow brass">Self-hosted multi-model inference lab · AWS · Tailscale-only</p>
-    <h1>Three models deliberate.<br />A <em>judge</em> renders the verdict.</h1>
-    <p class="lede">Conclave fans one question out to a fleet of specialist open-weight models running on a single GPU, then a meta-reasoner selects or synthesizes the best answer across them.</p>
+    <p class="eyebrow brass">Self-hosted multi-model inference lab · Tailscale-only · RunPod / AWS</p>
+    <h1>Three models deliberate.<br />Then the data says: <em>route</em>, don't judge.</h1>
+    <p class="lede">Conclave set out to fan one question across a fleet of open-weight models and let a meta-reasoner pick the best answer. It rigorously measured that idea — and disproved it. Even on an ideal modern fleet, a judge loses to just calling the strongest model. The finding that survived: pick the right model per request, and the real deliverable is the instrument that tells you which.</p>
     <div class="hero-meta">
       <span class="chip"><b>3</b> co-resident specialists</span>
       <span class="chip"><b>1×</b> L40S · 48&nbsp;GB</span>
@@ -441,8 +441,8 @@
 <section id="judge">
   <div class="wrap">
     <p class="eyebrow brass">The thesis</p>
-    <h2 style="font-size:clamp(1.7rem,4vw,2.4rem); max-width:20ch;">The judge is the whole point</h2>
-    <p class="lede" style="margin:20px 0 40px;">Arbiter, judge, mediator, critic, router — all meta-reasoners over specialized outputs. Naming that family is what turns two similar components into a design-pattern exploration. Conclave's judge runs <em>per request</em>.</p>
+    <h2 style="font-size:clamp(1.7rem,4vw,2.4rem); max-width:24ch;">The judge was the hypothesis. Routing is the answer.</h2>
+    <p class="lede" style="margin:20px 0 40px;">Arbiter, judge, mediator, critic, router — all meta-reasoners over specialized outputs; the exploration is which one a fleet actually rewards. Conclave measured it. On the ideal modern fleet (Qwen3-32B / Gemma-3-27B / Mistral-3.2-24B, comparable strength, three lineages) headroom is just <b>+0.040</b>, and an in-fleet judge scores <b>0.920 — below the strongest single model at 0.935</b>. A judge picks <em>after</em> generating N answers, for N× the cost and a saturated gap; a <em>router</em> picks from the query alone, at 1/N the cost — and pairwise grading shows the per-query winner genuinely splits across all three models, so a router has a real signal. The reusable output isn't the judge; it's <code>divergence.py</code>, which measures whether any fleet is worth ensembling for $0, before you build.</p>
     <div class="grid2">
       <div>
         <ul class="featlist">

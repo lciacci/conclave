@@ -4,14 +4,20 @@ Project-specific guidance for Claude Code working in this repo.
 
 ## What this is
 
-Conclave is a self-hosted multi-model inference lab on AWS. Open-weight models (70B-class)
-served via vLLM behind a LiteLLM gateway, reachable only over Tailscale. The thesis: multi-model
-ensemble orchestration with a **judge** — a meta-reasoner that selects/synthesizes across
-parallel model responses. Purpose is learning cloud GPU infra, inference serving, and the
-"meta-reasoners over specialized outputs" pattern family; plus a demoable platform story.
+Conclave is a self-hosted multi-model inference lab. Open-weight models served via vLLM,
+reachable only over Tailscale (fleet now runs on RunPod; AWS is the documented fallback).
+The thesis STARTED as multi-model ensemble orchestration with a **judge** — a meta-reasoner
+that selects/synthesizes across parallel responses. That thesis was **measured and disproved**:
+a judge does not pay, on the old fleet or on a deliberately ideal modern one (Qwen3-32B /
+Gemma-3-27B / Mistral-3.2-24B). The surviving finding is **route, don't judge** — pick the right
+model per request; do not fan out and vote. The real deliverable is the **instrument**
+(`divergence.py` / `fleet_pairwise.py`) that measures whether a fleet is worth ensembling, for
+$0, before you build anything. Purpose remains learning cloud GPU infra, inference serving, and
+the "meta-reasoners over specialized outputs" pattern family; plus a demoable platform story.
 
-Source of truth: `docs/design.md`. Phases: v1 single model → v2 gateway + multi-model →
-v3 ensemble + judge → v4 MCP front-end.
+Source of truth: `docs/design.md`; latest state: `docs/HANDOFF.md`. Arc: v1 single model → v2
+gateway + multi-model → v3 ensemble + judge (**done, disproved**) → modern fleet (**done**) →
+**router (next)**. Judge is parked with a trigger (revisit if the model landscape re-diverges).
 
 - **Tessera profile:** `standard` (see `.tessera/project.yml`).
 
