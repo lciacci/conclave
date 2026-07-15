@@ -262,6 +262,13 @@ command -v jq >/dev/null || (apt-get update -qq && apt-get install -y -qq jq)
 # property — no image and no pip flag can change it.
 CUDA_VER=$(nvidia-smi | grep -o 'CUDA Version: [0-9.]*' | awk '{print $3}')
 CUDA_MAJ=${CUDA_VER%%.*}
+# FAIL CLOSED on a parse failure. If nvidia-smi output is malformed, CUDA_VER is empty and the
+# ${CUDA_MAJ:-0} default silently routes to the CUDA-12 branch — which would install vllm 0.11
+# on a CUDA-13 host, fail to load, and waste ~10 min before the fleet-failed check kills the pod.
+# The pod is GPU-less garbage if we cannot even read the driver; kill it now, not after a load.
+case "$CUDA_MAJ" in
+  ''|*[!0-9]*) kill_pod "cannot parse CUDA version from nvidia-smi (got '$CUDA_VER')"; exit 1;;
+esac
 echo "host CUDA: $CUDA_VER (driver $(nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -1))"
 
 if python3 -c 'import vllm' 2>/dev/null; then

@@ -51,7 +51,7 @@
         "qwen3": 0.9533
       },
       "best_single": "qwen3",
-      "specialist_wins_own_category": false,
+      "specialist_wins_own_category": null,
       "oracle": 0.96,
       "headroom": 0.0067,
       "strict_win_counts": {
@@ -71,7 +71,7 @@
         "qwen3": 0.9933
       },
       "best_single": "gemma3",
-      "specialist_wins_own_category": false,
+      "specialist_wins_own_category": null,
       "oracle": 1.0,
       "headroom": 0.0,
       "strict_win_counts": {
@@ -91,7 +91,7 @@
         "qwen3": 0.86
       },
       "best_single": "mistral",
-      "specialist_wins_own_category": false,
+      "specialist_wins_own_category": null,
       "oracle": 0.9667,
       "headroom": 0.08,
       "strict_win_counts": {
