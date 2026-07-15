@@ -135,12 +135,20 @@
 > - `/conclave/grader-api-key` → **OpenAI** (`sk-proj…`). Restricted key: *Model capabilities =
 >   Write*, *Models = Read*, everything else None. **This is the current grader** (gpt-5.2).
 > - `/conclave/gemini-api-key` → the **Gemini** key, moved off the grader slot (hash-verified).
-> - `/conclave/judge-api-key` → **Anthropic** (`claude-sonnet-5`). The **legacy grader** — only
->   the early self-MoA / old-fleet work used it (~$9.99 over 3 days), and those replay for **$0**
->   (cached). **Modern grading is `gpt-5.2`/OpenAI**, so nothing on the router path needs this
->   key. Owner keeps it topped up, so live Anthropic grading still works if ever needed — but
->   default to the OpenAI grader for anything new (neutral to the current fleet, and the number
->   everything modern is already on).
+> - `/conclave/judge-api-key` → **Anthropic** (`claude-sonnet-5`). Now the **secondary grader** —
+>   only the early self-MoA / old-fleet work used it (~$9.99 over 3 days), and those replay for
+>   **$0** (cached). **Modern grading is `gpt-5.2`/OpenAI**, so default to that for anything new
+>   (neutral to the current fleet, and the number everything modern is already on). This key is
+>   kept **funded-but-small on purpose — a capped enabler**: enough credit that a run never blocks
+>   on a top-up, little enough that it can't run away. Do NOT let it drain to $0 (it becomes a
+>   blocker) OR over-fund it (it becomes a runaway risk); a small standing balance is the design.
+>
+> ### 💡 The cost-safety principle (one model across all surfaces)
+> **Prepaid caps everywhere — the ceiling lives OUTSIDE the thing being capped.** The RunPod
+> credit balance, the AWS budget hard-stop, and the API grader keys are the *same* mechanism, not
+> three separate hacks: fund each just enough to enable work, capped low enough to bound a
+> runaway. Keep balances small on purpose. This is why `boot.sh` fails closed, why the RunPod
+> balance is kept small, and why the grader keys are funded-but-small.
 > - **`gpt-5.5` REJECTS `temperature` outright.** `gpt-5.2` accepts it at 0 and 0.3. The eval
 >   *depends* on that knob (temp 0 = reproducible single grade; 0.3 = probes grader spread), so
 >   **pin `gpt-5.2-2025-12-11`** — a dated snapshot, never a `-latest` alias, or the frozen
