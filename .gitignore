@@ -50,3 +50,4 @@ orchestrator/eval_candidates_modern*.json
 orchestrator/eval_divergence_modern*.json
 orchestrator/qwen3_*.json
 orchestrator/fleet_judge_picks.json
+orchestrator/eval_pairwise_*.json
