@@ -1,0 +1,717 @@
+{
+  "headroom": {
+    "value": 0.0556,
+    "oracle": 0.9667,
+    "best_single_model": "gemma3",
+    "best_single_score": 0.9111,
+    "single_model_scores": {
+      "gemma3": 0.9111,
+      "mistral": 0.9067,
+      "qwen3": 0.7644
+    },
+    "verdict": "MARGINAL \u2014 a judge must be very good to pay for itself  [NOT RESOLVED at n=30: the 0.05 threshold lies inside the 95% CI, so NOT-WORTH-IT vs MARGINAL is not distinguishable. More queries needed to settle it.]",
+    "verdict_resolved": false,
+    "queries_at_grader_ceiling": 25,
+    "queries_with_live_headroom": 5,
+    "ceiling_note": "25/30 queries have the best candidate already at the grader's maximum, where headroom is 0 BY CONSTRUCTION. The headroom is earned on only 5 queries.",
+    "note": "headroom = ORACLE (perfect judge) - BEST SINGLE MODEL. The entire value the ensemble+judge pattern can ever buy on this fleet. A real judge captures a fraction of it \u2014 possibly a negative fraction.",
+    "ci95": [
+      0.0221,
+      0.089
+    ],
+    "ci_note": "Lower bound is vacuous: headroom >= 0 by construction, so 'excludes 0' is guaranteed and is NOT evidence. Judge the UPPER bound against the verdict threshold.",
+    "best_single_is_significant": false,
+    "best_single_margin_ci95": [
+      -0.0576,
+      0.0665
+    ],
+    "runner_up": "mistral"
+  },
+  "n": 30,
+  "query_set": "hard",
+  "queries_in_set": 30,
+  "missing_candidates": [],
+  "skipped_incomplete": [],
+  "skipped_ungraded": [],
+  "meaningful_spread_threshold": 0.1,
+  "divergent": 22,
+  "degenerate": 8,
+  "all_three_essentially_correct": 6,
+  "mean_spread": 0.233,
+  "median_spread": 0.2,
+  "by_category": {
+    "coder": {
+      "n": 10,
+      "divergent": 7,
+      "mean_spread": 0.193,
+      "at_ceiling": 8,
+      "single_model_scores": {
+        "gemma3": 0.8733,
+        "mistral": 0.92,
+        "qwen3": 0.7933
+      },
+      "best_single": "mistral",
+      "specialist_wins_own_category": false,
+      "oracle": 0.9533,
+      "headroom": 0.0333,
+      "strict_win_counts": {
+        "gemma3": 1,
+        "mistral": 3,
+        "qwen3": 0
+      }
+    },
+    "reasoning": {
+      "n": 10,
+      "divergent": 6,
+      "mean_spread": 0.24,
+      "at_ceiling": 10,
+      "single_model_scores": {
+        "gemma3": 1.0,
+        "mistral": 0.9133,
+        "qwen3": 0.78
+      },
+      "best_single": "gemma3",
+      "specialist_wins_own_category": false,
+      "oracle": 1.0,
+      "headroom": 0.0,
+      "strict_win_counts": {
+        "gemma3": 4,
+        "mistral": 0,
+        "qwen3": 0
+      }
+    },
+    "general": {
+      "n": 10,
+      "divergent": 9,
+      "mean_spread": 0.267,
+      "at_ceiling": 7,
+      "single_model_scores": {
+        "gemma3": 0.86,
+        "mistral": 0.8867,
+        "qwen3": 0.72
+      },
+      "best_single": "mistral",
+      "specialist_wins_own_category": false,
+      "oracle": 0.9467,
+      "headroom": 0.06,
+      "strict_win_counts": {
+        "gemma3": 2,
+        "mistral": 4,
+        "qwen3": 0
+      }
+    }
+  },
+  "strict_win_counts": {
+    "gemma3": 7,
+    "mistral": 7,
+    "qwen3": 0
+  },
+  "tied_at_top_counts": {
+    "gemma3": 14,
+    "mistral": 15,
+    "qwen3": 11
+  },
+  "queries_tied_at_top": 16,
+  "per_query": [
+    {
+      "id": "hardcoder-closure-late-binding",
+      "category": "coder",
+      "scores": {
+        "qwen3": 1.0,
+        "gemma3": 1.0,
+        "mistral": 1.0
+      },
+      "best_candidates": [
+        "qwen3",
+        "gemma3",
+        "mistral"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
+      "best_score": 1.0,
+      "spread": 0.0,
+      "all_correct": true,
+      "divergent": false,
+      "at_ceiling": true
+    },
+    {
+      "id": "hardcoder-eq-without-hash",
+      "category": "coder",
+      "scores": {
+        "qwen3": 0.8,
+        "gemma3": 0.8,
+        "mistral": 0.8
+      },
+      "best_candidates": [
+        "qwen3",
+        "gemma3",
+        "mistral"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
+      "best_score": 0.8,
+      "spread": 0.0,
+      "all_correct": false,
+      "divergent": false,
+      "at_ceiling": false
+    },
+    {
+      "id": "hardcoder-blocking-in-async",
+      "category": "coder",
+      "scores": {
+        "qwen3": 0.933,
+        "gemma3": 0.8,
+        "mistral": 1.0
+      },
+      "best_candidates": [
+        "mistral"
+      ],
+      "strict_winner": "mistral",
+      "tied_at_top": false,
+      "best_score": 1.0,
+      "spread": 0.2,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": true
+    },
+    {
+      "id": "hardcoder-generator-exhaustion",
+      "category": "coder",
+      "scores": {
+        "qwen3": 0.8,
+        "gemma3": 1.0,
+        "mistral": 1.0
+      },
+      "best_candidates": [
+        "gemma3",
+        "mistral"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
+      "best_score": 1.0,
+      "spread": 0.2,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": true
+    },
+    {
+      "id": "hardcoder-money-float-decimal",
+      "category": "coder",
+      "scores": {
+        "qwen3": 0.4,
+        "gemma3": 0.8,
+        "mistral": 1.0
+      },
+      "best_candidates": [
+        "mistral"
+      ],
+      "strict_winner": "mistral",
+      "tied_at_top": false,
+      "best_score": 1.0,
+      "spread": 0.6,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": true
+    },
+    {
+      "id": "hardcoder-threading-race-gil",
+      "category": "coder",
+      "scores": {
+        "qwen3": 0.8,
+        "gemma3": 1.0,
+        "mistral": 1.0
+      },
+      "best_candidates": [
+        "gemma3",
+        "mistral"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
+      "best_score": 1.0,
+      "spread": 0.2,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": true
+    },
+    {
+      "id": "hardcoder-mutable-class-attr",
+      "category": "coder",
+      "scores": {
+        "qwen3": 1.0,
+        "gemma3": 0.8,
+        "mistral": 1.0
+      },
+      "best_candidates": [
+        "qwen3",
+        "mistral"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
+      "best_score": 1.0,
+      "spread": 0.2,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": true
+    },
+    {
+      "id": "hardcoder-is-vs-eq-interning",
+      "category": "coder",
+      "scores": {
+        "qwen3": 0.8,
+        "gemma3": 0.8,
+        "mistral": 1.0
+      },
+      "best_candidates": [
+        "mistral"
+      ],
+      "strict_winner": "mistral",
+      "tied_at_top": false,
+      "best_score": 1.0,
+      "spread": 0.2,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": true
+    },
+    {
+      "id": "hardcoder-lru-design",
+      "category": "coder",
+      "scores": {
+        "qwen3": 1.0,
+        "gemma3": 1.0,
+        "mistral": 1.0
+      },
+      "best_candidates": [
+        "qwen3",
+        "gemma3",
+        "mistral"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
+      "best_score": 1.0,
+      "spread": 0.0,
+      "all_correct": true,
+      "divergent": false,
+      "at_ceiling": true
+    },
+    {
+      "id": "hardcoder-sort-stability-multikey",
+      "category": "coder",
+      "scores": {
+        "qwen3": 0.4,
+        "gemma3": 0.733,
+        "mistral": 0.4
+      },
+      "best_candidates": [
+        "gemma3"
+      ],
+      "strict_winner": "gemma3",
+      "tied_at_top": false,
+      "best_score": 0.733,
+      "spread": 0.333,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": false
+    },
+    {
+      "id": "hardreason-bayes-disease",
+      "category": "reasoning",
+      "scores": {
+        "qwen3": 0.8,
+        "gemma3": 1.0,
+        "mistral": 1.0
+      },
+      "best_candidates": [
+        "gemma3",
+        "mistral"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
+      "best_score": 1.0,
+      "spread": 0.2,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": true
+    },
+    {
+      "id": "hardreason-birthday",
+      "category": "reasoning",
+      "scores": {
+        "qwen3": 0.4,
+        "gemma3": 1.0,
+        "mistral": 0.933
+      },
+      "best_candidates": [
+        "gemma3"
+      ],
+      "strict_winner": "gemma3",
+      "tied_at_top": false,
+      "best_score": 1.0,
+      "spread": 0.6,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": true
+    },
+    {
+      "id": "hardreason-expected-rolls",
+      "category": "reasoning",
+      "scores": {
+        "qwen3": 0.8,
+        "gemma3": 1.0,
+        "mistral": 1.0
+      },
+      "best_candidates": [
+        "gemma3",
+        "mistral"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
+      "best_score": 1.0,
+      "spread": 0.2,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": true
+    },
+    {
+      "id": "hardreason-two-coins",
+      "category": "reasoning",
+      "scores": {
+        "qwen3": 1.0,
+        "gemma3": 1.0,
+        "mistral": 1.0
+      },
+      "best_candidates": [
+        "qwen3",
+        "gemma3",
+        "mistral"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
+      "best_score": 1.0,
+      "spread": 0.0,
+      "all_correct": true,
+      "divergent": false,
+      "at_ceiling": true
+    },
+    {
+      "id": "hardreason-pipes-drain",
+      "category": "reasoning",
+      "scores": {
+        "qwen3": 1.0,
+        "gemma3": 1.0,
+        "mistral": 1.0
+      },
+      "best_candidates": [
+        "qwen3",
+        "gemma3",
+        "mistral"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
+      "best_score": 1.0,
+      "spread": 0.0,
+      "all_correct": true,
+      "divergent": false,
+      "at_ceiling": true
+    },
+    {
+      "id": "hardreason-last-digit",
+      "category": "reasoning",
+      "scores": {
+        "qwen3": 1.0,
+        "gemma3": 1.0,
+        "mistral": 1.0
+      },
+      "best_candidates": [
+        "qwen3",
+        "gemma3",
+        "mistral"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
+      "best_score": 1.0,
+      "spread": 0.0,
+      "all_correct": true,
+      "divergent": false,
+      "at_ceiling": true
+    },
+    {
+      "id": "hardreason-seating-constraint",
+      "category": "reasoning",
+      "scores": {
+        "qwen3": 1.0,
+        "gemma3": 1.0,
+        "mistral": 1.0
+      },
+      "best_candidates": [
+        "qwen3",
+        "gemma3",
+        "mistral"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
+      "best_score": 1.0,
+      "spread": 0.0,
+      "all_correct": true,
+      "divergent": false,
+      "at_ceiling": true
+    },
+    {
+      "id": "hardreason-three-boxes",
+      "category": "reasoning",
+      "scores": {
+        "qwen3": 0.8,
+        "gemma3": 1.0,
+        "mistral": 0.6
+      },
+      "best_candidates": [
+        "gemma3"
+      ],
+      "strict_winner": "gemma3",
+      "tied_at_top": false,
+      "best_score": 1.0,
+      "spread": 0.4,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": true
+    },
+    {
+      "id": "hardreason-st-petersburg",
+      "category": "reasoning",
+      "scores": {
+        "qwen3": 0.667,
+        "gemma3": 1.0,
+        "mistral": 0.8
+      },
+      "best_candidates": [
+        "gemma3"
+      ],
+      "strict_winner": "gemma3",
+      "tied_at_top": false,
+      "best_score": 1.0,
+      "spread": 0.333,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": true
+    },
+    {
+      "id": "hardreason-clock-overlaps",
+      "category": "reasoning",
+      "scores": {
+        "qwen3": 0.333,
+        "gemma3": 1.0,
+        "mistral": 0.8
+      },
+      "best_candidates": [
+        "gemma3"
+      ],
+      "strict_winner": "gemma3",
+      "tied_at_top": false,
+      "best_score": 1.0,
+      "spread": 0.667,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": true
+    },
+    {
+      "id": "hardgen-cap-theorem",
+      "category": "general",
+      "scores": {
+        "qwen3": 0.8,
+        "gemma3": 0.8,
+        "mistral": 1.0
+      },
+      "best_candidates": [
+        "mistral"
+      ],
+      "strict_winner": "mistral",
+      "tied_at_top": false,
+      "best_score": 1.0,
+      "spread": 0.2,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": true
+    },
+    {
+      "id": "hardgen-idempotency",
+      "category": "general",
+      "scores": {
+        "qwen3": 0.4,
+        "gemma3": 1.0,
+        "mistral": 0.8
+      },
+      "best_candidates": [
+        "gemma3"
+      ],
+      "strict_winner": "gemma3",
+      "tied_at_top": false,
+      "best_score": 1.0,
+      "spread": 0.6,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": true
+    },
+    {
+      "id": "hardgen-eventual-consistency",
+      "category": "general",
+      "scores": {
+        "qwen3": 0.4,
+        "gemma3": 0.8,
+        "mistral": 0.8
+      },
+      "best_candidates": [
+        "gemma3",
+        "mistral"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
+      "best_score": 0.8,
+      "spread": 0.4,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": false
+    },
+    {
+      "id": "hardgen-oauth-vs-authn",
+      "category": "general",
+      "scores": {
+        "qwen3": 0.8,
+        "gemma3": 0.8,
+        "mistral": 0.8
+      },
+      "best_candidates": [
+        "qwen3",
+        "gemma3",
+        "mistral"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
+      "best_score": 0.8,
+      "spread": 0.0,
+      "all_correct": false,
+      "divergent": false,
+      "at_ceiling": false
+    },
+    {
+      "id": "hardgen-index-tradeoff",
+      "category": "general",
+      "scores": {
+        "qwen3": 0.8,
+        "gemma3": 0.8,
+        "mistral": 1.0
+      },
+      "best_candidates": [
+        "mistral"
+      ],
+      "strict_winner": "mistral",
+      "tied_at_top": false,
+      "best_score": 1.0,
+      "spread": 0.2,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": true
+    },
+    {
+      "id": "hardgen-p-value",
+      "category": "general",
+      "scores": {
+        "qwen3": 0.8,
+        "gemma3": 1.0,
+        "mistral": 0.8
+      },
+      "best_candidates": [
+        "gemma3"
+      ],
+      "strict_winner": "gemma3",
+      "tied_at_top": false,
+      "best_score": 1.0,
+      "spread": 0.2,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": true
+    },
+    {
+      "id": "hardgen-unicode-utf8",
+      "category": "general",
+      "scores": {
+        "qwen3": 1.0,
+        "gemma3": 0.8,
+        "mistral": 1.0
+      },
+      "best_candidates": [
+        "qwen3",
+        "mistral"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
+      "best_score": 1.0,
+      "spread": 0.2,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": true
+    },
+    {
+      "id": "hardgen-microservices",
+      "category": "general",
+      "scores": {
+        "qwen3": 1.0,
+        "gemma3": 1.0,
+        "mistral": 0.8
+      },
+      "best_candidates": [
+        "qwen3",
+        "gemma3"
+      ],
+      "strict_winner": null,
+      "tied_at_top": true,
+      "best_score": 1.0,
+      "spread": 0.2,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": true
+    },
+    {
+      "id": "hardgen-cache-invalidation",
+      "category": "general",
+      "scores": {
+        "qwen3": 0.4,
+        "gemma3": 0.8,
+        "mistral": 0.867
+      },
+      "best_candidates": [
+        "mistral"
+      ],
+      "strict_winner": "mistral",
+      "tied_at_top": false,
+      "best_score": 0.867,
+      "spread": 0.467,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": false
+    },
+    {
+      "id": "hardgen-concurrency-vs-parallelism",
+      "category": "general",
+      "scores": {
+        "qwen3": 0.8,
+        "gemma3": 0.8,
+        "mistral": 1.0
+      },
+      "best_candidates": [
+        "mistral"
+      ],
+      "strict_winner": "mistral",
+      "tied_at_top": false,
+      "best_score": 1.0,
+      "spread": 0.2,
+      "all_correct": false,
+      "divergent": true,
+      "at_ceiling": true
+    }
+  ],
+  "grader": {
+    "model": "gpt-5.2-2025-12-11",
+    "url": "https://api.openai.com",
+    "samples": 3
+  },
+  "fleet": "modern: qwen3-32B / gemma3-27B / mistral-24B (3 lineages)"
+}
