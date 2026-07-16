@@ -1,8 +1,8 @@
 [
   {
-    "_comment": "SPECIALIST FLEET — three models GENUINELY DIFFERENT IN KIND, not three generalists from three labs. This is the fleet the whole project has never actually tested: prior fleets were peer generalists (Qwen3-32B/Gemma-3-27B/Mistral-24B), and every null (judge, ensemble, router) was measured on THAT homogeneity. This fleet swaps in real specialists so the Phase-1 gate can ask, with the QUERIES HELD FIXED (the frozen 30 hard queries), whether genuine specialization produces the divergence the peer fleet lacked. DEVICE PINNING: each model gets its own 80GB card via the new `device` field in boot.sh (0-based CUDA index) — these are ~52-64GB each and CANNOT co-reside. Ports avoid 8001 (RunPod proxy squats on it). Availability risk: a 3x80GB pod may be capacity-scarce; boot.sh checks nvidia-smi FIRST, so re-roll if CUDA<13 or cards are short.",
+    "_comment": "SPECIALIST FLEET — three models GENUINELY DIFFERENT IN KIND, not three generalists from three labs. Prior fleets were peer generalists (Qwen3-32B/Gemma-3-27B/Mistral-24B), and every null (judge, ensemble, router) was measured on THAT homogeneity. This fleet swaps in real specialists so the Phase-1 gate can ask, with the QUERIES HELD FIXED (the frozen 30 hard queries), whether genuine specialization produces the divergence the peer fleet lacked. HARDWARE: 3x H100-80GB, NOT A100 — the coder is FP8 block-wise quant, which needs compute capability >8.9 (Hopper/Ada); Ampere A100 (8.0) CANNOT run it. H100 also reliably ships CUDA-13/driver-580 for vLLM 0.24 (the handoff's driver lottery). DEVICE PINNING: each model gets its own card via the `device` field in boot.sh (0-based CUDA index) — ~35-64GB each, CANNOT co-reside. Ports avoid 8001 (RunPod proxy squats on it). Availability risk: a 3x H100 pod may be capacity-scarce; boot.sh checks nvidia-smi FIRST, re-roll if CUDA<13 or cards short. This is the coder axis: Qwen3-Coder-Next FP8 (80B total / 3B active MoE, ~52GB, non-thinking so NO <think> confound here).",
     "name": "coder",
-    "repo": "Qwen/Qwen3-Coder-Next",
+    "repo": "Qwen/Qwen3-Coder-Next-FP8",
     "device": 0,
     "port": 8011,
     "mem_util": 0.9,
@@ -27,16 +27,17 @@
     "gated": false
   },
   {
-    "_comment": "GENERAL specialist — a broad-knowledge instruct model, genuinely NOT code- or math-specialized, as the contrast axis. Pinned to google/gemma-3-27b-it because it is KNOWN-GOOD in this project (modern2 served it) so it carries zero boot risk, is genuinely general, and gated Gemma works via the HF_TOKEN boot.sh reads from /workspace/.hf_token. UPGRADE OPTION (confirm servability at boot, do not guess-boot): swap to GLM-5.2 (the current open all-round frontier) if it fits 1-2 cards — it would make the general axis top-tier rather than merely solid. Not pinned to it here only because its exact size/repo is unverified and a wrong repo wastes a boot.",
+    "_comment": "GENERAL specialist — a broad-knowledge instruct model, genuinely NOT code- or math-specialized, as the contrast axis. MATCHED-STRENGTH + LINEAGE-DIVERSE: a 70B Meta-Llama, not a mid-size model, so this axis is comparable in strength to the 80B-MoE coder and 32B reasoner — a weak general model would just get DOMINATED and read as 'no specialization' (a false negative). Crucially it is META lineage: the coder is Qwen and the reasoner is Qwen-based (R1-Distill-QWEN), so a Qwen general would make 3/3 Qwen and dent decorrelation (the handoff's standing warning). Llama-3.3-70B is a third architecture family. AWQ-INT4 ~35GB fits one 80GB card with KV headroom; runs on Ampere OR Hopper (AWQ, not FP8), so it is not the card constraint — the coder's FP8 is. extra_args pins `--quantization awq` explicitly. UPGRADE (full-program only, NOT the gate): GLM-5.2 is the open frontier generalist but is 744B/40B-active MoE needing 4-5x 80GB cards + tensor-parallel — an order of magnitude heavier, out of scope for a 3-card gate.",
     "name": "general",
-    "repo": "google/gemma-3-27b-it",
+    "repo": "ibnzterrell/Meta-Llama-3.3-70B-Instruct-AWQ-INT4",
     "device": 2,
     "port": 8013,
     "mem_util": 0.9,
     "max_len": 8192,
     "dtype": "",
+    "extra_args": "--quantization awq",
     "cost_in": 3e-07,
     "cost_out": 3e-07,
-    "gated": true
+    "gated": false
   }
 ]
