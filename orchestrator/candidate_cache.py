@@ -13,6 +13,7 @@ Then judge_eval.py reads eval_candidates.json with the box torn down.
 """
 from __future__ import annotations
 
+import functools
 import json
 import os
 import sys
@@ -127,7 +128,13 @@ if __name__ == "__main__":
                      "(or pass --demo for the offline self-check)")
         cfg = EnsembleConfig(gateway_url=gw if gw.startswith("http") else f"http://{gw}")
         name, qs, out = active_set_name(), active_query_set(), cache_path()
+        # Explicit max_tokens so a reasoning model's <think> block cannot eat the budget and
+        # truncate the graded answer (the modern2 qwen3 confound; DeepSeek-R1 CANNOT disable
+        # thinking, so budget is the only lever). Bound via partial so the fake calls in demo()
+        # keep their original 4-arg signature and are unaffected.
+        gen_max = int(os.environ.get("CONCLAVE_MAX_TOKENS", "8192"))
+        call = functools.partial(http_call, max_tokens=gen_max)
         print(f"populating '{name}' candidate cache ({len(qs)} queries) "
-              f"from {cfg.gateway_url} ...")
-        cache = populate(cfg, query_set=qs, path=out)
+              f"from {cfg.gateway_url} ... (max_tokens={gen_max})")
+        cache = populate(cfg, query_set=qs, path=out, call=call)
         print(f"done — {len(cache)}/{len(qs)} queries cached to {out}")

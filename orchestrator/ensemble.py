@@ -55,7 +55,7 @@ def _endpoint(base_url: str) -> str:
 
 def http_call(base_url: str, model: str, messages: list[dict], timeout: float,
               response_format: dict | None = None, api_key: str = "none",
-              temperature: float | None = None) -> str:
+              temperature: float | None = None, max_tokens: int | None = None) -> str:
     """One OpenAI-compatible chat completion. Returns the message content.
     `response_format={"type": "json_object"}` asks vLLM for guided-JSON output.
     `api_key` defaults to "none" for the keyless local gateway; pass a real key
@@ -69,6 +69,8 @@ def http_call(base_url: str, model: str, messages: list[dict], timeout: float,
         payload["response_format"] = response_format
     if temperature is not None:
         payload["temperature"] = temperature
+    if max_tokens is not None:
+        payload["max_tokens"] = max_tokens
     body = json.dumps(payload).encode()
     req = urllib.request.Request(
         _endpoint(base_url),
