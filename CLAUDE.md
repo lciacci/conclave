@@ -90,3 +90,9 @@ No app build yet. Infra work:
 - `aws ec2 describe-instances --filters "Name=tag:project,Values=conclave"` — what's running
 - `tailscale status` — mesh reachability
 - Phase scripts land in `scripts/` as they're built (start/stop instance, deploy vLLM config)
+- **RunPod fleet:** `runpod/boot.sh` with `FLEET_JSON=runpod/fleet_specialist.json` (the modern
+  specialist fleet: FP8 coder + R1 reasoner + Llama-70B general, one H100 each; `boot.sh` supports
+  per-card `device` pinning + per-model `extra_args`). The **RunPod MCP** (registered in
+  `~/.claude.json`, key from SSM `/conclave/runpod-api-key`) drives pod create/list/terminate — its
+  tools load only after a Claude Code restart. Same cost gate as AWS: surface before you boot,
+  wire the watchdog TTL before walking away, terminate (not stop) when done.
