@@ -1,0 +1,43 @@
+[
+  {
+    "_comment": "SPECIALIST FLEET — three models GENUINELY DIFFERENT IN KIND, not three generalists from three labs. Prior fleets were peer generalists (Qwen3-32B/Gemma-3-27B/Mistral-24B), and every null (judge, ensemble, router) was measured on THAT homogeneity. This fleet swaps in real specialists so the Phase-1 gate can ask, with the QUERIES HELD FIXED (the frozen 30 hard queries), whether genuine specialization produces the divergence the peer fleet lacked. HARDWARE: 3x H100-80GB, NOT A100 — the coder is FP8 block-wise quant, which needs compute capability >8.9 (Hopper/Ada); Ampere A100 (8.0) CANNOT run it. H100 also reliably ships CUDA-13/driver-580 for vLLM 0.24 (the handoff's driver lottery). DEVICE PINNING: each model gets its own card via the `device` field in boot.sh (0-based CUDA index) — ~35-64GB each, CANNOT co-reside. Ports avoid 8001 (RunPod proxy squats on it). Availability risk: a 3x H100 pod may be capacity-scarce; boot.sh checks nvidia-smi FIRST, re-roll if CUDA<13 or cards short. This is the coder axis: Qwen3-Coder-Next FP8 (80B total / 3B active MoE, ~52GB, non-thinking so NO <think> confound here).",
+    "name": "coder",
+    "repo": "Qwen/Qwen3-Coder-Next-FP8",
+    "device": 0,
+    "port": 8011,
+    "mem_util": 0.9,
+    "max_len": 16384,
+    "dtype": "",
+    "cost_in": 4e-07,
+    "cost_out": 4e-07,
+    "gated": false
+  },
+  {
+    "_comment": "REASONING specialist — dense 32B, RL-reasoning-tuned, long chain-of-thought. THE <think> LANDMINE: this model emits a <think>...</think> block BEFORE its answer and the handoff already lost a session to exactly this (qwen3 max_tokens=1024 let the think block eat the budget and truncated the graded answer). So: max_len 16384 (room to think AND answer), and the harness must grade the text AFTER </think>, not the raw stream. If BF16 weights (~64GB) + KV do not fit 80GB at mem_util 0.9, drop to a 4-bit AWQ quant of the same model — that is the only expected OOM here. FLAG NOTE: `--reasoning-parser deepseek_r1` alone is correct for vLLM 0.24 (the old `--enable-reasoning` was removed); it puts the CoT in message.reasoning/reasoning_content and leaves the clean answer in message.content, which is what the harness grades. If the boot lands on the CUDA-12 vllm-0.11 fallback and rejects the flag, boot.sh fails CLOSED (kills the pod), so a bad flag wastes a boot but never serves silently-wrong data.",
+    "name": "reasoning",
+    "repo": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
+    "device": 1,
+    "port": 8012,
+    "mem_util": 0.9,
+    "max_len": 16384,
+    "dtype": "",
+    "extra_args": "--reasoning-parser deepseek_r1",
+    "cost_in": 2e-07,
+    "cost_out": 2e-07,
+    "gated": false
+  },
+  {
+    "_comment": "GENERAL specialist — a broad-knowledge instruct model, genuinely NOT code- or math-specialized, as the contrast axis. MATCHED-STRENGTH + LINEAGE-DIVERSE: a 70B Meta-Llama, not a mid-size model, so this axis is comparable in strength to the 80B-MoE coder and 32B reasoner — a weak general model would just get DOMINATED and read as 'no specialization' (a false negative). Crucially it is META lineage: the coder is Qwen and the reasoner is Qwen-based (R1-Distill-QWEN), so a Qwen general would make 3/3 Qwen and dent decorrelation (the handoff's standing warning). Llama-3.3-70B is a third architecture family. AWQ-INT4 ~35GB fits one 80GB card with KV headroom; runs on Ampere OR Hopper (AWQ, not FP8), so it is not the card constraint — the coder's FP8 is. extra_args pins `--quantization awq` explicitly. UPGRADE (full-program only, NOT the gate): GLM-5.2 is the open frontier generalist but is 744B/40B-active MoE needing 4-5x 80GB cards + tensor-parallel — an order of magnitude heavier, out of scope for a 3-card gate.",
+    "name": "general",
+    "repo": "ibnzterrell/Meta-Llama-3.3-70B-Instruct-AWQ-INT4",
+    "device": 2,
+    "port": 8013,
+    "mem_util": 0.9,
+    "max_len": 8192,
+    "dtype": "",
+    "extra_args": "--quantization awq",
+    "cost_in": 3e-07,
+    "cost_out": 3e-07,
+    "gated": false
+  }
+]

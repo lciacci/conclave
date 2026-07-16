@@ -301,8 +301,24 @@ jq -c '.[]' "$FLEET" | while read -r m; do
   dtype_arg=""
   [ -n "$dtype" ] && [ "$dtype" != "null" ] && dtype_arg="--dtype $dtype"
 
-  echo "--- starting $name ($repo) on :$port at util $util"
-  nohup python3 -m vllm.entrypoints.openai.api_server \
+  # PER-MODEL GPU PINNING. `device` is a 0-based card index (jq: absent/null -> empty).
+  # When set, the model is pinned to exactly that card via CUDA_VISIBLE_DEVICES, so big
+  # specialists that cannot co-reside get one card EACH. When ABSENT the var is left unset
+  # and every model lands on device 0 sharing it by mem_util — the original co-residence
+  # behaviour, so old single-card fleet.json files boot byte-identically to before.
+  device=$(echo "$m" | jq -r '.device // empty')
+  dev_env=""
+  [ -n "$device" ] && dev_env="CUDA_VISIBLE_DEVICES=$device"
+
+  # EXTRA PER-MODEL vLLM FLAGS (absent/null -> none). Word-split unquoted like $dtype_arg.
+  # Used to give a reasoning model its parser (`--reasoning-parser deepseek_r1`), so vLLM
+  # returns the clean answer in message.content and the chain-of-thought in reasoning_content
+  # — the grader then scores the answer, not the <think> ramble, so the reasoning specialist
+  # is judged on the SAME kind of output as the others. Old fleets have no field -> unchanged.
+  extra_args=$(echo "$m" | jq -r '.extra_args // empty')
+
+  echo "--- starting $name ($repo) on :$port at util $util${device:+ (card $device)}"
+  nohup env $dev_env python3 -m vllm.entrypoints.openai.api_server \
     --model "$repo" \
     --served-model-name "$name" \
     --download-dir "$HF_HOME" \
@@ -310,6 +326,7 @@ jq -c '.[]' "$FLEET" | while read -r m; do
     --max-model-len "$maxlen" \
     --gpu-memory-utilization "$util" \
     $dtype_arg \
+    $extra_args \
     --enforce-eager \
     > "/workspace/vllm-$name.log" 2>&1 &
 
