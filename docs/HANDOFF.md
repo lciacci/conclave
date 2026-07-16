@@ -1,6 +1,69 @@
 # HANDOFF — resume here
 
-> # ✅ 2026-07-16 (latest) — PREDICTABILITY MEASURED. A query-only router does NOT pay on QUALITY.
+> # ⏸️ 2026-07-16 (LATEST — RESUME HERE) — SPECIALIST FLEET BUILT. Boot is the next action.
+>
+> ## ➡️ THE ONE NEXT ACTION (after a Claude Code RELOAD): "boot the specialist fleet — Phase 1 gate"
+> Everything is committed (PR #18, on `main`). The boot needs the **RunPod MCP tools**, which load
+> only after a **Claude Code restart** (they were registered mid-session and are not in the old
+> session's toolset). After reload, drive the lifecycle:
+> 1. **Create an H100×3 pod** via the RunPod MCP (PyTorch image — NOT vllm/vllm-openai; 80GB disk;
+>    TCP 22 only, no HTTP; network volume NONE). H100 is REQUIRED — the coder is FP8 block-wise
+>    (needs Hopper/Ada compute >8.9; A100/Ampere CANNOT run it), and H100 reliably ships
+>    CUDA-13/driver-580 for vllm 0.24.
+> 2. **Wire self-terminate FIRST** (watchdog TTL `MAX_LIFETIME_MIN`≈120 + `IDLE_MIN` gated on
+>    `.fleet-ready` + push `/conclave/runpod-api-key` to `/workspace/.runpod_key`), THEN
+>    `nvidia-smi` (re-roll if CUDA<13), THEN `FLEET_JSON=runpod/fleet_specialist.json bash boot.sh`.
+> 3. **Generate candidates POD-SIDE on the FROZEN 30** (`CONCLAVE_QUERYSET=hard`; scp `orchestrator/`
+>    + keys onto the pod, run there against 127.0.0.1 — NOT over an SSH tunnel; a dropped tunnel
+>    looks like an idle GPU and the watchdog reaps the pod mid-run). `CONCLAVE_MAX_TOKENS=8192` is
+>    the default; it exists so R1's `<think>` block can't truncate the graded answer.
+> 4. **Run the gate, offline ($0):** `divergence.py` + `fleet_pairwise.py` on the new candidates.
+> 5. **TERMINATE the pod** via the MCP the moment candidates are pulled back (grading is offline).
+>    A *stopped* RunPod pod loses its GPU — terminate outright, never stop-and-resume.
+>
+> ## WHY this fleet, and the gate question
+> The router null (below, 2026-07-16) and every prior null (judge, ensemble) were measured on a
+> **peer-generalist** fleet (Qwen3-32B/Gemma-3-27B/Mistral-24B — similar strength, overlapping
+> lineage). That homogeneity is a CONFOUND: three strong generalists barely disagree, so everything
+> reads as redundant. This fleet swaps in models **genuinely different in kind**, and the gate holds
+> the **queries FIXED (the frozen 30 hard queries)** and swaps only the fleet — isolating fleet
+> composition perfectly. **Gate question: does genuine specialization show the divergence/headroom
+> the peer fleet lacked?** `divergence.py` (headroom) + `fleet_pairwise.py` (per-query winners).
+> - **Headroom appears + winners concentrate by category** → specialization is real and PREDICTABLE
+>   → build the learned router (Phase 3: expand the frozen 30 to ~120 pre-registered queries incl.
+>   cross-traps, learn a query-only picker, evaluate held-out vs the best single-model constant).
+> - **Still converges** → a robust CROSS-FLEET null (modern open models have converged; genuine
+>   specialization is gone) — worth more than another null on the old fleet. Route to best single.
+>
+> ## THE FLEET (`runpod/fleet_specialist.json`) — all pins VERIFIED servable, one 80GB card each
+> | axis | repo | why | card notes |
+> |---|---|---|---|
+> | coder | `Qwen/Qwen3-Coder-Next-FP8` | 80B/3B MoE, **non-thinking** (no `<think>` here) | FP8 → **H100 only**, ~52GB |
+> | reasoning | `deepseek-ai/DeepSeek-R1-Distill-Qwen-32B` | dense CoT specialist | BF16 ~64GB; `--reasoning-parser deepseek_r1` |
+> | general | `ibnzterrell/Meta-Llama-3.3-70B-Instruct-AWQ-INT4` | **matched-strength** (weak general → false "no-spec"); **Meta lineage** decorrelates from the 2 Qwen models | AWQ ~35GB; `--quantization awq` |
+> GLM-5.2 was considered for general and REJECTED for the gate: 744B/40B-MoE, needs 4–5 cards +
+> tensor-parallel — a full-program-only option, not a 3-card gate.
+>
+> ## WHAT SHIPPED IN #18 (already reviewed twice, clean, merged)
+> - `runpod/boot.sh` — **per-model GPU pinning** via a `device` field (`CUDA_VISIBLE_DEVICES`) so
+>   big specialists get one card each; **per-model `extra_args`** (for the reasoning parser).
+>   BOTH fields absent → original single-card co-residence, so old fleets boot unchanged.
+> - `orchestrator/ensemble.py` + `candidate_cache.py` — explicit `max_tokens` in candidate
+>   generation (bound via `functools.partial`; env `CONCLAVE_MAX_TOKENS`, default 8192). R1 CANNOT
+>   disable thinking, so a token budget is the only guard against a `<think>` truncation.
+>
+> ## INFRA / SAFETY
+> - **RunPod MCP** registered (local scope, uncommitted `~/.claude.json`; key from SSM
+>   `/conclave/runpod-api-key`). It drives pod create/list/terminate — so the whole lifecycle is
+>   mine, permissioned. **Needs a Claude Code restart to load its tools.**
+> - **Cost ~$30–40** one-time (H100×3, ~2–3 hr: download + generate on 30). Replays free after.
+> - **Safety = watchdog TTL + prepaid RunPod balance** (topped up this session), NOT the operator —
+>   an agent isn't a daemon. Wire the TTL BEFORE walking away. AWS ($180 credits) is the WRONG tool
+>   here: capacity was always the blocker, and 80GB cards on AWS = p4d/p5 (scarcer, pricier, quota).
+> - Keys in SSM: `/conclave/{runpod-api-key, hf-token, grader-api-key, tailscale-authkey}`. Grader
+>   for the gate = **gpt-5.2** (OpenAI, neutral to Qwen/DeepSeek/Meta lineages).
+
+> # ✅ 2026-07-16 — PREDICTABILITY MEASURED. A query-only router does NOT pay on QUALITY.
 >
 > **The gate the last handoff named is CLOSED.** `orchestrator/router_predictability.py` (pure
 > stdlib, $0, offline — reads the committed `eval_pairwise_modern2_hard.json`). Replay:
