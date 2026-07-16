@@ -1,6 +1,50 @@
 # HANDOFF — resume here
 
-> # ✅ 2026-07-15 (latest) — PAIRWISE RESOLVED THE SATURATION. The ROUTER has a real signal.
+> # ✅ 2026-07-16 (latest) — PREDICTABILITY MEASURED. A query-only router does NOT pay on QUALITY.
+>
+> **The gate the last handoff named is CLOSED.** `orchestrator/router_predictability.py` (pure
+> stdlib, $0, offline — reads the committed `eval_pairwise_modern2_hard.json`). Replay:
+> `python3 orchestrator/router_predictability.py` (`--demo` self-checks the LOO math).
+>
+> **The question:** can a cheap query-only picker predict the pairwise per-query winner better
+> than a constant "always call model X"? Feature = query CATEGORY (code/reason/general — the one
+> signal the hard set is organized by). Honest scoring: **leave-one-out** (mode from the other 29),
+> and the baseline is the BEST constant, not the weakest.
+> ```
+>                          Metric-1 (decided, n=22)   Metric-2 (ties-free, n=30)
+> always qwen3  (top MEAN pts)     27.3%                      46.7%   <- last handoff's baseline
+> always mistral (most WINS)       45.5%                      60.0%   <- the REAL bar
+> category router (LEAVE-ONE-OUT)  45.5%                      60.0%   <- ties it. +0.0%
+> oracle (perfect per-query pick)  100%                       100%
+> ```
+> **The +18pt "win" over always-qwen3 is a WEAK-BASELINE ILLUSION.** qwen3 tops the round-robin
+> *mean* but rarely wins a query outright (6/22); mistral wins on *count* (10/22). Against the
+> honest baseline — **always call mistral** — the query-only router captures **exactly nothing**.
+> Within-category the winners are near-random (`hardreason` = **0% LOO**, and 6/10 ties anyway):
+> the category feature just re-discovers "mistral is strong on technical queries."
+>
+> **VERDICT: the pairwise oracle ceiling is NOT capturable from the query alone beyond a constant
+> pick. A router does not pay on QUALITY.** This is consistent with the prior caveat — the variation
+> is among already-5/5 answers, so it looks like grader noise, not routing signal. The router's
+> **only** surviving case is the one the last handoff flagged: **cost/latency (1 call, not 3).**
+>
+> ### ⚠️ SCOPE OF THE CLAIM (don't over-read the null)
+> This bounds the CATEGORY router, not *all* query-only routers — a richer feature (embeddings,
+> keywords, length) is untested. But within-category randomness is weak evidence any finer feature
+> helps. And **n=22 decided queries is THIN** (~binomial ±10pts): 27% vs 45% is real, 45% vs 45%
+> is a genuine tie. Do not build a classifier on this without more queries.
+>
+> ### ➡️ NEXT — the fork the quality-null forces
+> 1. **Ship the router as a COST play, not a quality play.** Route by category to save 3×→1× calls
+>    at ~zero quality loss (the null IS the license: mistral-default costs nothing vs the oracle).
+>    Honest framing: it's a cost optimization with a measured quality floor, not a quality win.
+> 2. **OR push quality:** bigger/harder query set to thicken n and unsaturate further, and/or a
+>    richer query-only feature — only if the cost play isn't the goal. The instrument is built; this
+>    is just more labels through the same $0 pipe.
+> 3. **Judge stays PARKED** (unchanged) — a null on query-only *routing* says nothing revives
+>    fan-out+judge, which pays 3× to pick *after* generating.
+
+> # ✅ 2026-07-15 — PAIRWISE RESOLVED THE SATURATION. The ROUTER has a real signal.
 >
 > **All merged to `main`** (PRs #11 modern fleet, #12 pairwise). Everything replays from
 > `eval_fixtures/` for **$0**.
