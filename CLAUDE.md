@@ -27,9 +27,11 @@ model landscape re-diverges).
 
 **The thesis is DONE; the project PIVOTED to practical use (2026-07-17)** — stand up the owned coder
 for real project + agentic work, **LOCAL-FIRST**. Phase-0: a $0 4-bit Qwen3-Coder-30B on the laptop
-(Ollama, 64GB Mac) is statistically indistinguishable from the rented FP8 80B on coding-QA (0.900 vs
-0.949, margin CI crosses 0; ties on code), so **daily-drive the local coder; the hosted 80B/H200 is
-a deferred escalation tier**. Next practical step: wire the local coder into a harness (Claude Code
+(Ollama, 64GB Mac) scored 0.900 vs the rented FP8 80B's 0.949 on coding-QA — UNDERPOWERED (n=30, CI
+crosses 0), and among the queries the grader could separate the 80B actually won 10–2, so local is
+the daily driver on **COST** (free, on-laptop), NOT on measured quality parity; the hosted 80B/H200
+is the escalation tier. Agentic competence is untested — a hypothesis daily use validates, not a
+finding. Next practical step: wire the local coder into a harness (Claude Code
 via a LiteLLM proxy). **Positioning:** Conclave is the **substrate** (serving + the `divergence.py`
 instrument) in a three-project system with **Tessera** (governance + routing *policy*) and
 **pr-arbiter** (the multi-role *union-recall* review pattern). Conclave's null is SELECT-BEST only —

@@ -13,8 +13,10 @@ tells you which, for any fleet, before you build anything.
 
 With the thesis settled, the project has **pivoted to practical use: run real project and
 agentic work on the owned model, local-first.** A $0 4-bit Qwen3-Coder-30B on a 64 GB laptop
-(Ollama) measured statistically indistinguishable from a rented FP8 80B on coding tasks — so the
-**local model is the daily driver**, with the hosted GPU as a deferred escalation tier. In the
+(Ollama) scored close to a rented FP8 80B on coding *knowledge* questions (0.900 vs 0.949) — an
+underpowered result (n=30) where, on the queries that resolved, the 80B still led — so the **local
+model is the daily driver on cost** (free, on-laptop), with the hosted GPU escalated for the harder
+fraction. Its competence on real agentic coding is still to be proven in daily use. In the
 wider picture Conclave is the **substrate** (serving + the measurement instrument) alongside two
 sibling projects — **Tessera** (governance + routing policy) and **pr-arbiter** (a union-recall
 review pattern); the cohesion between them is mapped in `docs/INTEGRATION.md`.

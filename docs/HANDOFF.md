@@ -1,6 +1,6 @@
 # HANDOFF — resume here
 
-> # ✅ 2026-07-17 (LATEST — RESUME HERE) — PIVOT TO PRACTICAL: local $0 30B ≈ rented 80B. Daily-drive LOCAL.
+> # ✅ 2026-07-17 (LATEST — RESUME HERE) — PIVOT TO PRACTICAL: daily-drive local 30B as a FREE floor (COST, not measured parity — interpretation corrected after adversarial review).
 >
 > ## The thesis is done (route, don't judge — 3 fleets). The build turned practical: stand up the
 > ## owned coder for real project + agentic work. Local-first stance (design.md § "External
@@ -11,13 +11,18 @@
 > coder80  0.949   |  coder(code) 0.920 = 0.920 TIE  |  reasoning 0.987>0.940  |  general 0.940>0.840
 > coder30  0.900   |  margin CI [-0.005,+0.103] INCLUDES 0 -> NOT distinguishable  |  18/30 ties; wins 80B 10 / 30B 2
 > ```
-> Local $0 coder is within noise of the rented 80B and TIES on code. **Spend this session ~$1 (grading
-> only, no GPU).** Rig replays $0: `orchestrator/bench_local30_{gen,grade}.py`. Result committed
-> (`eval_bench_local30v80_hard.json`).
+> **Corrected read (adversarial pass):** UNDERPOWERED (n=30, min detectable effect ≈0.077; CI admits
+> a ~10pt 80B lead) — "CI crosses 0" = failed to distinguish, NOT equal. Point estimate favors the
+> 80B; among the **12 DECIDED queries the 80B won 10–2 (sign-test p≈0.04)**; the 18 "ties" are grader
+> ceiling (25/30 saturated) and "code parity" is 1–1 over 8 saturated queries (no signal). **Spend
+> this session ~$1 (grading only, no GPU).** Rig replays $0: `orchestrator/bench_local30_{gen,grade}.py`.
 >
-> ### DECISION: daily-drive the LOCAL 30B. Hosted 80B/H200 = escalation tier (deferred), for the
-> ### reasoning/general fraction where it measurably leads. Honest bound: n=30 + QA≠agentic; the real
-> ### test is daily use (which also measures the escalation signal instead of guessing it).
+> ### DECISION (on COST, not parity): daily-drive the LOCAL 30B as a FREE, on-laptop floor; the 80B is
+> ### NOT shown equal (it leads or ties every category, losing none). Hosted 80B/H200 = escalation tier
+> ### for the reasoning/general/hard fraction where it measurably leads. **Biggest bound: the
+> ### daily-driver workload (multi-turn, tool-use, in-repo edit) is UNTESTED — hard-30 is single-turn
+> ### QA, the regime a 3B-active MoE at 4-bit is least stressed by. Phase-0 is a HYPOTHESIS daily use
+> ### validates (watch tool-call accuracy + where it derails), NOT a finding.**
 >
 > ### ➡️ NEXT (in flight): ① DONE-ish: commit Phase-0 bench (this). ② wire local 30B into a harness —
 > ### Claude Code via a LiteLLM Anthropic↔OpenAI proxy (leaning), Aider as fallback; want CC to

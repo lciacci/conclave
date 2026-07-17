@@ -364,7 +364,8 @@ because local covers the gap while the H200 is cold or off. **Phase 0 is therefo
 (generate the 30B candidates on the Mac for $0; boot the H100 only if a quant-clean confirmation is
 needed), not GPU-first.**
 
-**Phase-0 RESULT (2026-07-17) — local $0 30B ≈ rented 80B; daily-drive local.** The dial-down coder
+**Phase-0 RESULT (2026-07-17; interpretation CORRECTED after adversarial review) — local 30B is a
+viable FREE daily-driver on COST; it is NOT shown equal to the 80B.** The dial-down coder
 was benchmarked local-first, no GPU booted: Qwen3-Coder-30B-A3B at 4-bit via Ollama on the 64 GB Mac
 vs the H200-served FP8 80B, on the frozen hard-30, same gpt-5.2 grader (samples=3) that decided the
 specialist gate. Reusable rig: `orchestrator/bench_local30_gen.py` (Ollama generation, $0) +
@@ -375,12 +376,20 @@ coder30 (4-bit, LOCAL, $0)    0.900      reasoning: 0.987 vs 0.940 (80B ahead)
 margin CI [-0.005, +0.103] INCLUDES 0    general:   0.940 vs 0.840 (80B ahead)
  -> NOT statistically distinguishable    18/30 exact ties; strict wins 80B 10 / 30B 2
 ```
-On a knowledge-QA set already biased toward the bigger model, the $0-on-laptop 30B is within noise
-of the rented 80B and **ties outright on code** — the category that matters for daily driving.
-**Decision: daily-drive the local 30B; the hosted 80B/H200 becomes the escalation tier (Phase 1/2,
-deferred), spun up only for the reasoning/general fraction where it measurably leads.** Honest
-bounds: directional not resolved (n=30, CI crosses 0), and hard-30 is QA, not agentic coding — the
-real validation is daily use (which is also how the escalation signal gets measured, not guessed).
+**Corrected read (adversarial pass).** The study is UNDERPOWERED (n=30, minimum detectable effect
+≈0.077; the CI admits up to a ~10-point 80B lead), so "CI crosses 0" means *failed to distinguish*,
+NOT equal. The point estimate favors the 80B (+0.049), and among the 12 queries the grader could
+actually separate, the **80B won 10–2 (sign-test p≈0.04)** — the 18 "ties" are largely grader
+ceiling (25/30 saturated) and the "coder tie" is 1–1 over 8 saturated queries (no signal). The 80B
+leads or ties every category, losing none.
+**Decision (unchanged, but on the honest grounds): daily-drive the local 30B as a FREE, on-laptop
+floor — chosen on cost/latency, NOT on measured quality parity.** The hosted 80B/H200 is the
+escalation tier for the reasoning/general/hard fraction where it measurably leads.
+**Biggest bound: the daily-driver workload — multi-turn, tool-use, in-repo editing — is UNTESTED
+here.** hard-30 is single-turn knowledge-QA, the regime a 3B-active MoE at 4-bit is least stressed
+by, so Phase-0 is a HYPOTHESIS daily use validates (watch tool-call accuracy + where it derails),
+not a finding. The instrument itself was honest (`verdict_resolved: false`, correct t-not-z); the
+over-claim was in the write-up, now corrected.
 
 ## Cost controls
 
