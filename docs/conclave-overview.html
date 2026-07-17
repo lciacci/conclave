@@ -321,13 +321,13 @@
   <div class="wrap">
     <p class="eyebrow brass">Self-hosted multi-model inference lab · Tailscale-only · RunPod / AWS</p>
     <h1>Three models deliberate.<br />Then the data says: <em>route</em>, don't judge.</h1>
-    <p class="lede">Conclave set out to fan one question across a fleet of open-weight models and let a meta-reasoner pick the best answer. It rigorously measured that idea — and disproved it. Even on an ideal modern fleet, a judge loses to just calling the strongest model. The finding that survived: pick the right model per request, and the real deliverable is the instrument that tells you which.</p>
+    <p class="lede">Conclave set out to fan one question across a fleet of open-weight models and let a meta-reasoner pick the best answer. It rigorously measured that idea — and disproved it. Even on an ideal modern fleet, a judge loses to just calling the strongest model. The finding that survived: pick the right model per request, and the real deliverable is the instrument that tells you which. With that settled, the lab turned practical — running real agentic work on the owned model, local-first.</p>
     <div class="hero-meta">
-      <span class="chip"><b>3</b> co-resident specialists</span>
-      <span class="chip"><b>1×</b> L40S · 48&nbsp;GB</span>
+      <span class="chip"><b>3</b> fleets measured</span>
+      <span class="chip">L40S → H200 → laptop</span>
       <span class="chip">vLLM → LiteLLM gateway</span>
-      <span class="chip">judge = <b>meta-reasoner</b></span>
-      <span class="chip">$100/mo cap</span>
+      <span class="chip">route, don't <b>judge</b></span>
+      <span class="chip">$0 local daily driver</span>
     </div>
   </div>
 </header>
@@ -557,13 +557,21 @@
         <div><div class="pv">v2</div><span class="status done">verified</span></div>
         <div><h3>Gateway + a 3-model fleet</h3><p class="pd">LiteLLM in front of three co-resident specialists on one GPU, each serving clean through the gateway, with per-model cost accounting and a GPU-utilization idle-stop metric. The 32B coder didn't fit three-way — dropped to 14B; it returns on its own GPU later.</p></div>
       </div>
-      <div class="phase active">
+      <div class="phase">
         <div><div class="pv">v3</div><span class="status done">built · measured</span></div>
-        <div><h3>Ensemble + judge — answered</h3><p class="pd">Client-side orchestrator built and verified. Contention baseline captured (+30% → multi-GPU dismissed); the fleet boots clean on additive memory slices. Then the question nobody had asked: <b>does this fleet give a judge anything to arbitrate?</b> First answer: <b>headroom +0.028</b> — but on a <b>saturated</b> instrument (31/36 at the grader's max), so <b>undecidable, not negative</b>. Thirty <b>pre-registered harder queries</b> settled it: the ceiling collapsed <b>86% → 20%</b>, disagreement rose to <b>80%</b>, and <b>headroom did not move (+0.027)</b>. The fleet is <b>hierarchical, not complementary</b> — the coder wins <i>all three</i> categories, beating the reasoner at reasoning and the general model at general. <b>Parameter count beats specialization.</b><br><br><b>Then the pattern paid — from sampling, not from a fleet.</b> Sampling the <i>best</i> model <b>8×</b> reaches <b>ORACLE@8 = 0.813</b>, above the entire fleet's oracle of 0.722, and the judge <b>gains +0.058</b> where the fleet's judge <i>lost</i> 0.050. <b>Next:</b> synthesis with an in-fleet (weaker) judge — the one mechanism that isn't bounded by that ceiling.</p></div>
+        <div><h3>Ensemble + judge — answered</h3><p class="pd">Client-side orchestrator built and verified. Contention baseline captured (+30% → multi-GPU dismissed); the fleet boots clean on additive memory slices. Then the question nobody had asked: <b>does this fleet give a judge anything to arbitrate?</b> First answer: <b>headroom +0.028</b> — but on a <b>saturated</b> instrument (31/36 at the grader's max), so <b>undecidable, not negative</b>. Thirty <b>pre-registered harder queries</b> settled it: the ceiling collapsed <b>86% → 20%</b>, disagreement rose to <b>80%</b>, and <b>headroom did not move (+0.027)</b>. The fleet is <b>hierarchical, not complementary</b> — the coder wins <i>all three</i> categories, beating the reasoner at reasoning and the general model at general. <b>Parameter count beats specialization.</b><br><br>A follow-on claim that repeated <i>sampling</i> of the best model made a judge pay (+0.058) was <b>retracted on code review</b> — the judge was the grader and the baselines were mismatched, so the gain is unmeasured. <b>Route, don't judge</b> is what survived.</p></div>
       </div>
       <div class="phase">
-        <div><div class="pv">v4</div><span class="status next">maybe</span></div>
-        <div><h3>MCP front-end</h3><p class="pd">An MCP server as the structured interface to the platform. The OpenAI-compatible gateway already makes any such client a first-class caller.</p></div>
+        <div><div class="pv">v3.5</div><span class="status done">measured</span></div>
+        <div><h3>A genuine-specialist fleet — same answer, harder</h3><p class="pd">Maybe the peer fleet converged because its models were too alike. So: a real-specialist fleet on RunPod — an <b>80B coder, a 32B reasoner, a 70B general</b>, three lineages, one H200 each. It concentrated <i>harder</i> — the 80B coder won every category and <b>100% of pairwise tie-breaks</b>. <b>Route, don't judge — now confirmed on three fleets.</b> Genuine matched-strength specialists may simply not exist in current open weights, which is itself the result.</p></div>
+      </div>
+      <div class="phase active">
+        <div><div class="pv">v4</div><span class="status wip">in progress</span></div>
+        <div><h3>Practical pivot — real work on the owned model, local-first</h3><p class="pd">The thesis is settled; the point now is <i>use</i>. A <b>$0 4-bit Qwen3-Coder-30B on a 64 GB laptop</b> scored 0.900 vs a rented FP8 80B's 0.949 on coding-QA — <b>underpowered (n=30, CI crosses 0)</b>, and where the grader could separate them the 80B won <b>10–2</b>. So local is the daily driver <b>on cost</b>, not measured parity. Then the test the QA benchmark couldn't run: <b>wired into a live coding agent and driven through real agentic tasks.</b> It works — valid tool-calls, real edits — but it's <b>slow</b> (prefill-bound on the harness's huge prompts) and <b>low-fidelity</b> (it confabulated completing half a multi-step task). <b>Verdict: a supervised fallback tier, not an unsupervised peer</b> — escalate to the 80B/frontier for trust and speed. The failure modes <i>are</i> the escalation signal.</p></div>
+      </div>
+      <div class="phase">
+        <div><div class="pv">next</div><span class="status next">open</span></div>
+        <div><h3>Escalation router · three-project cohesion · MCP</h3><p class="pd">A lab↔frontier <b>cascade</b> (local default, escalate on the tasks it measurably fails) — the one routing shape that survives. Conclave as the inference <b>substrate</b> under Tessera (routing/governance policy) and pr-arbiter (a union-recall review pattern). An MCP front-end, since the OpenAI-compatible gateway already makes any such client first-class.</p></div>
       </div>
     </div>
   </div>
@@ -572,6 +580,7 @@
 <footer>
   <div class="wrap">
     <p class="note"><b style="color:var(--ink-muted);">Conclave</b> — a learning lab for cloud GPU infrastructure, inference serving, and the "meta-reasoners over specialized outputs" pattern family. Open-weight models, self-hosted, Tailscale-only, ~$100/mo cap. The honest counter-argument stays on the record: OpenRouter is cheaper unless utilization is high — the justification is learning the infra and owning the stack, not saving money.</p>
+    <p class="note" style="margin-top:14px;">Positioning — Conclave is the inference <b>substrate</b> in a three-project system with <b>Tessera</b> (routing / governance policy) and <b>pr-arbiter</b> (a union-recall review pattern). Conclave's "judge doesn't pay" null is <i>select-best</i> only; it does not bind pr-arbiter's union-recall review, where fan-out does pay. The map lives in <code>docs/INTEGRATION.md</code>.</p>
     <p class="note" style="margin-top:14px;">Source: <a href="https://github.com/lciacci/conclave">github.com/lciacci/conclave</a></p>
   </div>
 </footer>
