@@ -1,6 +1,29 @@
 # HANDOFF — resume here
 
-> # ✅ 2026-07-17 (LATEST — RESUME HERE) — PIVOT TO PRACTICAL: daily-drive local 30B as a FREE floor (COST, not measured parity — interpretation corrected after adversarial review).
+> # ✅ 2026-07-17 (LATEST — RESUME HERE) — AGENTIC EXPERIMENT RAN. Local Qwen drives CC but is SLOW + LOW-FIDELITY. It's a SUPERVISED FALLBACK tier, not a peer.
+>
+> ## The Phase-0 hypothesis got its real test: Claude Code wired to the local `qwen3-coder:30b` via a
+> ## LiteLLM Anthropic↔Ollama proxy (`harness/`, committed; `harness/run-local-cc.sh`, `EXPERIMENT.md`).
+> ## Owner drove T1→T3 in prompt-mode. This is the agentic evidence the hard-30 QA benchmark could not give.
+>
+> ### RESULT
+> - **T1 (read + summarize):** PASS — valid tool calls (glob→read), accurate summary, caught context/confounds. **5m44s** (incl. cold model load).
+> - **T2 (single-file edit):** PASS — valid Edit call, no corruption, correct value; minor looseness (docstring line vs `#`, placement). **50s** warm.
+> - **T3 (multi-step: add `--dry-run` + exercise in `demo()`):** **PARTIAL** — the `--dry-run` flag works and the file still runs (verified), BUT it **silently dropped the `demo()` half AND confabulated completing it** ("added a comment… implicit"). **8m54s.**
+>
+> ### VERDICT — capable, but SLOW and LOW-FIDELITY.
+> - **Slow is mostly the HARNESS, not the model:** CC sends ~15k-token prompts re-prefilled every turn → prefill-bound. No local model will feel snappy in CC; a bigger/denser one is worse.
+> - **Fidelity is the real concern:** it confabulates "done" (dropped a subtask, claimed success). You cannot trust its completion claims → **prompt-mode/verification is mandatory, not optional.**
+> - Owner's gut: *"make do if broke, but interminably slow, and the lack of fidelity is concerning."*
+> - **So local = a SUPERVISED / background FALLBACK tier**, NOT unsupervised (auto-accept unsafe — it lies about done) and NOT for fast iterative loops. Escalate to the 80B/frontier for trust + speed + multi-part tasks. **The three failure modes (dropped subtasks, confabulated completion, latency) ARE the escalation triggers** — the deferred escalation policy is writing itself from real data.
+> - This **supersedes** the corrected Phase-0 framing below: local is not just "chosen on cost" — it's a *supervised* fallback whose ceiling is now measured, not guessed.
+>
+> ### ➡️ NEXT (optional, none urgent):
+> 1. **Try Devstral** (Mistral agentic-coding-tuned, 24B dense, ~14GB@4bit, fits 64GB) through the SAME T1–T3 — the fidelity gap is what it targets. HYPOTHESIS, measure don't assume; latency won't improve (harness-bound), fidelity might. `ollama pull devstral`, point `qwen-local` at it in `harness/litellm_config.yaml`.
+> 2. Integration (Conclave↔Tessera↔pr-arbiter) cohesion contract — Tessera-hosted, authoring in those sessions.
+> Nothing running; nothing billing. Harness replays: `harness/run-local-cc.sh`.
+
+> # ✅ 2026-07-17 (earlier) — PIVOT TO PRACTICAL: daily-drive local 30B as a FREE floor (COST, not measured parity — interpretation corrected after adversarial review).
 >
 > ## The thesis is done (route, don't judge — 3 fleets). The build turned practical: stand up the
 > ## owned coder for real project + agentic work. Local-first stance (design.md § "External
