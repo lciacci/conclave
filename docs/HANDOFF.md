@@ -1,6 +1,58 @@
 # HANDOFF — resume here
 
-> # 🔴 2026-07-17 (LATEST — RESUME HERE) — SPECIALIST FLEET RAN, CANDIDATES LOST TO A DISK WIPE. RE-RUN IS THE PATH.
+> # ✅ 2026-07-17 (LATEST — RESUME HERE) — PHASE-1 GATE RESOLVED. The specialist fleet is HIERARCHICAL too — route to the coder.
+>
+> ## The re-run completed. 30/30 candidates, all 3/3, graded gpt-5.2 samples=3. Everything replays
+> ## for **$0** from `eval_fixtures/`: `MODERN_FLEET=specialist CONCLAVE_QUERYSET=hard <gpt-5.2 grader
+> ## env> python3 orchestrator/{divergence_modern,fleet_pairwise}.py`.
+>
+> ### THE VERDICT — genuine specialization did NOT produce the divergence the peer fleet lacked. The
+> ### opposite: the specialist fleet is MORE hierarchical than the peer fleet.
+> ```
+> single (alone):  coder 0.949  ·  general 0.893  ·  reasoning 0.880   ORACLE 0.973
+> HEADROOM = +0.0244  95% CI [-0.007, +0.056]  (NOT RESOLVED at n=30, leaning NOT-WORTH-IT)
+>            -> LOWER than the peer modern2 fleet's +0.040.
+> per-category: the 80B coder WINS ALL THREE, beating each specialist on its OWN turf
+>            reasoning 0.987 (coder) > 0.980 (reasoner) ; general 0.940 (coder) > 0.860 (general)
+> PAIRWISE round-robin: coder 1.575 · general 0.825 · reasoning 0.600
+>            clear winner 20/30: coder 18 · general 1 · reasoning 1
+>            on the 21 absolute-tied queries: coder 13/13 -> CONCENTRATED (100% to ONE model)
+>            position flips 10/90 (11%) — reliable
+> ```
+> **Contrast that decides the gate:** the peer modern2 fleet's pairwise SPLIT (mistral 10 / qwen3 6 /
+> gemma3 6 — that split is why "build a router" was the next step). The specialist fleet CONCENTRATES
+> (coder 18/30, 100% of tie-breaks). **Route to the coder. Judge, ensemble, AND router all lose here**
+> — with one model dominating every axis, you don't route, you just call it. "Route, don't judge" is
+> now confirmed on THREE fleets (old L40S, peer-modern, genuine-specialist).
+>
+> ### ⚠️ THE HONEST CAVEAT (sharpens the finding, doesn't weaken it)
+> The fleet was not strength-matched IN EFFECT — the 80B FP8 coder (0.949) outclasses the 32B reasoner
+> (0.880) and the INT4-quantized 70B general (0.893) by ~0.06 (on the peer fleet the three were within
+> 0.028). This is the fleet's own stated false-negative risk realized: pick a genuinely strong model on
+> one axis and it dominates the others. So this is "quality/parameter count beats specialization" AGAIN
+> — now on genuinely different architectures/lineages (Qwen-MoE / DeepSeek-R1 / Meta-Llama), which
+> RULES OUT a lineage artifact. **Deeper lesson: matched-strength genuine specialists may not exist in
+> current open weights — the convergence effect, live.** 26/30 still hit the grader ceiling, but
+> pairwise resolved the saturation and the answer is unambiguous.
+>
+> ### ➡️ WHAT'S NEXT (the v3 arc is complete; the thesis has landed)
+> The real deliverable proved itself: `divergence.py`/`divergence_modern.py` + `fleet_pairwise.py` is a
+> **$0 instrument that correctly told you "don't ensemble" on all three fleets BEFORE building a judge.**
+> Options, none urgent:
+> 1. **Ship the instrument + write-up / demo story** — "measure whether a fleet is worth ensembling for
+>    $0 before you build anything" is the finding. This is probably the actual next move.
+> 2. **The router is fleet-DEPENDENT** — it only pays when winners SPLIT (peer fleet, weakly). This fleet
+>    doesn't split, so no router. The instrument is what tells you which case you're in.
+> 3. **Judge stays PARKED** (trigger unchanged: revisit only if the model landscape re-diverges).
+> 4. If you want to keep pushing the science: hunt for ANY assemblable open fleet with genuinely
+>    SPLIT pairwise winners (matched strength + real specialization). The convergence caveat says it
+>    may not exist — which is itself the result.
+>
+> ### Spend this session: ~$40 total (dead 80GB H100 + 3×H100 coder-fit debug + 3 H200 driver re-rolls
+> across two attempts + the productive ~40-min H200 run) + ~$2 grader. **Nothing running or billing.**
+> The fixtures (`eval_{candidates,divergence,pairwise}_specialist_hard.json`) are committed for $0 replay.
+
+> # 🔵 2026-07-17 (historical) — the FIRST specialist run: candidates LOST to a disk wipe, then re-run.
 >
 > ## ➡️ THE ONE NEXT ACTION: fresh boot of the specialist fleet → generate → **pull candidates to the
 > ## laptop IMMEDIATELY** → gate → terminate. All 4 bugs are fixed in the working copy. ~$9, ~40min.

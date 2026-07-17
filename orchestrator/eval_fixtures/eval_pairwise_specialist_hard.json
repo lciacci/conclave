@@ -1,0 +1,65 @@
+{
+  "fleet": "specialist",
+  "grader": {
+    "model": "gpt-5.2-2025-12-11",
+    "url": "https://api.openai.com"
+  },
+  "round_robin_mean": {
+    "coder": 1.575,
+    "general": 0.825,
+    "reasoning": 0.6
+  },
+  "per_query_winner": {
+    "hardcoder-closure-late-binding": "coder",
+    "hardcoder-eq-without-hash": "coder",
+    "hardcoder-blocking-in-async": "coder",
+    "hardcoder-generator-exhaustion": "coder",
+    "hardcoder-money-float-decimal": "coder",
+    "hardcoder-threading-race-gil": "coder",
+    "hardcoder-mutable-class-attr": "coder",
+    "hardcoder-is-vs-eq-interning": "reasoning",
+    "hardcoder-lru-design": "coder",
+    "hardcoder-sort-stability-multikey": "general",
+    "hardreason-bayes-disease": null,
+    "hardreason-birthday": "coder",
+    "hardreason-expected-rolls": null,
+    "hardreason-two-coins": null,
+    "hardreason-pipes-drain": "coder",
+    "hardreason-last-digit": null,
+    "hardreason-seating-constraint": null,
+    "hardreason-three-boxes": "coder",
+    "hardreason-st-petersburg": null,
+    "hardreason-clock-overlaps": null,
+    "hardgen-cap-theorem": "coder",
+    "hardgen-idempotency": "coder",
+    "hardgen-eventual-consistency": null,
+    "hardgen-oauth-vs-authn": null,
+    "hardgen-index-tradeoff": "coder",
+    "hardgen-p-value": "coder",
+    "hardgen-unicode-utf8": "coder",
+    "hardgen-microservices": null,
+    "hardgen-cache-invalidation": "coder",
+    "hardgen-concurrency-vs-parallelism": "coder"
+  },
+  "strict_wins": {
+    "coder": 18,
+    "reasoning": 1,
+    "general": 1
+  },
+  "abs_tied_query_winners": {
+    "coder": 13
+  },
+  "position_flips": [
+    "hardcoder-eq-without-hash",
+    "hardcoder-mutable-class-attr",
+    "hardcoder-is-vs-eq-interning",
+    "hardreason-st-petersburg",
+    "hardreason-clock-overlaps",
+    "hardgen-eventual-consistency",
+    "hardgen-oauth-vs-authn",
+    "hardgen-unicode-utf8",
+    "hardgen-unicode-utf8",
+    "hardgen-microservices"
+  ],
+  "n_compared": 90
+}
