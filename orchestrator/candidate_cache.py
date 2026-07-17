@@ -126,7 +126,8 @@ if __name__ == "__main__":
         if not gw:
             sys.exit("set CONCLAVE_GW=<ts-ip>:4000 to populate against the live fleet "
                      "(or pass --demo for the offline self-check)")
-        cfg = EnsembleConfig(gateway_url=gw if gw.startswith("http") else f"http://{gw}")
+        cfg = EnsembleConfig(gateway_url=gw if gw.startswith("http") else f"http://{gw}",
+                             timeout=float(os.environ.get("CONCLAVE_TIMEOUT", "300")))
         name, qs, out = active_set_name(), active_query_set(), cache_path()
         # Explicit max_tokens so a reasoning model's <think> block cannot eat the budget and
         # truncate the graded answer (the modern2 qwen3 confound; DeepSeek-R1 CANNOT disable
