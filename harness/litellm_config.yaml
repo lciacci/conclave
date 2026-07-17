@@ -11,6 +11,7 @@ model_list:
     litellm_params:
       model: ollama_chat/qwen3-coder:30b   # ollama_chat = chat template + tool support
       api_base: http://localhost:11434
+      think: false     # qwen3-coder is non-thinking; CC sends thinking:enabled -> pin off or Ollama 400s
 
   # CC's "small/fast" tier (titles, cheap background calls) — route to the smaller local
   # model so those don't tie up the 30B.
@@ -18,9 +19,13 @@ model_list:
     litellm_params:
       model: ollama_chat/qwen3:8b
       api_base: http://localhost:11434
+      think: false     # qwen3:8b CAN think, but CC's thinking budget slows the fast tier; keep it off
 
 litellm_settings:
   drop_params: true          # silently drop params Ollama doesn't support, don't 400
+  # Claude Code sends an extended-"thinking" block; qwen3-coder is a NON-thinking model and
+  # Ollama 400s on it ("does not support thinking"). Strip these before translating to Ollama.
+  additional_drop_params: ["thinking", "think", "reasoning_effort"]
 
 general_settings:
   master_key: sk-conclave-local   # dummy key; CC sends it as ANTHROPIC_API_KEY
