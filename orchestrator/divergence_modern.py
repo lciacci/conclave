@@ -37,10 +37,19 @@ base, model, key = _grader_from_env()
 n = int(os.environ.get("GRADER_SAMPLES", str(FROZEN_GRADER_SAMPLES)))
 gc = GradeCache()
 scorer = ReferenceGrader(base, model, key, call=frontier_call, samples=n, cache=gc)
-print(f"MODERN fleet | {len(cache)} queries x 3 models | grader {model} @ {base}, {n} samples")
+# Label by fleet so the emitted JSON is not mislabeled when FLEET != modern (e.g. specialist).
+# Unknown fleets fall back to the FLEET key itself rather than a wrong hardcoded string.
+_FLEET_LABELS = {
+    "modern": "modern: qwen3-32B / gemma3-27B / mistral-24B (3 lineages)",
+    "modern2": "modern: qwen3-32B / gemma3-27B / mistral-24B (3 lineages)",
+    "specialist": "specialist: Qwen3-Coder-Next-FP8 / DeepSeek-R1-Distill-Qwen-32B / "
+                  "Meta-Llama-3.3-70B-AWQ (genuine specialists, 3 lineages)",
+}
+fleet_label = _FLEET_LABELS.get(FLEET, FLEET)
+print(f"{FLEET} fleet | {len(cache)} queries x 3 models | grader {model} @ {base}, {n} samples")
 report = analyse(cache, scorer)
 report["grader"] = {"model": model, "url": base, "samples": n}
-report["fleet"] = "modern: qwen3-32B / gemma3-27B / mistral-24B (3 lineages)"
+report["fleet"] = fleet_label
 print_report(report)
 print(f"\ngrader calls: {gc.misses} live (paid), {gc.hits} cached")
 json.dump(report, open(OUT, "w"), indent=2)

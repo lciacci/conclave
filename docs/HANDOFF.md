@@ -1,6 +1,84 @@
 # HANDOFF — resume here
 
-> # ⏸️ 2026-07-16 (LATEST — RESUME HERE) — SPECIALIST FLEET BUILT. Boot is the next action.
+> # 🔴 2026-07-17 (LATEST — RESUME HERE) — SPECIALIST FLEET RAN, CANDIDATES LOST TO A DISK WIPE. RE-RUN IS THE PATH.
+>
+> ## ➡️ THE ONE NEXT ACTION: fresh boot of the specialist fleet → generate → **pull candidates to the
+> ## laptop IMMEDIATELY** → gate → terminate. All 4 bugs are fixed in the working copy. ~$9, ~40min.
+> The fleet booted on 3× H200 (US-GA-2, CUDA 13), all 3 models served, generation ran clean (last
+> confirmed 8/30, all 3/3). The watchdog stopped the pod (hard TTL ~120min — boot+debug+gen exceeded
+> 120min) near the end. I resumed it to pull the candidates — **but RunPod stop-resume WIPES the
+> container disk** (no network volume): the resumed pod came back with `/workspace` EMPTY (16M used,
+> candidates AND weights gone). **Stop-resume is DESTRUCTIVE, not just GPU-releasing** — the handoff's
+> old "do not stop-and-resume" warning is now proven to cost data, not just a GPU. Terminated the
+> empty pod ($0 billing). Escalation `esc-20260717-031537` resolved (recover failed).
+>
+> ### 🔑 THE LESSON THAT MUST CHANGE THE RUN: pull results OFF the pod as they are produced.
+> The watchdog can stop the pod at any time (TTL or idle), and a stop DESTROYS `/workspace`. So the
+> candidate file must not live only on the pod. On the re-run, either (a) `scp` the incremental
+> `eval_candidates_hard.json` back to the laptop on a loop while generating, or (b) the moment
+> generation prints `done — 30/30`, pull it BEFORE doing anything else. Do NOT rely on resume.
+> Also give headroom: `MAX_LIFETIME_MIN=180` (a clean boot→gen is ~40min, but leave slack).
+>
+> ### THE RE-RUN (operator must be present — the cost classifier blocked SSH-boot + the SSM key
+> ### fetch while the operator was away; those steps need permission or a Bash allow-rule):
+> 1. Boot 3× **H200** secure, 300GB disk, **force a US datacenter** via `dataCenterIds` (EUR-IS ships
+>    driver 570/CUDA12.8; US-GA-2 shipped 580/CUDA13). `nvidia-smi` FIRST, re-roll if CUDA<13.
+> 2. Push `/workspace/.runpod_key` from SSM, scp `runpod/` + `orchestrator/`, run `boot.sh`
+>    (`FLEET_JSON=runpod/fleet_specialist.json`). The fleet spec + boot.sh + candidate_cache are all
+>    fixed now (below), so the boot + gateway come up clean — no hand-patching.
+> 3. `cd /workspace/orchestrator && CONCLAVE_GW=127.0.0.1:4000 CONCLAVE_QUERYSET=hard python3 candidate_cache.py`
+>    → `eval_candidates_hard.json`. **Pull it to the laptop the moment it hits 30/30.**
+> 4. `mv orchestrator/eval_candidates_hard.json orchestrator/eval_candidates_specialist_hard.json`.
+> 5. **TERMINATE** the pod (grading is offline).
+>
+> ### THEN the offline gate ($0 GPU, ~$1–2 gpt-5.2 grader, on the laptop):
+> ```sh
+> export GRADER_URL=https://api.openai.com GRADER_MODEL=gpt-5.2-2025-12-11 \
+>   GRADER_API_KEY=$(aws ssm get-parameter --name /conclave/grader-api-key --with-decryption \
+>     --profile yeti-conclave --query Parameter.Value --output text) GRADER_SAMPLES=3
+> MODERN_FLEET=specialist CONCLAVE_QUERYSET=hard python3 orchestrator/divergence_modern.py   # headroom -> eval_divergence_specialist_hard.json
+> MODERN_FLEET=specialist CONCLAVE_QUERYSET=hard python3 orchestrator/fleet_pairwise.py       # per-query winners -> eval_pairwise_specialist_hard.json
+> ```
+> **Gate question (pre-registered):** headroom appears + winners concentrate by category →
+> specialization is real & predictable → build the learned router (Phase 3). Still converges →
+> a robust CROSS-FLEET null. (`divergence_modern.py` now labels its report by `$MODERN_FLEET`, so a
+> `specialist` run emits a correctly-labeled JSON — fixed in PR #20.)
+>
+> ### 🔧 WHAT THIS BOOT LEARNED (uncommitted local fixes — commit after the gate, via /code-review):
+> The pre-registered fleet spec was NOT hardware-checked. Four real blockers, all fixed:
+> 1. **Container disk 80GB → 300GB.** The 3 specialist repos total ~151GB on disk (coder 74.9GB +
+>    R1-32B ~64GB + Llama-70B-AWQ ~35GB); 80GB (the old small-fleet size) OOM'd the disk mid-download.
+> 2. **Coder does NOT fit an 80GB H100.** Qwen3-Coder-Next-FP8 is **74.9GB of weights** (the fleet
+>    `_comment`'s "~52GB" is WRONG) → `Available KV cache = -6.67 GiB` at util 0.9, still **-1.12 GiB**
+>    at util 0.97 + fp8-KV. **Requires H200 (141GB)** one-card-each. The operator chose H200 over
+>    a smaller-coder swap *because matched-strength is load-bearing* — unmatching the coder
+>    reintroduces the hierarchy confound the fleet exists to remove. Cost $13.17/hr (3× H200 secure).
+> 3. **Driver lottery hits H200 too.** EUR-IS-4 H200s shipped driver 570 / CUDA 12.8 (vllm 0.24
+>    needs ≥580/CUDA13). Re-roll into a **US datacenter** — **US-GA-2 shipped 580/CUDA13**. Force it
+>    with `dataCenterIds`.
+> 4. **Two generation bugs (fixed locally):**
+>    - `runpod/fleet_specialist.json`: general `max_len` **8192 → 16384**. At 8192 it returned HTTP
+>      400 on every real query (prompt + `CONCLAVE_MAX_TOKENS=8192` completion > 8192 context). The
+>      other two models were already 16384. **DONE in the working copy.**
+>    - `orchestrator/candidate_cache.py`: added `CONCLAVE_TIMEOUT` (default **300s**; was a hard 120s)
+>      — coder's full 8192-token MoE generations timed out on 4/30 queries. **DONE in the working copy.**
+>    - `runpod/boot.sh`: **FIXED in the working copy.** The litellm install now runs
+>      `pip install --break-system-packages --ignore-installed cryptography` then
+>      `pip install --break-system-packages "litellm[proxy]"` (PEP668 env + the debian `cryptography`
+>      41.0.7 has no uninstall RECORD), and launches litellm by absolute path
+>      (`command -v litellm || /usr/local/bin/litellm` — a detached shell's PATH omits `/usr/local/bin`).
+>      Was hand-patched on the pod first; now baked in.
+>
+> ### ✅ ALL FIXES ARE COMMITTED in PR #20 (branch `fix/specialist-fleet-hardware-and-gen-bugs`):
+> `runpod/fleet_specialist.json` (general max_len 16384 + coder ~75GB/H200-required, comment
+> reconciled), `runpod/boot.sh` (litellm install + absolute-path launch),
+> `orchestrator/candidate_cache.py` (CONCLAVE_TIMEOUT), and `orchestrator/divergence_modern.py`
+> (report labeled by `$MODERN_FLEET`, not hardcoded "modern"). Merge PR #20, then re-run.
+>
+> ### Spend this session: ~$25–30 (dead 80GB H100 + 3×H100 coder-fit debug + 2 H200 driver re-rolls,
+> all terminated; + the productive H200 run ~2hr). Nothing is billing GPU now (pod EXITED).
+
+> # ⏸️ 2026-07-16 — SPECIALIST FLEET BUILT. Boot is the next action.
 >
 > ## ➡️ THE ONE NEXT ACTION (after a Claude Code RELOAD): "boot the specialist fleet — Phase 1 gate"
 > Everything is committed (PR #18, on `main`). The boot needs the **RunPod MCP tools**, which load

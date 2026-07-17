@@ -361,7 +361,13 @@ fi
 #    tunnel. LITELLM_LOG=DEBUG is the only level that emits per-request
 #    response_cost (verified on AWS 2026-07-08).
 # ---------------------------------------------------------------------------
-pip install -q "litellm[proxy]" 2>&1 | tail -1 || true
+# PEP668 env: pip needs --break-system-packages (same as vLLM above). And litellm[proxy]
+# pulls a newer `cryptography` than the debian-preinstalled 41.0.7, which pip CANNOT uninstall
+# (debian copy ships no RECORD file -> "uninstall-no-record-file"). --ignore-installed lays a
+# fresh cryptography alongside it so the litellm install can proceed. Without both flags the
+# gateway silently never installs and litellm start dies "No such file or directory".
+pip install --break-system-packages --ignore-installed -q cryptography 2>&1 | tail -1 || true
+pip install --break-system-packages -q "litellm[proxy]" 2>&1 | tail -1 || true
 {
   echo "model_list:"
   jq -c '.[]' "$FLEET" | while read -r m; do
@@ -380,7 +386,11 @@ pip install -q "litellm[proxy]" 2>&1 | tail -1 || true
   echo "  drop_params: true"
 } > /workspace/litellm-config.yaml
 
-LITELLM_LOG=DEBUG nohup litellm --config /workspace/litellm-config.yaml \
+# Launch by ABSOLUTE path: pip installs the console script to /usr/local/bin, which is NOT on a
+# detached/non-login shell's PATH, so a bare `litellm` fails "No such file or directory" even
+# though it is installed. Resolve it explicitly.
+LITELLM_BIN="$(command -v litellm || echo /usr/local/bin/litellm)"
+LITELLM_LOG=DEBUG nohup "$LITELLM_BIN" --config /workspace/litellm-config.yaml \
   --host 127.0.0.1 --port 4000 > /workspace/litellm.log 2>&1 &
 
 for _ in $(seq 1 60); do
