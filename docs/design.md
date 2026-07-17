@@ -285,6 +285,103 @@ the frontier out of the critical path.
    with no baseline to compare against, and it forces debugging new judge code + new multi-GPU
    surprises (per-GPU device pinning, `CUDA_VISIBLE_DEVICES`, placement) at the same time.
 
+### External validation + scope of the "route, don't judge" verdict (2026-07-17)
+
+A survey of the 2026 routing literature (RunPod/Redis/IBM guides, RouteLLM, vendor gateways) was
+checked against our three-fleet null. Two things it confirms, two limits it exposes.
+
+**Confirms.** No source anywhere defends fan-out+judge over routing — routing is the assumed
+frame. Two are our own thesis in others' words: Redis, *"a plain k-NN is competitive; don't build
+a learned router until a simpler one demonstrably falls short"* — i.e. the instrument-first
+stance. And **RouteLLM** is the concrete counter-case that anchors when routing DOES pay: a
+matrix-factorization router held **95% of GPT-4 quality while sending only 14% of queries to the
+strong model** — but only because that workload's winners genuinely SPLIT across a strong/weak
+tier. Our fleets concentrate, so we sit on the other side of exactly that line.
+
+**Limit 1 — cost/latency is a separate axis this instrument does not measure.** `divergence.py`
+/ `fleet_pairwise.py` measure **quality-win concentration only**. IBM Research shows cost and
+latency can split even when quality concentrates: prompt-cache economics invert list-price
+rankings (their data: a cheaper-list-price model cost ~2× more on a real workload). So "the fleet
+concentrates ⇒ nothing to route on" is a **quality** claim; a cost/latency-routable frontier can
+survive it. This is not a new door — it is the "router as a COST play, not a quality play" fork
+already named in the 2026-07-16 handoff — but it bounds the verdict: we proved routing doesn't pay
+on **quality** for these fleets, not that a cost-router is pointless. Cost-routing pays most at
+multi-provider / closed-API scale; on a single self-hosted fleet (models at similar $/token) it is
+weak. Confidence-gated **cascade** (cheap model first, escalate on low confidence) is the one
+untested mechanism worth a line — cheaper than 3× fan-out — but our fleets concentrate on the big
+model, so a cascade would escalate most hard queries anyway.
+
+**Limit 2 — the test load is biased toward concentration.** The hard-30 is a **knowledge-recall
+QA** instrument: single-turn "explain X / solve Y" prompts with a canonical reference answer, over
+Python gotchas, probability puzzles, and CS concepts (`eval_queryset_hard.py`). That is precisely
+the regime where the biggest, best-pretrained generalist wins every category — well-trodden
+knowledge favours parameter count and pretraining breadth over specialization, so the instrument
+is *structurally* predisposed to the hierarchical/concentrated result we keep finding. What it does
+NOT contain is a real practical workload: no multi-turn or agentic tool-use, no long-context, no
+in-repo code editing (the coder queries *explain* a gotcha, they don't fix a 400-line file), no
+tasks lacking a canonical answer, no cost/latency dimension. Those are exactly the regimes where
+routing/specialization could still pay. **So the honest verdict is: for the fleet AND the
+workload-proxy we tested, route to the coder — the instrument correctly said so for $0. The
+verdict does not generalize to a workload we have not measured.** The practical next input is not
+a bigger fleet; it is a realistic workload trace (or a multi-tier load that includes cheap/easy
+queries) run through the same instrument. If that splits → build the router (cost play). If it
+concentrates too → "just call the coder" is genuinely the right production answer, and the
+instrument saved us from building a router nobody needed. Better routing sources for that spike, if
+taken: **notdiamond.ai** and **ACRouter** (context-action-feedback bandit for per-turn coding-task
+routing) — real method + data, unlike the vendor listicles.
+
+**Future direction — the one routing shape that survives: lab ↔ frontier escalation.** Every null
+above is about routing *within* a fleet of comparable models — and that concentrates, so it doesn't
+pay. But routing *across* a genuine capability/cost cliff is different: the owned coder (free at the
+margin once the GPU is up, but capped in capability) vs a frontier model (paid per token, stronger
+on the hardest tasks). That split is real, so a two-tier **cascade** can pay where within-fleet
+routing cannot: run the lab coder by default, escalate to the frontier only when the local answer
+is low-confidence or fails a cheap check. This is the confidence-gated cascade from the 2026-07-17
+literature survey, applied at the boundary that actually splits. Note it is NOT a revival of
+fan-out+judge (it calls one model, then maybe a second — sequential, not parallel-and-vote) and NOT
+within-fleet routing (disproved). Deferred until the lab coder is a standing daily driver — you
+need the local tier working and a real workload before the escalation signal (what does the local
+model reliably fail?) can be measured rather than guessed.
+
+**Build stance — local-first, hosted + frontier as escalation tiers (2026-07-17).** The owner's
+daily machine is a 64 GB Apple-Silicon Mac already running small coders via Ollama
+(`qwen2.5-coder:3b`, `qwen3:8b`). That RAM matters: **Qwen3-Coder-30B-A3B is MoE (~3B active),
+~18 GB at 4-bit — it runs LOCALLY on this machine.** So the dial-down coder we benchmark is not
+necessarily a rented-GPU tier; if its quality holds it deploys **on the laptop for $0**. The build
+therefore takes a **local-first** stance, a tier ladder rather than one box:
+1. **local-tiny** (3B/8B, Ollama) — instant, always-on: autocomplete, trivial Q, and potentially
+   the cascade gate that decides whether to escalate.
+2. **local-mid** (Qwen3-Coder-30B-A3B, if Phase-0 quality holds) — the **default daily driver**,
+   $0, no cold-start, never blocked.
+3. **lab** (Qwen3-Coder-80B on H200, on-demand) — the heavy/best tier, paid, spun up only for the
+   hard fraction the local tier can't carry.
+4. **frontier** (paid API) — hardest tasks only.
+The consequence for the whole design: **address models by ROLE/tier behind the gateway
+(`local`/`lab`/`frontier`), never hardcode "the coder = the RunPod box."** LiteLLM is already
+multi-backend, so this costs nothing — it just keeps every higher tier a config line away. And it
+makes the local tier the $0 FLOOR the cost-dial rests on: on-demand hosting is tolerable precisely
+because local covers the gap while the H200 is cold or off. **Phase 0 is therefore run local-first
+(generate the 30B candidates on the Mac for $0; boot the H100 only if a quant-clean confirmation is
+needed), not GPU-first.**
+
+**Phase-0 RESULT (2026-07-17) — local $0 30B ≈ rented 80B; daily-drive local.** The dial-down coder
+was benchmarked local-first, no GPU booted: Qwen3-Coder-30B-A3B at 4-bit via Ollama on the 64 GB Mac
+vs the H200-served FP8 80B, on the frozen hard-30, same gpt-5.2 grader (samples=3) that decided the
+specialist gate. Reusable rig: `orchestrator/bench_local30_gen.py` (Ollama generation, $0) +
+`bench_local30_grade.py` (merge + reuse `divergence.analyse`). Total spend ~$1 (grading only).
+```
+coder80 (FP8, H200, rented)   0.949      coder (code) category: 0.920 = 0.920  TIE
+coder30 (4-bit, LOCAL, $0)    0.900      reasoning: 0.987 vs 0.940 (80B ahead)
+margin CI [-0.005, +0.103] INCLUDES 0    general:   0.940 vs 0.840 (80B ahead)
+ -> NOT statistically distinguishable    18/30 exact ties; strict wins 80B 10 / 30B 2
+```
+On a knowledge-QA set already biased toward the bigger model, the $0-on-laptop 30B is within noise
+of the rented 80B and **ties outright on code** — the category that matters for daily driving.
+**Decision: daily-drive the local 30B; the hosted 80B/H200 becomes the escalation tier (Phase 1/2,
+deferred), spun up only for the reasoning/general fraction where it measurably leads.** Honest
+bounds: directional not resolved (n=30, CI crosses 0), and hard-30 is QA, not agentic coding — the
+real validation is daily use (which is also how the escalation signal gets measured, not guessed).
+
 ## Cost controls
 
 Budget cap: **$100/mo — confirmed 2026-07-02.** All thresholds below parameterize off it.
