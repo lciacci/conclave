@@ -51,3 +51,7 @@ orchestrator/eval_divergence_modern*.json
 orchestrator/qwen3_*.json
 orchestrator/fleet_judge_picks.json
 orchestrator/eval_pairwise_*.json
+
+# local-CC harness venvs (not committed)
+harness/venv/
+harness/.venv/

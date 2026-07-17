@@ -1,0 +1,26 @@
+# LiteLLM proxy — makes the LOCAL Qwen coder speak the Anthropic API so Claude Code
+# can drive it. CC hits the proxy's /v1/messages (Anthropic); LiteLLM translates to
+# Ollama's OpenAI endpoint and back, including tool-calls.
+#
+# Start:  harness/venv/bin/litellm --config harness/litellm_config.yaml --port 4000
+# (the run-local-cc.sh script does this for you)
+
+model_list:
+  # The daily-driver brain: the $0 local 30B coder.
+  - model_name: qwen-local
+    litellm_params:
+      model: ollama_chat/qwen3-coder:30b   # ollama_chat = chat template + tool support
+      api_base: http://localhost:11434
+
+  # CC's "small/fast" tier (titles, cheap background calls) — route to the smaller local
+  # model so those don't tie up the 30B.
+  - model_name: qwen-fast
+    litellm_params:
+      model: ollama_chat/qwen3:8b
+      api_base: http://localhost:11434
+
+litellm_settings:
+  drop_params: true          # silently drop params Ollama doesn't support, don't 400
+
+general_settings:
+  master_key: sk-conclave-local   # dummy key; CC sends it as ANTHROPIC_API_KEY
