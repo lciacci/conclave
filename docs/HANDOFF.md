@@ -1,6 +1,32 @@
 # HANDOFF — resume here
 
-> # ✅ 2026-07-17 (LATEST — RESUME HERE) — PHASE-1 GATE RESOLVED. The specialist fleet is HIERARCHICAL too — route to the coder.
+> # ✅ 2026-07-17 (LATEST — RESUME HERE) — PIVOT TO PRACTICAL: local $0 30B ≈ rented 80B. Daily-drive LOCAL.
+>
+> ## The thesis is done (route, don't judge — 3 fleets). The build turned practical: stand up the
+> ## owned coder for real project + agentic work. Local-first stance (design.md § "External
+> ## validation + scope" build-stance para). **Phase 0 ran and landed.**
+>
+> ### PHASE-0 RESULT — Qwen3-Coder-30B-A3B (4-bit, Ollama, 64GB Mac, **$0**) vs FP8 80B (H200), hard-30, gpt-5.2 s=3:
+> ```
+> coder80  0.949   |  coder(code) 0.920 = 0.920 TIE  |  reasoning 0.987>0.940  |  general 0.940>0.840
+> coder30  0.900   |  margin CI [-0.005,+0.103] INCLUDES 0 -> NOT distinguishable  |  18/30 ties; wins 80B 10 / 30B 2
+> ```
+> Local $0 coder is within noise of the rented 80B and TIES on code. **Spend this session ~$1 (grading
+> only, no GPU).** Rig replays $0: `orchestrator/bench_local30_{gen,grade}.py`. Result committed
+> (`eval_bench_local30v80_hard.json`).
+>
+> ### DECISION: daily-drive the LOCAL 30B. Hosted 80B/H200 = escalation tier (deferred), for the
+> ### reasoning/general fraction where it measurably leads. Honest bound: n=30 + QA≠agentic; the real
+> ### test is daily use (which also measures the escalation signal instead of guessing it).
+>
+> ### ➡️ NEXT (in flight): ① DONE-ish: commit Phase-0 bench (this). ② wire local 30B into a harness —
+> ### Claude Code via a LiteLLM Anthropic↔OpenAI proxy (leaning), Aider as fallback; want CC to
+> ### observe/contrast Qwen's choices. ③ open design question: Conclave↔Tessera overlap on
+> ### multi-model / judge / fan-out — research in flight, do NOT reason into integration in isolation.
+> ### Hosted-model open items: network-volume fast-boot + on-demand lifecycle are PARKED until the
+> ### escalation tier is actually needed.
+
+> # ✅ 2026-07-17 (earlier) — PHASE-1 GATE RESOLVED. The specialist fleet is HIERARCHICAL too — route to the coder.
 >
 > ## The re-run completed. 30/30 candidates, all 3/3, graded gpt-5.2 samples=3. Everything replays
 > ## for **$0** from `eval_fixtures/`: `MODERN_FLEET=specialist CONCLAVE_QUERYSET=hard <gpt-5.2 grader
