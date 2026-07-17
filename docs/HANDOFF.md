@@ -41,8 +41,8 @@
 > ```
 > **Gate question (pre-registered):** headroom appears + winners concentrate by category →
 > specialization is real & predictable → build the learned router (Phase 3). Still converges →
-> a robust CROSS-FLEET null. NB `divergence_modern.py` hardcodes `report["fleet"]="modern:…"` and
-> its `_comment` — correct that LABEL to "specialist" so the JSON isn't mislabeled (cosmetic).
+> a robust CROSS-FLEET null. (`divergence_modern.py` now labels its report by `$MODERN_FLEET`, so a
+> `specialist` run emits a correctly-labeled JSON — fixed in PR #20.)
 >
 > ### 🔧 WHAT THIS BOOT LEARNED (uncommitted local fixes — commit after the gate, via /code-review):
 > The pre-registered fleet spec was NOT hardware-checked. Four real blockers, all fixed:
@@ -69,11 +69,11 @@
 >      (`command -v litellm || /usr/local/bin/litellm` — a detached shell's PATH omits `/usr/local/bin`).
 >      Was hand-patched on the pod first; now baked in.
 >
-> ### ⚠️ ALL FOUR FIXES ARE UNCOMMITTED WORKING-COPY EDITS — commit them (via /code-review) even
-> before the re-run: `runpod/fleet_specialist.json` (general max_len 16384), `runpod/boot.sh`
-> (litellm), `orchestrator/candidate_cache.py` (CONCLAVE_TIMEOUT). The fleet `_comment`'s "~52GB
-> coder" should be corrected to ~75GB / H200-required. `divergence_modern.py` still hardcodes the
-> "modern:…" fleet label — correct it to "specialist" so the specialist JSON isn't mislabeled.
+> ### ✅ ALL FIXES ARE COMMITTED in PR #20 (branch `fix/specialist-fleet-hardware-and-gen-bugs`):
+> `runpod/fleet_specialist.json` (general max_len 16384 + coder ~75GB/H200-required, comment
+> reconciled), `runpod/boot.sh` (litellm install + absolute-path launch),
+> `orchestrator/candidate_cache.py` (CONCLAVE_TIMEOUT), and `orchestrator/divergence_modern.py`
+> (report labeled by `$MODERN_FLEET`, not hardcoded "modern"). Merge PR #20, then re-run.
 >
 > ### Spend this session: ~$25–30 (dead 80GB H100 + 3×H100 coder-fit debug + 2 H200 driver re-rolls,
 > all terminated; + the productive H200 run ~2hr). Nothing is billing GPU now (pod EXITED).
