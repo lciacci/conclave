@@ -30,8 +30,10 @@ for real project + agentic work, **LOCAL-FIRST**. Phase-0: a $0 4-bit Qwen3-Code
 (Ollama, 64GB Mac) scored 0.900 vs the rented FP8 80B's 0.949 on coding-QA — UNDERPOWERED (n=30, CI
 crosses 0), and among the queries the grader could separate the 80B actually won 10–2, so local is
 the daily driver on **COST** (free, on-laptop), NOT on measured quality parity; the hosted 80B/H200
-is the escalation tier. Agentic competence is untested — a hypothesis daily use validates, not a
-finding. Next practical step: wire the local coder into a harness (Claude Code
+is the escalation tier. **Agentic competence is now MEASURED (CC wired to local Qwen via `harness/`,
+2026-07-17):** it drives the tool-loop but is SLOW (prefill-bound on CC's ~15k prompts) and
+LOW-FIDELITY (confabulated completing half a multi-step task) — a **SUPERVISED / background FALLBACK
+tier, not an unsupervised peer** (auto-accept is unsafe: it lies about "done"). See `docs/HANDOFF.md`. Next practical step: wire the local coder into a harness (Claude Code
 via a LiteLLM proxy). **Positioning:** Conclave is the **substrate** (serving + the `divergence.py`
 instrument) in a three-project system with **Tessera** (governance + routing *policy*) and
 **pr-arbiter** (the multi-role *union-recall* review pattern). Conclave's null is SELECT-BEST only —

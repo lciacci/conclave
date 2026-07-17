@@ -16,7 +16,9 @@ agentic work on the owned model, local-first.** A $0 4-bit Qwen3-Coder-30B on a 
 (Ollama) scored close to a rented FP8 80B on coding *knowledge* questions (0.900 vs 0.949) — an
 underpowered result (n=30) where, on the queries that resolved, the 80B still led — so the **local
 model is the daily driver on cost** (free, on-laptop), with the hosted GPU escalated for the harder
-fraction. Its competence on real agentic coding is still to be proven in daily use. In the
+fraction. Wired into a real coding agent and tested, it drives agentic work but slowly and with low
+fidelity (it can confabulate completing a task) — a **supervised fallback tier, not an unsupervised
+peer**. In the
 wider picture Conclave is the **substrate** (serving + the measurement instrument) alongside two
 sibling projects — **Tessera** (governance + routing policy) and **pr-arbiter** (a union-recall
 review pattern); the cohesion between them is mapped in `docs/INTEGRATION.md`.

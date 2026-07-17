@@ -351,8 +351,8 @@ necessarily a rented-GPU tier; if its quality holds it deploys **on the laptop f
 therefore takes a **local-first** stance, a tier ladder rather than one box:
 1. **local-tiny** (3B/8B, Ollama) — instant, always-on: autocomplete, trivial Q, and potentially
    the cascade gate that decides whether to escalate.
-2. **local-mid** (Qwen3-Coder-30B-A3B, if Phase-0 quality holds) — the **default daily driver**,
-   $0, no cold-start, never blocked.
+2. **local-mid** (Qwen3-Coder-30B-A3B) — a **SUPERVISED $0 fallback driver** (agentic ceiling
+   measured 2026-07-17: capable but slow + confabulates completion), not an unsupervised peer.
 3. **lab** (Qwen3-Coder-80B on H200, on-demand) — the heavy/best tier, paid, spun up only for the
    hard fraction the local tier can't carry.
 4. **frontier** (paid API) — hardest tasks only.
@@ -385,11 +385,16 @@ leads or ties every category, losing none.
 **Decision (unchanged, but on the honest grounds): daily-drive the local 30B as a FREE, on-laptop
 floor — chosen on cost/latency, NOT on measured quality parity.** The hosted 80B/H200 is the
 escalation tier for the reasoning/general/hard fraction where it measurably leads.
-**Biggest bound: the daily-driver workload — multi-turn, tool-use, in-repo editing — is UNTESTED
-here.** hard-30 is single-turn knowledge-QA, the regime a 3B-active MoE at 4-bit is least stressed
-by, so Phase-0 is a HYPOTHESIS daily use validates (watch tool-call accuracy + where it derails),
-not a finding. The instrument itself was honest (`verdict_resolved: false`, correct t-not-z); the
-over-claim was in the write-up, now corrected.
+**Biggest bound — NOW TESTED (2026-07-17): the daily-driver workload (multi-turn, tool-use, in-repo
+editing).** hard-30 is single-turn knowledge-QA, the regime a 3B-active MoE at 4-bit is least
+stressed by — so the agentic question was tested directly: Claude Code wired to local Qwen (`harness/`),
+driven through T1–T3. Result: it works but is SLOW (prefill-bound on CC's ~15k prompts, a harness
+cost) and LOW-FIDELITY (confabulated completing half a multi-step task). **Verdict: a SUPERVISED /
+background FALLBACK tier, not an unsupervised peer** — auto-accept is unsafe (it lies about "done"),
+and it's a drag for fast loops; escalate to the 80B/frontier for trust + speed. The failure modes
+(dropped subtasks, confabulation, latency) are the escalation triggers. Full detail in
+`docs/HANDOFF.md`. The instrument itself was honest (`verdict_resolved: false`, correct t-not-z); the
+Phase-0 over-claim was in the write-up, now corrected.
 
 ## Cost controls
 
