@@ -23,7 +23,18 @@ gateway + multi-model → v3 ensemble + judge (**done, disproved**) → modern f
 specialist-fleet Phase-1 gate (**done, RESOLVED — hierarchical, route to the coder**). Router is
 **fleet-DEPENDENT and shelved**: it only pays when pairwise winners SPLIT (the peer fleet, weakly);
 the specialist fleet CONCENTRATES, so no router. Judge is parked with a trigger (revisit if the
-model landscape re-diverges). Likely next: ship the instrument + write-up, not more fleets.
+model landscape re-diverges).
+
+**The thesis is DONE; the project PIVOTED to practical use (2026-07-17)** — stand up the owned coder
+for real project + agentic work, **LOCAL-FIRST**. Phase-0: a $0 4-bit Qwen3-Coder-30B on the laptop
+(Ollama, 64GB Mac) is statistically indistinguishable from the rented FP8 80B on coding-QA (0.900 vs
+0.949, margin CI crosses 0; ties on code), so **daily-drive the local coder; the hosted 80B/H200 is
+a deferred escalation tier**. Next practical step: wire the local coder into a harness (Claude Code
+via a LiteLLM proxy). **Positioning:** Conclave is the **substrate** (serving + the `divergence.py`
+instrument) in a three-project system with **Tessera** (governance + routing *policy*) and
+**pr-arbiter** (the multi-role *union-recall* review pattern). Conclave's null is SELECT-BEST only —
+it does NOT bind pr-arbiter's union-recall, and diversity that pays is ROLE not MODEL. See
+`docs/INTEGRATION.md` (conclave's stub; canonical cohesion contract is Tessera-hosted).
 
 - **Tessera profile:** `standard` (see `.tessera/project.yml`).
 
