@@ -63,8 +63,9 @@ pay if it ever does.
 
 ## What it found
 
-The core question — *does fan-out + judge pay?* — was measured on two fleets. The
-answer is **no**, and the modern fleet is the strong version of that result.
+The core question — *does fan-out + judge pay?* — was measured on **three** fleets
+(old L40S; an ideal peer-modern one; a genuine-specialist one). The answer is **no**
+on all three, and the specialist fleet is the strongest version of that result.
 
 ### The instrument: headroom
 
@@ -93,7 +94,7 @@ Making the fleet *better* (fixing qwen3) *lowered* the headroom — the
 **convergence** effect: as strong models agree more, a perfect judge beats the
 best single by less. Route, don't judge, confirmed on the good fleet.
 
-### Pairwise: the router has a real signal
+### Pairwise on the peer fleet: a router signal appears (but see below)
 
 Absolute grading saturates — 20/30 queries had every strong answer at the
 grader's max, so it couldn't tell which was better. **Pairwise** grading (blinded,
@@ -104,23 +105,42 @@ per-query winners:  mistral 10 · qwen3 6 · gemma3 6
 on the 20 "ties":   SPLIT across all three (top model only 50%)
 ```
 
-The absolute headroom **understated** the routing signal — the "ties" hid real
-per-query variation. **A router has a signal to exploit.** The honest bound: this
-is an *oracle* ceiling (post-hoc); a real router picks from the query alone, so it
-captures only the *predictable* part — the next thing to measure. And the
-variation is among already-good answers, so the router's surer win is
-**cost/latency** (one model call, not three).
+On the peer fleet the absolute headroom **understated** a routing signal — the
+"ties" hid real per-query variation. But that signal is fleet-dependent, and it
+did not survive two follow-ups.
+
+### The genuine-specialist fleet: the signal vanishes
+
+Built a fleet of real specialists of different kinds — Qwen3-Coder-Next-80B /
+DeepSeek-R1-32B / Llama-3.3-70B — to ask whether genuine specialization produces
+the divergence the peer generalists lacked. It did the **opposite**:
+
+```
+headroom  +0.0244  (LOWER than the peer fleet's +0.040)
+per-category:  the 80B coder wins ALL THREE, beating each specialist on its own turf
+pairwise:  coder 18/30 wins · 100% of the tie-breaks → CONCENTRATED (peer fleet SPLIT)
+```
+
+The specialist fleet is the **most hierarchical** of the three: the biggest model
+dominates every axis, so route to it — judge, ensemble, *and* router all lose.
+(A query-only category router was also measured directly and captures ~nothing
+over "always call the strongest.") Honest caveat: the 80B coder simply outclasses
+the 32B reasoner and quantized 70B general — which is itself the finding, on
+genuinely different architectures: **quality/parameter count beats specialization,
+and matched-strength open specialists may not exist yet (convergence).**
 
 ### Where it landed
 
 - **A judge picks *after* generating N answers** — pays N× for a small, saturated
-  gap. Disproved.
-- **A router picks *before* generating** — same signal, 1/N the cost. This is the
-  project.
-- **The architecture:** diagnostic (`divergence.py`) → operational (router) →
-  a continuous fitness monitor (divergence on a schedule vs live traffic +
-  candidate new models). Judging is **parked with a trigger** — revisit only if
-  the model landscape re-diverges into genuine specialists.
+  gap. Disproved on three fleets.
+- **Route to the strongest model.** A query-only router only pays when pairwise
+  winners *split* (peer fleet, weakly) — the specialist fleet concentrates, so no
+  router. **The diagnostic tells you which case a fleet is in.**
+- **The reusable deliverable is the instrument:** `divergence.py` /
+  `fleet_pairwise.py` correctly said "don't ensemble" on all three fleets, for $0,
+  before any judge was built. Judging is **parked with a trigger** — and the
+  specialist fleet was the strongest test of that trigger: genuine specialists
+  still didn't diverge, they concentrated on the biggest model.
 
 *(One mechanism did pay on the earlier fleet: **Self-MoA** — sampling the single
 best model N times and selecting, +0.071 over baseline. It's a generation trick,

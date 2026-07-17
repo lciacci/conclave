@@ -4,32 +4,38 @@ Multi-model inference lab. Self-hosted open-weight models, Tailscale-only access
 pedagogical core STARTED as ensemble + judge; the project measured that thesis and disproved
 it. The decision log below is preserved as-made; read the current-state banner first.
 
-> ## ▶ WHERE THIS LANDED (2026-07-15) — read before the historical log below
+> ## ▶ WHERE THIS LANDED (2026-07-17) — read before the historical log below
 >
-> **The ensemble+judge thesis was DISPROVED, and the project's actual answer is ROUTING.**
-> Measured on two fleets, including a deliberately ideal modern one (Qwen3-32B / Gemma-3-27B /
-> Mistral-3.2-24B — comparable strength, three lineages, the regime an ensemble *should* win):
-> - **Headroom = oracle − best single = +0.040** (the entire value any selection policy can add).
-> - **An in-fleet judge scores 0.920 — BELOW just always calling the strongest model (0.935).**
->   Making the fleet stronger *lowered* headroom — the **convergence** effect: as strong models
->   agree more, a perfect judge beats the best single by less.
-> - **Pairwise grading** (blinded, position-debiased — the fix for absolute-grading saturation,
->   which topped out 20/30 queries at the ceiling) shows the per-query winner **splits across all
->   three models**: a **router has a real signal** the saturated headroom number was blind to.
+> **The ensemble+judge thesis was DISPROVED on THREE fleets, and the project's actual answer is
+> ROUTE TO THE STRONGEST MODEL.** Fleets measured: old L40S; a deliberately ideal peer-modern one
+> (Qwen3-32B / Gemma-3-27B / Mistral-3.2-24B — comparable strength, three lineages); and a
+> genuine-SPECIALIST one (Qwen3-Coder-Next-80B / DeepSeek-R1-32B / Llama-3.3-70B, 2026-07-17).
+> - **Headroom = oracle − best single = +0.040 (peer), +0.0244 (specialist)** — the entire value any
+>   selection policy can add, and it SHRANK with genuine specialists, not grew.
+> - **An in-fleet judge scores BELOW just always calling the strongest model.** Making the fleet
+>   stronger *lowered* headroom — the **convergence** effect: as strong models agree more, a perfect
+>   judge beats the best single by less.
+> - **Pairwise grading** (blinded, position-debiased — the fix for absolute-grading saturation)
+>   splits per-query winners across all three on the PEER fleet (a router had a signal there), but
+>   **CONCENTRATES on the specialist fleet: the 80B coder wins 18/30 and 100% of tie-breaks.** The
+>   specialist fleet is the MOST hierarchical of the three — parameter/quality count beats
+>   specialization, now shown on genuinely different architectures (rules out a lineage artifact).
 >
 > **The settled architecture:** **diagnostic → operational → monitor.**
 > 1. **Diagnostic:** `divergence.py` / `divergence_modern.py` / `fleet_pairwise.py` — measure a
->    fleet's headroom and per-query winners for $0, offline, BEFORE building anything. *This is
->    the reusable deliverable.*
-> 2. **Operational (NEXT):** a **router** — pick the model from the query alone. A judge picks
->    *after* generating N answers (N× cost, saturated gap); a router picks *before* (1/N cost).
->    The open question: how much of the pairwise *oracle* ceiling a *predictable* router captures.
+>    fleet's headroom and per-query winners for $0, offline, BEFORE building anything. It correctly
+>    said "don't ensemble" on all three fleets. *This is the reusable deliverable.*
+> 2. **Operational — a router, but SHELVED and fleet-DEPENDENT.** A router only pays when pairwise
+>    winners SPLIT (peer fleet, weakly — and #17 measured that a query-only category router captures
+>    ~nothing over "always call the strongest" even there). The specialist fleet CONCENTRATES, so no
+>    router. The diagnostic is what tells you which case a fleet is in. Likely real next move: ship
+>    the instrument + a write-up, not another fleet.
 > 3. **Continuous fitness monitor:** the diagnostic run on a schedule vs live traffic + candidate
 >    new models — flag drift, vet swaps. Keeps the lab good as models churn.
 >
-> **Judge is PARKED with a trigger:** revisit only if the model landscape re-diverges (genuine
-> specialists or deliberately-diverse models emerge). Convergence makes judging pay *less* as
-> models improve, so it is not the near-term path.
+> **Judge is PARKED with a trigger:** revisit only if the model landscape re-diverges. The specialist
+> fleet was the strongest test of that trigger — genuine specialists still didn't diverge (they
+> concentrated on the biggest model). Convergence makes judging pay *less* as models improve.
 >
 > **One mechanism DID pay** (earlier fleet): **Self-MoA** — sample the single best model N times
 > and select, +0.071 over baseline. A generation trick, not a fleet trick; production shape is
