@@ -55,3 +55,4 @@ orchestrator/eval_pairwise_*.json
 # local-CC harness venvs (not committed)
 harness/venv/
 harness/.venv/
+.aider*

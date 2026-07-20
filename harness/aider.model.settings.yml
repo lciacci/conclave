@@ -1,0 +1,13 @@
+# Aider model settings for the LOCAL Qwen coder.
+#
+# THE ONE THING THAT MATTERS: num_ctx.
+# Ollama defaults num_ctx to 2048 and SILENTLY TRUNCATES anything past it. Aider's
+# repo-map + added files easily exceed that, so without this the model gets a shredded
+# prompt and emits garbage — and nothing warns you. This is the #1 aider+Ollama footgun.
+#
+# 32768 is the daily-driver ceiling: big enough for repo map + a few files, small enough
+# that KV cache + prefill stay sane on a 64GB Mac. The model itself supports 262144;
+# raising this trades latency/RAM for context. Bump only if a task needs more files open.
+- name: ollama_chat/qwen3-coder:30b
+  extra_params:
+    num_ctx: 32768
