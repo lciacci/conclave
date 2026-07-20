@@ -24,20 +24,31 @@
 >   file under a filename the model must reproduce, and it dropped the dir prefix. So the harness choice
 >   changes the failure MODE (subtask-drop vs target-loss) but not the CONCLUSION: **both confabulate
 >   "done" → verification mandatory, auto-accept unsafe.** The escalation triggers are unchanged.
-> - **Speed: NOT cleanly measured.** Aider sent 5.7k–14k/turn vs CC's ~15k — lighter, and it climbs as
->   files pile into the chat. The prefill-bound story is *plausibly* better on aider but the run didn't
->   isolate a clean wall-clock (file-add prompts + a scratch-T2 muddied it). **Do NOT claim a latency
->   win yet** — that's the one open measurement. To get it: fixed task, warm model, time start→commit on
->   BOTH harnesses, same file already `/add`-ed.
+> - **Speed: MEASURED (2026-07-20). Aider is ~10–14× faster per edit — and the slowness IS the harness.**
+>   Clean A/B: identical one-line edit (`DEFAULT_COLOR` flip), warm model, throwaway git repo, one-shot
+>   headless on both. n=2 each:
+>   ```
+>   CC (claude -p, proxy):  126s, 81s   (~15k prompt, RE-PREFILLED per turn × multi-turn read→edit→verify)
+>   aider (--message):        9s,  8s   (803 tokens sent, one turn, whole-format apply)
+>   ```
+>   Aider dead-stable (803 tok both runs); CC variable (extra turns/generation). The ~19× smaller prompt
+>   × fewer turns = the ~10× wall-clock gap. **This confirms the CC finding's own diagnosis: "slow is the
+>   HARNESS, not the model."** On MULTI-step tasks the gap should WIDEN (CC re-prefills 15k every turn),
+>   not narrow. Bounds: trivial single-edit, warm model (cold adds ~a constant to both), n=2 — but the
+>   gap dwarfs the variance. Rig: `scratchpad/latbench1/` (throwaway, auto-cleaned).
+>   - ⚠️ **Speed does NOT rescue fidelity.** T3 still fails on BOTH harnesses. Fast + unreliable on
+>     multi-step is still a supervised fallback — aider just makes the *supervised* loop bearable
+>     (9s/edit vs 126s/edit), it does not make it *unsupervised*. Auto-accept stays unsafe.
 >
 > ### Cleanup done: the T2/T3 run left scratch commits on `main` (`--help`, LOCAL_CODER doc, a root-dupe).
 > The root dupe was reverted (`9ea2d0f`); the two scratch edits restored to pre-run state (`32aea55`).
 > `reset --hard` is policy-blocked, so history shows the churn but `orchestrator/bench_local30_gen.py`
 > content is back to original. Nothing running; nothing billing. Replay: `harness/run-local-aider.sh`.
 >
-> ### ➡️ NEXT (optional): ① the clean wall-clock A/B (above) — the only unmeasured claim. ② Devstral
-> ### through the same T1–T3 (fidelity-targeted; latency won't move, harness-bound) — still open from the
-> ### CC handoff. ③ Integration cohesion contract (Tessera-hosted).
+> ### ➡️ NEXT (optional): ① **Devstral through the same T1–T3** (Mistral agentic-coding-tuned, targets
+> ### the FIDELITY gap — the failure that actually matters; speed is now solved, fidelity is not).
+> ### `ollama pull devstral`, point `harness/aider.model.settings.yml` (or litellm) at it, re-run T1–T3.
+> ### ② Integration cohesion contract (Tessera-hosted). [DONE ✅: the latency A/B — aider ~10× faster.]
 >
 > # ✅ 2026-07-17 — AGENTIC EXPERIMENT RAN. Local Qwen drives CC but is SLOW + LOW-FIDELITY. It's a SUPERVISED FALLBACK tier, not a peer.
 >
