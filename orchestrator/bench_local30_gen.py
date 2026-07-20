@@ -16,6 +16,9 @@ Run (Ollama up, model pulled):
     python3 orchestrator/bench_local30_gen.py
     # -> eval_candidates_local30_hard.json  {id: [{model:"coder30", content, ...}]}
 Then merge + grade with bench_local30_grade.py.
+
+Options:
+    --help     Show this help message and exit
 """
 from __future__ import annotations
 
@@ -90,7 +93,10 @@ def demo() -> None:
 
 
 if __name__ == "__main__":
-    if "--demo" in sys.argv:
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print(__doc__.strip())
+        sys.exit(0)
+    elif "--demo" in sys.argv:
         demo()
     else:
         print(f"generating {MODEL} on {len(HARD_QUERY_SET)} hard queries "
