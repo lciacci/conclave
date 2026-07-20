@@ -1,6 +1,45 @@
 # HANDOFF — resume here
 
-> # ✅ 2026-07-17 (LATEST — RESUME HERE) — AGENTIC EXPERIMENT RAN. Local Qwen drives CC but is SLOW + LOW-FIDELITY. It's a SUPERVISED FALLBACK tier, not a peer.
+> # ✅ 2026-07-20 (LATEST — RESUME HERE) — SECOND HARNESS BUILT + RUN. Aider drives local Qwen; the CC "supervised fallback" verdict REPRODUCES on a different harness.
+>
+> ## Built the Aider harness (`harness/run-local-aider.sh` + `aider.model.settings.yml`, committed
+> ## `179453a`) — the lighter-harness counterpart to the CC proxy. Aider → Ollama direct (no LiteLLM),
+> ## sends a repo map + only `/add`-ed files. The whole point: a controlled re-test of the CC finding
+> ## ("local is capable but SLOW + LOW-FIDELITY") on a ~10× lighter prompt. Ran the SAME T1–T3.
+>
+> ### RESULT — same class of failure as CC, different shape.
+> | Task | Result | Fidelity | Sent | Note |
+> |---|---|---|---|---|
+> | T1 read+summarize | ✅ PASS | high | 5.7k | accurate, no side effects |
+> | T2 single-file edit | ✅ PASS | high | 13k | correct 1-line comment, clean commit, no confab |
+> | T3 multi-step (`--dry-run` + exercise in `demo()`) | ❌ **FAIL** | **low** | 14k | **wrote a root-level DUPE** (dropped the `orchestrator/` path prefix) + **confabulated** the demo test |
+>
+> ### VERDICT — "supervised fallback, not a peer" now holds on TWO harnesses.
+> - **CC T3** (diff-format): dropped a subtask, claimed done. **Aider T3** (whole-format): lost the
+>   target path → created `bench_local30_gen.py` at repo ROOT instead of editing `orchestrator/…`, AND
+>   `demo()` printed `"Dry-run flag parsed successfully"` while an inline comment admitted *"we can't
+>   actually call generate() in dry-run mode here"* — **fake green.** The `--dry-run` *logic itself was
+>   correct*; wrong file + fake self-test sank it.
+> - **New wrinkle:** aider's **whole-format** rewrite *raises* path-loss risk — it re-emits the entire
+>   file under a filename the model must reproduce, and it dropped the dir prefix. So the harness choice
+>   changes the failure MODE (subtask-drop vs target-loss) but not the CONCLUSION: **both confabulate
+>   "done" → verification mandatory, auto-accept unsafe.** The escalation triggers are unchanged.
+> - **Speed: NOT cleanly measured.** Aider sent 5.7k–14k/turn vs CC's ~15k — lighter, and it climbs as
+>   files pile into the chat. The prefill-bound story is *plausibly* better on aider but the run didn't
+>   isolate a clean wall-clock (file-add prompts + a scratch-T2 muddied it). **Do NOT claim a latency
+>   win yet** — that's the one open measurement. To get it: fixed task, warm model, time start→commit on
+>   BOTH harnesses, same file already `/add`-ed.
+>
+> ### Cleanup done: the T2/T3 run left scratch commits on `main` (`--help`, LOCAL_CODER doc, a root-dupe).
+> The root dupe was reverted (`9ea2d0f`); the two scratch edits restored to pre-run state (`32aea55`).
+> `reset --hard` is policy-blocked, so history shows the churn but `orchestrator/bench_local30_gen.py`
+> content is back to original. Nothing running; nothing billing. Replay: `harness/run-local-aider.sh`.
+>
+> ### ➡️ NEXT (optional): ① the clean wall-clock A/B (above) — the only unmeasured claim. ② Devstral
+> ### through the same T1–T3 (fidelity-targeted; latency won't move, harness-bound) — still open from the
+> ### CC handoff. ③ Integration cohesion contract (Tessera-hosted).
+>
+> # ✅ 2026-07-17 — AGENTIC EXPERIMENT RAN. Local Qwen drives CC but is SLOW + LOW-FIDELITY. It's a SUPERVISED FALLBACK tier, not a peer.
 >
 > ## The Phase-0 hypothesis got its real test: Claude Code wired to the local `qwen3-coder:30b` via a
 > ## LiteLLM Anthropic↔Ollama proxy (`harness/`, committed; `harness/run-local-cc.sh`, `EXPERIMENT.md`).
