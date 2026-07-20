@@ -2,6 +2,8 @@
 """Phase-0 local-first benchmark: generate Qwen3-Coder-30B-A3B candidates on the
 frozen hard-30, LOCALLY via Ollama's OpenAI-compatible endpoint — $0, no GPU boot.
 
+LOCAL_CODER defaults to "qwen3-coder:30b" if not set in environment.
+
 WHY LOCAL. The 30B-A3B is MoE (~3B active), ~18GB at 4-bit, and runs on the 64GB
 Mac. If its quality holds vs the H200-served 80B (eval_candidates_specialist_hard,
 coder 0.949), it deploys on the laptop for $0 — so the daily driver may never need
