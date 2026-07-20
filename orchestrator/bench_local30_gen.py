@@ -2,8 +2,6 @@
 """Phase-0 local-first benchmark: generate Qwen3-Coder-30B-A3B candidates on the
 frozen hard-30, LOCALLY via Ollama's OpenAI-compatible endpoint — $0, no GPU boot.
 
-LOCAL_CODER defaults to "qwen3-coder:30b" if not set in environment.
-
 WHY LOCAL. The 30B-A3B is MoE (~3B active), ~18GB at 4-bit, and runs on the 64GB
 Mac. If its quality holds vs the H200-served 80B (eval_candidates_specialist_hard,
 coder 0.949), it deploys on the laptop for $0 — so the daily driver may never need
@@ -18,9 +16,6 @@ Run (Ollama up, model pulled):
     python3 orchestrator/bench_local30_gen.py
     # -> eval_candidates_local30_hard.json  {id: [{model:"coder30", content, ...}]}
 Then merge + grade with bench_local30_grade.py.
-
-Options:
-    --help     Show this help message and exit
 """
 from __future__ import annotations
 
@@ -95,10 +90,7 @@ def demo() -> None:
 
 
 if __name__ == "__main__":
-    if "--help" in sys.argv or "-h" in sys.argv:
-        print(__doc__.strip())
-        sys.exit(0)
-    elif "--demo" in sys.argv:
+    if "--demo" in sys.argv:
         demo()
     else:
         print(f"generating {MODEL} on {len(HARD_QUERY_SET)} hard queries "
