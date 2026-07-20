@@ -9,7 +9,7 @@ Contract: the downstream-findings contract in the Tessera framework
 
 ---
 
-## gate-scan re-flags already-adjudicated turns every Stop (no memory of dispositions)
+## F-001 — gate-scan re-flags already-adjudicated turns every Stop (no memory of dispositions)
 
 **Status:** open
 
