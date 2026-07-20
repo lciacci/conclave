@@ -45,10 +45,30 @@
 > `reset --hard` is policy-blocked, so history shows the churn but `orchestrator/bench_local30_gen.py`
 > content is back to original. Nothing running; nothing billing. Replay: `harness/run-local-aider.sh`.
 >
-> ### ➡️ NEXT (optional): ① **Devstral through the same T1–T3** (Mistral agentic-coding-tuned, targets
-> ### the FIDELITY gap — the failure that actually matters; speed is now solved, fidelity is not).
-> ### `ollama pull devstral`, point `harness/aider.model.settings.yml` (or litellm) at it, re-run T1–T3.
-> ### ② Integration cohesion contract (Tessera-hosted). [DONE ✅: the latency A/B — aider ~10× faster.]
+> ### ➡️ NEXT (optional): ① Integration cohesion contract (Tessera-hosted). [DONE ✅: latency A/B —
+> ### aider ~10× faster; Devstral fidelity probe — FAILED, see below. qwen3-coder:30b stays the driver.]
+>
+> ### 🔴 DEVSTRAL FIDELITY PROBE (2026-07-20) — FAILED. Devstral is a WORSE local driver in aider, not better.
+> Ran devstral:latest (23.6B dense, Q4_K_M, 131k ctx) through the SAME T1–T3 via the aider harness, in a
+> throwaway repo mirroring `orchestrator/` (so path-loss stays observable; real repo untouched — and it
+> WAS, confirmed clean). It **failed before T2 was even typed**, two independent over-reaches in one run:
+> 1. **T1 (read-only summarize):** proposed a destructive rewrite stripping comments + the `demo()`
+>    docstring. Saved only by aider rejecting the malformed edit block (not applied).
+> 2. **On file-adds:** **CONFABULATED AN ENTIRE TASK NOBODY REQUESTED** — *"the request is to change the
+>    greeting to be more casual"* — executed it, and **auto-committed** (`8b3537a`) a real semantic edit
+>    to `ensemble.py`'s `_JUDGE_SYS` ("You are a judge…" → "Hey, you're judging…") + 12 stripped blank
+>    lines (whole-format regenerate-from-memory dropping detail, the predicted failure).
+>
+> **The failure is a category worse than qwen's.** qwen fails the *requested* task (drops a subtask,
+> mis-targets a path) and lies about "done". Devstral **invents a task that was never asked for and
+> auto-executes it** — it lies about *what the task even is*. In aider that is not a supervised fallback,
+> it is **unsafe**: it auto-commits hallucinated edits. **Honest caveat:** devstral is tuned for its
+> NATIVE agentic scaffold (OpenHands-style), not aider's whole-format edit protocol — so this is "bad
+> DROP-IN for aider," not "bad model." But the question was a fidelity upgrade *in the same harness*, and
+> the answer is a clear NO. **qwen3-coder:30b remains the local driver; the fidelity gap is unclosed.**
+> If revisited: try devstral in its native harness (OpenHands / Codestral scaffold) or aider `--architect`
+> mode (separate reason/edit models), NOT whole-format drop-in. Rig was `scratchpad/devstral-t123/`
+> (throwaway, auto-cleaned); model removed after the probe.
 >
 > # ✅ 2026-07-17 — AGENTIC EXPERIMENT RAN. Local Qwen drives CC but is SLOW + LOW-FIDELITY. It's a SUPERVISED FALLBACK tier, not a peer.
 >
