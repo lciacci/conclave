@@ -36,9 +36,13 @@ LOW-FIDELITY (confabulated completing half a multi-step task) — a **SUPERVISED
 tier, not an unsupervised peer** (auto-accept is unsafe: it lies about "done"). See `docs/HANDOFF.md`. Next practical step: wire the local coder into a harness (Claude Code
 via a LiteLLM proxy). **Positioning:** Conclave is the **substrate** (serving + the `divergence.py`
 instrument) in a three-project system with **Tessera** (governance + routing *policy*) and
-**pr-arbiter** (the multi-role *union-recall* review pattern). Conclave's null is SELECT-BEST only —
-it does NOT bind pr-arbiter's union-recall, and diversity that pays is ROLE not MODEL. See
-`docs/INTEGRATION.md` (conclave's stub; canonical cohesion contract is Tessera-hosted).
+**pr-arbiter** (the adversarial-quality review pattern). Both conclave and pr-arbiter are DOWNSTREAM
+consumers of the Tessera framework AND contribute up (conclave serves + measures; pr-arbiter's pattern
+graduates into `/arbiter`) — same dual shape. Conclave's null is SELECT-BEST only — it does NOT bind
+pr-arbiter's union-recall, and the guard "diversity that pays is ROLE not MODEL" **still binds but is
+under an OPEN question** (2026-07-20: model-diversity on the *adversarial* path is untested — a
+different objective than the select-best null; see `docs/HANDOFF.md` top block + `docs/S2-scoping.md`).
+See `docs/INTEGRATION.md` (conclave's stub; canonical cohesion contract is Tessera-hosted).
 
 - **Tessera profile:** `standard` (see `.tessera/project.yml`).
 
