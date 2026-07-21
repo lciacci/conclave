@@ -1,6 +1,53 @@
 # HANDOFF — resume here
 
-> # ✅ 2026-07-20 (LATEST — RESUME HERE) — SECOND HARNESS BUILT + RUN. Aider drives local Qwen; the CC "supervised fallback" verdict REPRODUCES on a different harness.
+> # 🧭 2026-07-20 (LATEST — RESUME HERE) — THREE-PROJECT POSITIONING LOCKED (owner) + a NEW open axis: MODEL-diversity in the adversarial path.
+>
+> ## Not an experiment — a positioning lock + one new question for the calculus. Read alongside
+> ## `docs/INTEGRATION.md` (stub) and `../tessera/docs/contracts/three-project-cohesion.md` (canonical;
+> ## wins on conflict). The harness/devstral/S2 work below is DONE; this is the freshest thinking + the live thread.
+>
+> ### Positioning (owner-confirmed 2026-07-20, matches canonical)
+> - **Conclave is DOWNSTREAM of Tessera on governance** (runs the Tessera framework: `.tessera/` profile,
+>   gate-scan, suggestion-gate, escalation, findings feed UP) **and UPSTREAM as the inference substrate**
+>   (Tessera routing/dispatch consumes conclave's gateway + tier ladder for model selection / routing /
+>   escalation). Governance flows down, inference flows up. Runtime peers; lane changes need the owner's sign-off.
+> - **pr-arbiter = the adversarial-QUALITY pattern** (reviewer → independent arbiter → mutual KEEP/DROP
+>   triage; one model, role-differentiated prompts). Built to **ENHANCE TESTING via an adversarial process.**
+>   Runs ON conclave (substrate), graduates INTO Tessera's `/arbiter` (seam S4, ADR-gated D3) — **CONTINGENT
+>   on continuing to prove value** (guard d: numbers are thin). Adoption is **value-gated, not headline-gated.**
+> - **The click:** conclave's **S2 instrument is BOTH pr-arbiter's substrate AND the value-GATE on its
+>   graduation.** Tessera decides WHEN to fan out review; conclave serves the models AND measures whether
+>   fanning out pays; pr-arbiter must keep passing that measurement. Deep cohesion: **Tessera principle #5
+>   ("ensembling is a tool, not a default") IS conclave's "route, don't judge," measured** — conclave is the
+>   empirical arm of a stance Tessera holds as philosophy.
+>
+> ### 🔬 NEW OPEN AXIS — MODEL-diversity in the adversarial path (owner, 2026-07-20)
+> pr-arbiter was designed BEFORE the idea of using DIFFERENT MODELS per adversarial role. Its current
+> invariant is "one strong model, role-differentiated prompts, NO fleet" (**anti-conflation guard b**). The
+> owner flags model-diversity as something to fold into the calculus. Honest status:
+> - **UNTESTED, and it sits in tension with guard (b) — but the guard is weaker than it reads.** Guard (b)'s
+>   EVIDENCE is conclave's **SELECT-BEST null** (model-fleet ≤ best-single on Q&A). Guard (a) says the
+>   adversarial / **UNION-RECALL** objective is DIFFERENT and does not saturate the same way. So guard (b) is
+>   **ASSERTED for the review pattern but only MEASURED for select-best Q&A.** Whether MODEL-diversity adds
+>   union-recall on the adversarial path is an **OPEN, measurable question, not a settled no.**
+> - **The plausible YES:** different lineages make **decorrelated errors** → catch different bugs → exactly
+>   the union-recall headroom logic, now on the MODEL axis. This is the one routing shape that could survive
+>   the within-fleet null (cf. [[lab-frontier-escalation]]).
+> - **The skeptic's NULL (do NOT skip):** role-diversity ALREADY buys decorrelated passes cheaply (one model,
+>   different prompts). Model-diversity ADDS cost (multiple tiers); the real question is **MARGINAL union-recall
+>   OVER role-diversity alone** — which could be ~0 if models converge (conclave's live convergence finding) or
+>   if ROLE already captures the decorrelation. Unmeasured either way.
+> - **How to fold it in:** the S2 instrument (`docs/S2-scoping.md`) extends naturally — add **MODEL as a second
+>   variable beside ROLE**: measure union-recall(role only) vs union-recall(role × model) vs best-single, on the
+>   existing synthetic corpus. $0; local-qwen can generate the extra model's passes now. Still in conclave's
+>   instrument lane (measuring), PROVIDED it reuses pr-arbiter's finding-definition and emits no threshold.
+> - **Lane discipline:** do NOT rewrite guard (b) here — it is co-owned (pr-arbiter) + lives in the
+>   Tessera-hosted canonical; changing it is an **ADR-level, cross-repo** decision. This block RECORDS the
+>   challenge for that ADR; it does not resolve it. **Excitement-bias named:** model-diversity is the shiny
+>   extension conclave is primed to like (it's the router thesis reborn) — **gate it on the instrument, not the
+>   instinct.** Same discipline that (correctly) killed the judge on three fleets.
+>
+> # ✅ 2026-07-20 — SECOND HARNESS BUILT + RUN. Aider drives local Qwen; the CC "supervised fallback" verdict REPRODUCES on a different harness.
 >
 > ## Built the Aider harness (`harness/run-local-aider.sh` + `aider.model.settings.yml`, committed
 > ## `179453a`) — the lighter-harness counterpart to the CC proxy. Aider → Ollama direct (no LiteLLM),

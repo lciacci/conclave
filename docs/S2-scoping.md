@@ -76,3 +76,18 @@ is genuinely demoable — build the port for the story, not the evidence.
 
 **Next real unblock** is a cross-repo coordination session (thicken n / settle D1), owner-driven — not a
 conclave task. This memo is the pre-build artifact for whenever that happens.
+
+## Addendum (2026-07-20) — a MODEL axis, if S2 is ever built
+
+pr-arbiter predates the idea of different MODELS per adversarial role (owner, 2026-07-20). If S2 is built,
+it extends naturally to measure that axis: **union-recall(role only) vs union-recall(role × model) vs
+best-single**, on the same synthetic corpus, $0 (local-qwen generates the extra model's passes). This is
+the one variant that could add NEW evidence rather than porting pr-arbiter's existing role-only number —
+so if S2 is built at all, build it with MODEL as a variable, not just ROLE.
+
+Caveats carried from HANDOFF (2026-07-20 top block): (1) it challenges anti-conflation **guard (b)** ("ROLE
+not MODEL") — but the guard's evidence is the SELECT-BEST null, not union-recall, so the question is genuinely
+open. (2) The skeptic's null: role-diversity may already capture the decorrelation; models converge — marginal
+gain over role-alone could be ~0. (3) Rewriting guard (b) is an ADR-level, cross-repo decision (co-owned +
+Tessera-hosted) — this memo records the axis, it does not resolve the guard. (4) Excitement-bias: this is the
+router thesis reborn; gate on the instrument, not the instinct.
