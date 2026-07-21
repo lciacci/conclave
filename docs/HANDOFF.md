@@ -15,6 +15,13 @@
 >   triage; one model, role-differentiated prompts). Built to **ENHANCE TESTING via an adversarial process.**
 >   Runs ON conclave (substrate), graduates INTO Tessera's `/arbiter` (seam S4, ADR-gated D3) — **CONTINGENT
 >   on continuing to prove value** (guard d: numbers are thin). Adoption is **value-gated, not headline-gated.**
+>   - **pr-arbiter has the SAME DUAL SHAPE as conclave:** it is ALSO a **downstream consumer of the Tessera
+>     framework** (governed-by: will adopt `.tessera/`, run gate-scan / suggestion-gate / escalation, feed
+>     findings up) *and* its pattern graduates UP into `/arbiter`. Governance flows down, the pattern flows
+>     up — mirror of conclave. **Direction owner-set 2026-07-20; TIMING stays parked** (canonical **D4** is
+>     formally open — adoption was deferred to avoid confounding pr-arbiter's own eval with harness churn,
+>     and it trips `tessera-watch` P4 → downstream count 5). Recording direction, not overwriting the
+>     canonical's deferral; the `.tessera/` adoption itself is a pr-arbiter-repo change, not conclave's.
 > - **The click:** conclave's **S2 instrument is BOTH pr-arbiter's substrate AND the value-GATE on its
 >   graduation.** Tessera decides WHEN to fan out review; conclave serves the models AND measures whether
 >   fanning out pays; pr-arbiter must keep passing that measurement. Deep cohesion: **Tessera principle #5
