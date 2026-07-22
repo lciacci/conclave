@@ -14,6 +14,12 @@ Contract: docs/contracts/escalation.md.
     tessera-escalate list --all --json
     tessera-escalate resolve esc-2026... --note "reverted, see abc123"
 """
+
+# Runs on ANY python3 — including macOS's /usr/bin/python3 (3.9), which a PATH can hand
+# you at any time. `#!/usr/bin/env python3` resolves a NAME, and the name's VERSION drifts
+# with it. PEP-604 annotations (`str | None`) raise TypeError at definition time on 3.9.
+# `from __future__ import annotations` makes them lazy strings. Do not remove.
+from __future__ import annotations
 import argparse
 import json
 import os
