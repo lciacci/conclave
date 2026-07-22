@@ -11,7 +11,7 @@ Contract: the downstream-findings contract in the Tessera framework
 
 ## F-001 — gate-scan re-flags already-adjudicated turns every Stop (no memory of dispositions)
 
-**Status:** open
+**Status:** transferred:tessera@gate_disposition (2026-07-22)
 
 **Where:** `scripts/gate/scan.py` (Stop hook) + the suggestion-gate log under `.tessera/logs/`.
 
