@@ -1,0 +1,24 @@
+# sqlfluff configuration — Tessera default (ADR-0012)
+#
+# Copied to a project's .sqlfluff by bin/tessera-new-project. Tune per project.
+#
+# WHY layout IS EXCLUDED BY DEFAULT — this is the load-bearing line in this file.
+# Measured on the first downstream with real SQL (settempo, 2026-07-21): stock sqlfluff
+# reported 206 violations and 185 of them (89%) were whitespace and indentation. Shipping
+# that as a gate means the first thing a developer sees is a wall of spacing complaints
+# about a file nobody is editing, and the second thing they do is stop reading the gate.
+# Style consistency in hand-written DDL is not worth that. Delete this line if a project
+# genuinely wants enforced formatting — then run `sqlfluff format` once, deliberately, in
+# its own commit, so the reformat is not tangled with a real change.
+#
+# dialect: set per project. There is no sane default — guessing wrong makes every rule lie.
+
+[sqlfluff]
+dialect = ansi
+exclude_rules = layout
+max_line_length = 0
+
+[sqlfluff:rules:capitalisation.keywords]
+# Unenforced: `create table` and `CREATE TABLE` are both fine, and picking one for someone
+# else's existing schema is churn, not quality.
+capitalisation_policy = consistent

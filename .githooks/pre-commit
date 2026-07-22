@@ -1,0 +1,6 @@
+#!/bin/bash
+# Downstream pre-commit. Add your project's own blocking checks here.
+# SQL lint is WARN-ONLY and silent unless this commit stages .sql (ADR-0012).
+ROOT="$(git rev-parse --show-toplevel)"
+[ -x "$ROOT/scripts/sql/lint.sh" ] && "$ROOT/scripts/sql/lint.sh"
+exit 0
