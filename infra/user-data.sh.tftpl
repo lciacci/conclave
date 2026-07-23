@@ -5,6 +5,20 @@
 set -euxo pipefail
 exec > /var/log/conclave-init.log 2>&1
 
+# --- HARD TTL (scheduled FIRST, before anything can hang) ---
+# The idle-stop alarms do NOT catch the failure this repo has actually seen: vLLM
+# crash-looping under `--restart unless-stopped` reloads weights forever, so GPU and
+# CPU util both spike periodically and neither alarm's "<5% sustained" ever trips.
+# The box bills until someone notices. The monthly budget hardstop is a $100/mo
+# backstop with hours of lag — it does not bound a single run.
+#
+# ponytail: `shutdown -P` via the OS scheduler, not a watchdog process or an
+# EventBridge rule. It survives user-data exiting and a crash-looping container;
+# it does NOT survive a wedged kernel — nothing on-box does. EC2's default
+# shutdown behavior stops (not terminates), so EBS + EFS weights survive for a
+# fast re-boot. Need longer mid-run: `sudo shutdown -c` then reschedule.
+shutdown -P +${ttl_minutes} "conclave: hard TTL reached"
+
 # --- tailscale ---
 curl -fsSL https://tailscale.com/install.sh | sh
 command -v aws || apt-get install -y awscli
@@ -53,6 +67,10 @@ jq -c '.[]' /etc/conclave-models.json | while read -r m; do
   dtype=$(echo "$m" | jq -r .dtype)
   dtype_arg=""
   [ -n "$dtype" ] && [ "$dtype" != "null" ] && dtype_arg="--dtype $dtype"
+  # tp>1 shards one model across GPUs (multi-GPU boxes: g6e.12xlarge = 4x L40S).
+  # Defaults to 1, so the co-resident single-GPU fleet above is unchanged.
+  tp=$(echo "$m" | jq -r '.tp // 1')
+  extra=$(echo "$m" | jq -r '.extra_args // ""')
   # Image PINNED to v0.24.0 (was :latest, which resolved to v0.24.0 on the
   # 2026-07-10 boot). Pinning stops a silent vLLM bump from changing mem-util
   # semantics or detokenizer behaviour under us between boots.
@@ -65,7 +83,9 @@ jq -c '.[]' /etc/conclave-models.json | while read -r m; do
     --download-dir /models \
     --max-model-len "$maxlen" \
     --gpu-memory-utilization "$util" \
+    --tensor-parallel-size "$tp" \
     $dtype_arg \
+    $extra \
     --enforce-eager
 
   # Wait for this model to finish loading before starting the next, so the next

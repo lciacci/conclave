@@ -156,3 +156,81 @@ def test_question_before_tool_call_still_counts(tmp_path):
         ],
     )
     assert len(scan.find_asking_turns(t)) == 1
+
+
+# --- conclave F-001: disposition memory ------------------------------------------------
+
+
+def test_turn_id_is_stable_and_whitespace_normalized():
+    """Same turn, reflowed, must keep its id — else a ruling silently stops applying."""
+    assert scan.turn_id("Do A or B?") == scan.turn_id("Do A   or\n  B?")
+    assert scan.turn_id("Do A or B?") != scan.turn_id("Do C or D?")
+
+
+def test_turn_id_hashes_whole_turn_not_the_preview():
+    """Two turns sharing a 100-char tail must NOT collapse.
+
+    This repo's asking turns routinely end the same way ('…, OK to proceed?'), so
+    keying on the preview would suppress a real gate the first time its twin was ruled
+    not-a-gate. Hash the whole turn.
+    """
+    tail = "x" * 200 + " OK to proceed?"
+    assert scan.turn_id("First proposal. " + tail) != scan.turn_id("Second proposal. " + tail)
+
+
+def test_load_dispositions_collects_turn_ids(tmp_path, monkeypatch):
+    monkeypatch.setattr(scan, "LOGS", tmp_path)
+    (tmp_path / "s1.jsonl").write_text(
+        json.dumps({"type": "gate_disposition",
+                    "data": {"verdict": "not-a-gate", "turn_ids": ["aaa", "bbb"]}}) + "\n"
+        + json.dumps({"type": "suggestion_gate", "data": {"fired": True}}) + "\n"
+        + json.dumps({"type": "gate_disposition", "data": {"turn_ids": ["ccc"]}}) + "\n"
+    )
+    assert scan.load_dispositions("s1") == {"aaa", "bbb", "ccc"}
+
+
+def test_load_dispositions_absent_file_is_empty(tmp_path, monkeypatch):
+    monkeypatch.setattr(scan, "LOGS", tmp_path)
+    assert scan.load_dispositions("nope") == set()
+
+
+def test_disposed_turns_are_not_reflagged(tmp_path, monkeypatch):
+    """THE regression. Conclave hit this ~4x in one session: turns already ruled
+    not-a-gate came back every Stop, so each Stop re-litigated closed decisions."""
+    monkeypatch.setattr(scan, "LOGS", tmp_path)
+    t = _write(tmp_path, [
+        _assistant("Should I do A or B?"), _human(),
+        _assistant("Reading the file now?"), _human(),
+        _assistant("Ship it or wait?"), _human(),
+    ])
+    detected = scan.find_asking_turns(t)
+    assert len(detected) == 3
+    assert scan.should_fire(len(detected), 0) is True
+
+    # Rule the middle one (narration) not-a-gate, exactly as the model would.
+    narration_id = detected[1][0]
+    (tmp_path / "s1.jsonl").write_text(
+        json.dumps({"type": "gate_disposition",
+                    "data": {"verdict": "not-a-gate", "turn_ids": [narration_id]}}) + "\n")
+
+    disposed = scan.load_dispositions("s1")
+    remaining = [x for x in detected if x[0] not in disposed]
+    assert len(remaining) == 2
+    assert narration_id not in {tid for tid, _ in remaining}
+
+
+def test_report_shows_turn_ids_and_suppressed_count():
+    """The model cannot record a ruling on a turn it cannot name."""
+    out = scan.report([("abc123def456", "Ship it or wait?")], logged=0, suppressed=2)
+    assert "[abc123def456]" in out
+    assert "2 already ruled not-a-gate" in out
+    assert "--not-a-gate --turn" in out
+
+
+def test_disposition_is_not_counted_as_a_logged_gate(tmp_path, monkeypatch):
+    """count_logged must not read a disposition as a logged gate — ruling turns OUT
+    would otherwise inflate the logged count and mask a real miss."""
+    monkeypatch.setattr(scan, "LOGS", tmp_path)
+    (tmp_path / "s1.jsonl").write_text(
+        json.dumps({"type": "gate_disposition", "data": {"turn_ids": ["a"]}}) + "\n")
+    assert scan.count_logged("s1") == 0

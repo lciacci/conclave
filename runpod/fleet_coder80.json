@@ -1,0 +1,15 @@
+[
+  {
+    "_comment": "SINGLE-MODEL fleet for the T1-T3 agentic-fidelity run (2026-07-22). Just the coder on ONE H200 (141GB) — no reasoning/general, no tensor-parallel, no device pinning needed (74.9GB weights on one 141GB card, mem_util 0.9 leaves ~50GB KV). This is the hosted-80B leg of the local-vs-hosted fidelity experiment: identical aider T1-T3, one variable changed (local qwen3-coder:30b Q4 -> this FP8 80B). H200 is Hopper so FP8 blockwise is native — the FP8-on-Ada question that killed the L40S/AWS path does not exist here (this exact pin already served on the specialist fleet).",
+    "name": "coder",
+    "repo": "Qwen/Qwen3-Coder-Next-FP8",
+    "device": 0,
+    "port": 8011,
+    "mem_util": 0.9,
+    "max_len": 16384,
+    "dtype": "",
+    "cost_in": 4e-07,
+    "cost_out": 4e-07,
+    "gated": false
+  }
+]

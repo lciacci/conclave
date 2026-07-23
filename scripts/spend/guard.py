@@ -24,6 +24,16 @@ it existed to prevent. A spend gate must never be able to block the exit.
 
 Contract: docs/contracts/spend-authorization.md
 """
+
+# ── Runs on ANY python3, including macOS's /usr/bin/python3 (3.9). LOAD-BEARING. ──────────
+# This hook must keep working when the venv is broken, so it runs on bare `python3`. On
+# 2026-07-12 that reasoning was proved half-right, and dangerously: **stdlib-only is NOT
+# version-independent.** When the interpreter NAME drifts, the VERSION drifts with it. On a
+# /usr/bin-first PATH `python3` is 3.9; PEP-604 annotations (`str | None`) raise TypeError at
+# definition time; the script exits 1; and the hook wrapper passes that through as "not 2",
+# i.e. **ALLOW**. An unauthorized GPU boot proceeded, silently.
+# `from __future__ import annotations` makes annotations lazy strings. DO NOT REMOVE.
+from __future__ import annotations
 import json
 import re
 import sys

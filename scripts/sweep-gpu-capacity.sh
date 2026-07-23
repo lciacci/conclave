@@ -9,9 +9,20 @@
 # Usage:  scripts/sweep-gpu-capacity.sh <instance_type> <az1> [az2 ...]
 # e.g.    scripts/sweep-gpu-capacity.sh g6e.xlarge us-east-1c us-east-1a us-east-1d us-east-1b
 # Falls back to g6e.2xlarge (same single L40S, mem_utils unchanged) if xlarge is dry.
+#
+# VARFILE=<file>  passes -var-file (e.g. VARFILE=coder80.tfvars, path relative to infra/).
+# The -var flags below still win over it — that is deliberate: the sweep OWNS the
+# instance type and AZ, the var-file supplies the model set.
 set -u
 ITYPE="${1:?instance type required, e.g. g6e.xlarge}"; shift
 AZS="$*"
+VARFILE="${VARFILE:-}"
+VF_ARG=""
+[ -n "$VARFILE" ] && VF_ARG="-var-file=$VARFILE"
+# REGION=<r> sweeps a non-default region (needs the matching workspace selected).
+# SPOT=true sweeps spot instead of on-demand.
+REGION="${REGION:-us-east-1}"
+SPOT="${SPOT:-false}"
 PROFILE=yeti-conclave
 INFRA="$(cd "$(dirname "$0")/../infra" && pwd)"
 cd "$INFRA" || exit 2
@@ -20,8 +31,9 @@ for az in $AZS; do
   LOG=/tmp/tf-${ITYPE}-${az}.log
   : > "$LOG"
   echo "=== $ITYPE @ $az ==="
-  TF_LOG=DEBUG terraform apply -auto-approve \
-    -var enable_gpu=true -var dev_mode=true -var use_spot=false \
+  TF_LOG=DEBUG terraform apply -auto-approve $VF_ARG \
+    -var enable_gpu=true -var dev_mode=true -var use_spot="$SPOT" \
+    -var region="$REGION" \
     -var gpu_instance_type="$ITYPE" -var gpu_az="$az" > "$LOG" 2>&1 &
   TFPID=$!
 
