@@ -47,6 +47,14 @@ variable "enable_gpu" {
   default = false
 }
 
+# Hard TTL. The idle alarms miss a crash-looping vLLM (util spikes on every
+# reload, so "<5% sustained" never trips) — this is the guard that bounds a run.
+# Scheduled on-box at first boot; see user-data.sh.tftpl.
+variable "ttl_minutes" {
+  type    = number
+  default = 180
+}
+
 variable "gpu_instance_type" {
   type    = string
   default = "g6e.xlarge"
@@ -80,6 +88,9 @@ variable "models" {
     mem_util = number
     max_len  = number
     dtype    = string # "" = model default; "float16" forces fp16 (AWQ kernels)
+    # optional() so the co-resident single-GPU fleet below needs no edits.
+    tp         = optional(number, 1)  # --tensor-parallel-size; >1 shards one model across GPUs
+    extra_args = optional(string, "") # raw vLLM flags, e.g. "--reasoning-parser deepseek_r1"
     # Per-model $/token for LiteLLM cost attribution. Self-hosted has no API
     # cost — the real basis is GPU-hours; these are amortization PLACEHOLDERS
     # (scaled by model size) so per-model spend is visible. Calibrate once we

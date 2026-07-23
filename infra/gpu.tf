@@ -125,6 +125,7 @@ resource "aws_instance" "gpu" {
     ts_key_param   = var.tailscale_key_param
     hf_token_param = var.hf_token_param
     region         = var.region
+    ttl_minutes    = var.ttl_minutes
   })
 
   tags = { Name = "conclave-gpu" }
