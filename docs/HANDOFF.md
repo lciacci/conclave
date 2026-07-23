@@ -1,6 +1,64 @@
 # HANDOFF — resume here
 
-> # 🧭 2026-07-20 (LATEST — RESUME HERE) — THREE-PROJECT POSITIONING LOCKED (owner) + a NEW open axis: MODEL-diversity in the adversarial path.
+> # 🖥️ 2026-07-22 (LATEST — RESUME HERE) — HOSTED-80B T1–T3 RAN on a RunPod H200. Result: 80B GENERATIONS are correct; the aider-on-raw-vLLM HARNESS is the confound. Fidelity head-to-head NOT cleanly settled — it needs a matched, edit-applying harness.
+>
+> ## The run happened. Not a fleet — ONE `Qwen3-Coder-Next-FP8` on ONE H200, driven by aider POD-SIDE
+> ## headless, same T1–T3 as the local qwen3-coder:30b leg. Everything below replays; pod is TERMINATED,
+> ## nothing billing. Spend this session ≈ **$5 RunPod** (real pod ~50min @ $4.39 + churned boots), **$0 AWS**.
+>
+> ### What was MEASURED (the honest result)
+> - **The hosted 80B's raw generations were CORRECT on all three tasks:** T1 = accurate summary of
+>   `bench_local30_gen.py` + correct file list, **no edit** (right); T2 = correct top comment
+>   `# LOCAL_CODER defaults to "qwen3-coder:30b"` (right value, right place); **T3 = a CORRECT `--dry-run`
+>   implementation** (`dry_run = "--dry-run" in sys.argv` → prints `len(HARD_QUERY_SET)` → `sys.exit(0)`,
+>   never calls Ollama). **No generation-level confabulation observed** — the opposite of the local 30B,
+>   which *applied* wrong edits (dropped the demo half, wrote a root-level dupe, faked a green self-test).
+> - **BUT every failure was in aider's EDIT-APPLICATION layer, not the model:** on the unrecognized
+>   `openai/coder` vLLM endpoint aider defaults to **whole edit format**, and it (a) failed to APPLY the
+>   80B's correct T3 diff (HEAD stayed at baseline — the right code was generated, never written), (b)
+>   blew context to 74k by repo-mapping all 15 files until vLLM 400'd, (c) crashed its own summarizer
+>   (`cannot schedule new futures after shutdown`), (d) wandered into an unrequested file (`grade.py`).
+> - **Speed:** slow in-harness — ~130–370s per task turn (80B + whole-format + network). Consistent with
+>   the standing "slow is the HARNESS" finding, compounded here by size + a raw endpoint.
+>
+> ### The verdict — CONFOUNDED, not resolved. Say so plainly.
+> The two legs used DIFFERENT harnesses: local-30B = aider-on-**Ollama** (a model aider *recognizes* →
+> edits APPLY, but were wrong); hosted-80B = aider-on-**raw vLLM** (unrecognized → whole-format edits do
+> NOT reliably apply, but the generations were right). So this is **not a clean fidelity ranking** — the
+> harness mismatch dominates. What it *does* show: no evidence of 80B confabulation at the generation
+> level; the 80B is reachable + serves correctly on an H200 (FP8 native, CUDA 13). **Excitement-bias
+> named:** do NOT read "80B generated correct code" as "80B wins fidelity" — the local leg's failures were
+> *applied* (visible, gradeable), the 80B's were *swallowed by the harness* (its correct code never landed).
+> Apples-to-oranges until the harness is matched.
+>
+> ### ➡️ NEXT to make it a CLEAN measurement (the one real follow-up)
+> 1. **Make aider APPLY the 80B's edits.** Either register `openai/coder` so aider picks a diff format, or
+>    force `--edit-format diff`/`udiff` — the 80B clearly emits diff-shaped output; whole-format is what
+>    swallowed it. Re-run T1–T3 so edits actually land, THEN the confabulation/drop question is gradeable.
+> 2. Keep `--map-tokens 0` (the repo-map blowup fix) and give each task ~5–7 min (the 80B is slow
+>    in-harness; a 150s cap starves it — run-2 killed every task mid-edit).
+> 3. Match the harness on BOTH legs or don't compare — ideally re-run the *local* leg through the same
+>    diff-format config so only the model differs.
+>
+> ### Infra path that WORKED (reuse next time — the yak-shave is documented so it isn't re-derived)
+> - **AWS is out for this model:** `g6e.12xlarge`/`g6e.24xlarge` (4×L40S) DRY in **13/13** AZ-attempts
+>   (us-east-1 on-demand ×4, us-east-2 spot ×3, us-east-2 on-demand ×6). P-quota (H100/H200/A100) = **0**
+>   account-wide. Staged-but-unused: `infra/coder80.tfvars`, us-east-2 tf workspace (4 globals imported —
+>   tear down with `apply enable_gpu=false`, NOT `destroy`), `tp`/`extra_args`/`ttl_minutes` added to infra.
+> - **RunPod single H200 is the path.** `runpod/fleet_coder80.json` (single coder, no TP). Gotchas hit +
+>   fixed, in order: (1) **force a US/CA datacenter** — default EUR ships CUDA<13; CA-MTL had stock when US
+>   was dry. (2) **set `PUBLIC_KEY` env at create** = your `~/.ssh/id_ed25519.pub`, or the exposed-TCP sshd
+>   never starts (direct TCP "connection refused"; the basic `ssh.runpod.io` proxy authed but is
+>   interactive-only — no scp/exec). Direct-TCP READY can lag ~2min after create; "refused" ≠ your network
+>   (verified: high ports open). (3) **`pip install 'huggingface-hub>=1.5.0,<2.0'`** — vLLM 0.24 needs it and
+>   the pytorch image ships 1.4.1; without it the coder crashes pre-download. (4) **aider in its OWN venv** —
+>   it pins hf-hub==1.4.1, which clashes with vLLM's 1.24. (5) coder booted at **`max_len 32768`** (not the
+>   json's 16384) to match local `num_ctx` + fit aider's context. FP8-MoE + GDN/mamba kernel JIT-compile
+>   adds ~4–5min AFTER weights load (71% CPU, 0% GPU — looks stalled, isn't). Drive via
+>   `ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 -p <tcpport> root@<ip>` (zsh does NOT word-split
+>   an `$SSHOPT` var — inline the flags). Full replay lives in the transcript + [[t1t3-hosted-run-blockers]].
+>
+> # 🧭 2026-07-20 — THREE-PROJECT POSITIONING LOCKED (owner) + a NEW open axis: MODEL-diversity in the adversarial path.
 >
 > ## Not an experiment — a positioning lock + one new question for the calculus. Read alongside
 > ## `docs/INTEGRATION.md` (stub) and `../tessera/docs/contracts/three-project-cohesion.md` (canonical;
