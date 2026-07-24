@@ -36,7 +36,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -x \".claude/scripts/mnemos-pre-compact.sh\" ]; then exec \".claude/scripts/mnemos-pre-compact.sh\"; elif [ -x \"$HOME/.claude/templates/mnemos-pre-compact.sh\" ]; then exec \"$HOME/.claude/templates/mnemos-pre-compact.sh\"; fi; exit 0",
+            "command": "if [ -x \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/mnemos-pre-compact.sh\" ]; then exec \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/mnemos-pre-compact.sh\"; elif [ -x \"$HOME/.claude/templates/mnemos-pre-compact.sh\" ]; then exec \"$HOME/.claude/templates/mnemos-pre-compact.sh\"; fi; exit 0",
             "timeout": 8,
             "statusMessage": "Writing emergency checkpoint + compaction priorities..."
           }
@@ -48,7 +48,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -x \".claude/scripts/mnemos-post-compact-inject.sh\" ]; then exec \".claude/scripts/mnemos-post-compact-inject.sh\"; elif [ -x \"$HOME/.claude/templates/mnemos-post-compact-inject.sh\" ]; then exec \"$HOME/.claude/templates/mnemos-post-compact-inject.sh\"; fi; exit 0",
+            "command": "if [ -x \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/mnemos-post-compact-inject.sh\" ]; then exec \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/mnemos-post-compact-inject.sh\"; elif [ -x \"$HOME/.claude/templates/mnemos-post-compact-inject.sh\" ]; then exec \"$HOME/.claude/templates/mnemos-post-compact-inject.sh\"; fi; exit 0",
             "timeout": 2,
             "statusMessage": "Checking for post-compaction restore..."
           }
@@ -59,7 +59,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -x \".claude/scripts/mnemos-pre-edit.sh\" ]; then exec \".claude/scripts/mnemos-pre-edit.sh\"; elif [ -x \"$HOME/.claude/templates/mnemos-pre-edit.sh\" ]; then exec \"$HOME/.claude/templates/mnemos-pre-edit.sh\"; fi; exit 0",
+            "command": "if [ -x \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/mnemos-pre-edit.sh\" ]; then exec \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/mnemos-pre-edit.sh\"; elif [ -x \"$HOME/.claude/templates/mnemos-pre-edit.sh\" ]; then exec \"$HOME/.claude/templates/mnemos-pre-edit.sh\"; fi; exit 0",
             "timeout": 5,
             "statusMessage": "Checking fatigue + intent context..."
           }
@@ -70,7 +70,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -x \".claude/scripts/tessera-spend-guard.sh\" ]; then exec \".claude/scripts/tessera-spend-guard.sh\"; fi; exit 0",
+            "command": "if [ -x \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/tessera-spend-guard.sh\" ]; then exec \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/tessera-spend-guard.sh\"; fi; exit 0",
             "timeout": 5,
             "statusMessage": "Checking spend authorization..."
           }
@@ -82,7 +82,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -x \".claude/scripts/mnemos-post-tool.sh\" ]; then exec \".claude/scripts/mnemos-post-tool.sh\"; elif [ -x \"$HOME/.claude/templates/mnemos-post-tool.sh\" ]; then exec \"$HOME/.claude/templates/mnemos-post-tool.sh\"; fi; exit 0",
+            "command": "if [ -x \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/mnemos-post-tool.sh\" ]; then exec \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/mnemos-post-tool.sh\"; elif [ -x \"$HOME/.claude/templates/mnemos-post-tool.sh\" ]; then exec \"$HOME/.claude/templates/mnemos-post-tool.sh\"; fi; exit 0",
             "timeout": 1,
             "statusMessage": "Logging tool outcome..."
           }
@@ -94,19 +94,19 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -x \".claude/scripts/mnemos-stop-checkpoint.sh\" ]; then exec \".claude/scripts/mnemos-stop-checkpoint.sh\"; elif [ -x \"$HOME/.claude/templates/mnemos-stop-checkpoint.sh\" ]; then exec \"$HOME/.claude/templates/mnemos-stop-checkpoint.sh\"; fi; exit 0",
+            "command": "if [ -x \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/mnemos-stop-checkpoint.sh\" ]; then exec \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/mnemos-stop-checkpoint.sh\"; elif [ -x \"$HOME/.claude/templates/mnemos-stop-checkpoint.sh\" ]; then exec \"$HOME/.claude/templates/mnemos-stop-checkpoint.sh\"; fi; exit 0",
             "timeout": 5,
             "statusMessage": "Writing session checkpoint..."
           },
           {
             "type": "command",
-            "command": "if [ -x \".claude/scripts/mnemos-stop-ingest.sh\" ]; then exec \".claude/scripts/mnemos-stop-ingest.sh\"; elif [ -x \"$HOME/.claude/templates/mnemos-stop-ingest.sh\" ]; then exec \"$HOME/.claude/templates/mnemos-stop-ingest.sh\"; fi; exit 0",
+            "command": "if [ -x \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/mnemos-stop-ingest.sh\" ]; then exec \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/mnemos-stop-ingest.sh\"; elif [ -x \"$HOME/.claude/templates/mnemos-stop-ingest.sh\" ]; then exec \"$HOME/.claude/templates/mnemos-stop-ingest.sh\"; fi; exit 0",
             "timeout": 10,
             "statusMessage": "Ingesting Claude transcript + scoring haze..."
           },
           {
             "type": "command",
-            "command": "if [ -x \".claude/scripts/tessera-gate-scan.sh\" ]; then exec \".claude/scripts/tessera-gate-scan.sh\"; fi; exit 0",
+            "command": "if [ -x \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/tessera-gate-scan.sh\" ]; then exec \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/tessera-gate-scan.sh\"; fi; exit 0",
             "timeout": 10,
             "statusMessage": "Scanning for unlogged suggestion-gates..."
           }
@@ -116,7 +116,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -x \".claude/scripts/tessera-spend-backstop.sh\" ]; then exec \".claude/scripts/tessera-spend-backstop.sh\"; fi; exit 0",
+            "command": "if [ -x \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/tessera-spend-backstop.sh\" ]; then exec \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/tessera-spend-backstop.sh\"; fi; exit 0",
             "timeout": 5,
             "statusMessage": "Checking spend denials were dispositioned..."
           }
@@ -128,7 +128,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -x \".claude/scripts/mnemos-session-start.sh\" ]; then exec \".claude/scripts/mnemos-session-start.sh\"; elif [ -x \"$HOME/.claude/templates/mnemos-session-start.sh\" ]; then exec \"$HOME/.claude/templates/mnemos-session-start.sh\"; fi; exit 0",
+            "command": "if [ -x \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/mnemos-session-start.sh\" ]; then exec \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/mnemos-session-start.sh\"; elif [ -x \"$HOME/.claude/templates/mnemos-session-start.sh\" ]; then exec \"$HOME/.claude/templates/mnemos-session-start.sh\"; fi; exit 0",
             "timeout": 5,
             "statusMessage": "Loading session checkpoint + project context..."
           }
