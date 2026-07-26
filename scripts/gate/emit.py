@@ -22,6 +22,14 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Both import shapes are live: bare when run as a script or collected by pytest (sys.path[0]
+# is scripts/gate/), dotted when remap_kind.py pulls this in as `scripts.gate.emit` (sys.path[0]
+# is the repo root, so the bare name is invisible). Neither alone covers both.
+try:
+    from . import paths
+except ImportError:  # run as a loose script — no package context
+    import paths
+
 
 # Controlled vocabulary (spec 15). 102 events under a free-text kind produced 33
 # distinct values, mostly singletons ("design" ×5 spellings) — unsliceable. The
@@ -94,7 +102,9 @@ def build_disposition(turn_ids: list[str], note: str | None, *, session_id: str)
 
 
 def _log_path(session_id: str) -> Path:
-    return Path(".tessera/logs") / f"{session_id}.jsonl"
+    # Anchored to the repo, not the cwd: the log is keyed by session, and emit.py is
+    # invoked BY HAND (no hook wrapper to cd first). See paths.py.
+    return paths.log_path(session_id)
 
 
 def main(argv: list[str] | None = None) -> int:

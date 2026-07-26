@@ -13,10 +13,28 @@
 # Fails open on every error path — a backstop that can wedge a session gets ripped out.
 set -u
 
+# Spec 11: keep failing open, but say so. Binary lookup only — the event's destination
+# comes from the hook JSON, so the ADR-0004 global tier ($HOME) is harmless here.
+_HOOKDIR=$(cd "$(dirname "$0")" 2>/dev/null && pwd)
+degraded() {
+  for _c in "$_HOOKDIR/../../bin/tessera-degraded" "$_HOOKDIR/../../scripts/tessera-degraded"; do
+    if [ -x "$_c" ]; then "$_c" "$@" >/dev/null 2>&1 || true; return 0; fi
+  done
+  command -v tessera-degraded >/dev/null 2>&1 && tessera-degraded "$@" >/dev/null 2>&1
+  return 0
+}
+
+# QUIET: no stdin means this was not driven by Claude Code.
 HOOK_INPUT=$(cat 2>/dev/null || true)
 [ -z "$HOOK_INPUT" ] && exit 0
 
-command -v jq >/dev/null 2>&1 || exit 0
+# LOUD: without jq the backstop cannot check anything, so a denial that was never
+# dispositioned stays invisible — the net silently stops existing.
+if ! command -v jq >/dev/null 2>&1; then
+  printf '%s' "$HOOK_INPUT" | degraded --component spend-backstop --reason jq-unavailable \
+    --detail "jq is not on PATH; undispositioned spend denials go unchecked"
+  exit 0
+fi
 
 # Already mid-continuation from a Stop hook: never re-fire into a loop.
 ACTIVE=$(printf '%s' "$HOOK_INPUT" | jq -r '.stop_hook_active // false' 2>/dev/null)
@@ -24,16 +42,33 @@ ACTIVE=$(printf '%s' "$HOOK_INPUT" | jq -r '.stop_hook_active // false' 2>/dev/n
 
 SESSION_ID=$(printf '%s' "$HOOK_INPUT" | jq -r '.session_id // empty' 2>/dev/null)
 CWD=$(printf '%s' "$HOOK_INPUT" | jq -r '.cwd // empty' 2>/dev/null)
+# QUIET, and structurally unreportable — the log is keyed by session_id, so there is no
+# file to write this complaint into. See docs/contracts/degraded-event.md.
 [ -z "$SESSION_ID" ] && exit 0
 
 PROJECT_DIR="${CWD:-$PWD}"
+
+# LOUD: no backstop means denials vanish undispositioned and the safety net never fires.
 BACKSTOP="$PROJECT_DIR/scripts/spend/backstop.py"
-[ -f "$BACKSTOP" ] || exit 0
+if [ ! -f "$BACKSTOP" ]; then
+  degraded --component spend-backstop --reason backstop-missing --session "$SESSION_ID" \
+    --project "$PROJECT_DIR" --detail "$BACKSTOP absent; spend denials go undispositioned"
+  exit 0
+fi
 
-# backstop.py is stdlib-only, so any python3 works (the F-001/F-003 bare-python3 trap only
-# bites hooks that import a third-party package).
-command -v python3 >/dev/null 2>&1 || exit 0
+# LOUD: backstop.py is stdlib-only, so any python3 works (the F-001/F-003 trap only bites
+# hooks importing a third-party package) — but none at all means it cannot run.
+if ! command -v python3 >/dev/null 2>&1; then
+  degraded --component spend-backstop --reason no-python3 --session "$SESSION_ID" \
+    --project "$PROJECT_DIR" --detail "python3 is not on PATH"
+  exit 0
+fi
 
-cd "$PROJECT_DIR" 2>/dev/null || exit 0
+# LOUD: wrong cwd — the 2026-07-24 class.
+if ! cd "$PROJECT_DIR" 2>/dev/null; then
+  degraded --component spend-backstop --reason cwd-unreachable --session "$SESSION_ID" \
+    --project "$PROJECT_DIR" --detail "cannot cd to $PROJECT_DIR"
+  exit 0
+fi
 python3 "$BACKSTOP" "$SESSION_ID" || exit 2
 exit 0

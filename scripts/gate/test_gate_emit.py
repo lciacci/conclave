@@ -7,6 +7,7 @@ discriminator, null should_fire, no invented score/threshold, optional note.
 """
 
 import json
+from pathlib import Path
 
 from emit import build_event
 
@@ -74,7 +75,9 @@ import emit  # noqa: E402
 
 
 def test_not_a_gate_writes_a_disposition_event(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
+    # TESSERA_ROOT, not chdir: the log is anchored to the repo now, so a bare chdir would
+    # send this write into the REAL .tessera/logs/. It did, once, while this was being built.
+    monkeypatch.setenv("TESSERA_ROOT", str(tmp_path))
     monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "s1")
     assert emit.main(["--not-a-gate", "--turn", "abc123", "--turn", "def456",
                       "--note", "both were clarifying questions"]) == 0
@@ -82,6 +85,27 @@ def test_not_a_gate_writes_a_disposition_event(tmp_path, monkeypatch):
     assert logged["type"] == "gate_disposition"
     assert logged["data"]["verdict"] == "not-a-gate"
     assert logged["data"]["turn_ids"] == ["abc123", "def456"]
+
+
+def test_log_path_ignores_a_foreign_cwd(tmp_path, monkeypatch):
+    """The 2026-07-24 4/2 gate-log split, as a regression test.
+
+    A `cd` into a downstream persists across Bash calls, and emit.py has no hook wrapper
+    to cd back. Anchored on the repo, the destination must not move when the cwd does.
+    """
+    monkeypatch.delenv("TESSERA_ROOT", raising=False)
+    anchored = emit._log_path("s1")
+    monkeypatch.chdir(tmp_path)
+    assert emit._log_path("s1") == anchored, "cwd leaked into the gate-log path"
+    assert anchored.is_absolute()
+    # ...and the anchor is this repo, not wherever the tool happened to be run from.
+    assert anchored == Path(__file__).resolve().parents[2] / ".tessera/logs/s1.jsonl"
+
+
+def test_tessera_root_overrides_the_anchor(tmp_path, monkeypatch):
+    """The deliberate cross-repo run stays possible — and is how tests stay off the real log."""
+    monkeypatch.setenv("TESSERA_ROOT", str(tmp_path))
+    assert emit._log_path("s1") == tmp_path / ".tessera/logs/s1.jsonl"
 
 
 def test_not_a_gate_requires_a_turn_id(tmp_path, monkeypatch):

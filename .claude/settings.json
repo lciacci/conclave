@@ -75,6 +75,14 @@
             "statusMessage": "Checking spend authorization..."
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/tessera-decision-surface.sh\" ]; then exec \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/tessera-decision-surface.sh\"; fi; exit 0"
+          }
+        ]
       }
     ],
     "PostToolUse": [

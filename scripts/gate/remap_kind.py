@@ -24,7 +24,10 @@ except ModuleNotFoundError:  # run as a loose script from repo root
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from scripts.gate.emit import KINDS
 
-LOGS = Path(".tessera/logs")
+from scripts.gate import paths  # noqa: E402  (repo root is on sys.path by here)
+
+# Anchored to the repo, not the cwd — the log is session-keyed. See paths.py.
+LOGS = paths.logs_dir()
 
 # The merge table — docs/contracts/gate-event.md carries the human-readable copy.
 MAP = {

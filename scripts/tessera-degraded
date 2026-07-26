@@ -1,0 +1,128 @@
+#!/bin/sh
+# tessera-degraded — record that a component COULD NOT DO ITS JOB.  (Spec 11, step 2)
+#
+# THE DISTINCTION THIS TOOL EXISTS FOR:
+#     "nothing to do"          → correct, silent exit. Never call this.
+#     "I could not do my job"  → DEGRADED. Call this, then bail as before.
+# Every bug on 2026-07-12 was the second kind, silently treated as the first.
+#
+# Appends one JSON line to <project>/.tessera/logs/<session>.jsonl, the same channel the
+# gate/spend/override events already use (type / ts / session_id / source / data), so
+# `tessera-watch` P13 and the SessionStart surface get it for free.
+#
+# ── WHY POSIX sh WITH NO EXTERNAL TOOLS ──────────────────────────────────────────────
+# This reports on broken infrastructure, so it may not assume working infrastructure.
+# A hook bailing because `python3` is gone cannot use python3 to say so; a hook bailing
+# because `jq` is gone cannot use jq to read its own stdin. That is Standing pattern #1 —
+# the thing that would tell you it is broken is also broken — applied to the reporter
+# itself. So: shell builtins only. No jq, no sed, no grep, no awk, no python.
+#   - JSON is parsed with parameter expansion (${v#*...}), which is builtin.
+#   - `date` and `mkdir` are OPTIONAL and degrade to a blank ts / an existing dir.
+#     Chaos probe 5 hides both, deliberately, and this must still record.
+# The only hard dependency is the shell already running the hook.
+#
+# Contract: docs/contracts/degraded-event.md
+set -u
+
+COMPONENT=""; REASON=""; DETAIL=""; SESSION=""; PROJECT=""
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --component) COMPONENT="${2:-}"; shift 2 ;;
+        --reason)    REASON="${2:-}";    shift 2 ;;
+        --detail)    DETAIL="${2:-}";    shift 2 ;;
+        --session)   SESSION="${2:-}";   shift 2 ;;
+        --project)   PROJECT="${2:-}";   shift 2 ;;
+        --self-test) SELFTEST=1; shift ;;
+        *) shift ;;
+    esac
+done
+
+# Pull "key": "value" out of a JSON blob using only parameter expansion.
+# Tolerates any whitespace around the colon. Returns empty if absent.
+json_str() {
+    _blob="$2"
+    case "$_blob" in *"\"$1\""*) ;; *) return 0 ;; esac
+    _v="${_blob#*\"$1\"}"      # drop everything up to and including the key
+    _v="${_v#*:}"              # drop the colon
+    _v="${_v#*\"}"             # drop the opening quote of the value
+    printf '%s' "${_v%%\"*}"   # keep up to the closing quote
+}
+
+# Escape the two characters that can break a JSON string. Reasons are a controlled
+# vocabulary, but a --detail may carry a path, and a stray quote must not corrupt the log.
+json_escape() {
+    _s="$1"; _out=""
+    while [ -n "$_s" ]; do
+        _c="${_s%"${_s#?}"}"          # first character
+        _s="${_s#?}"
+        case "$_c" in
+            \\) _out="$_out\\\\" ;;
+            \") _out="$_out\\\"" ;;
+            *)  _out="$_out$_c" ;;
+        esac
+    done
+    printf '%s' "$_out"
+}
+
+emit() {
+    _component="$1"; _reason="$2"; _detail="$3"; _session="$4"; _project="$5"; _stdin="$6"
+
+    [ -n "$_session" ] || _session=$(json_str session_id "$_stdin")
+    [ -n "$_session" ] || _session="${CLAUDE_CODE_SESSION_ID:-}"
+    [ -n "$_project" ] || _project=$(json_str cwd "$_stdin")
+    [ -n "$_project" ] || _project="${CLAUDE_PROJECT_DIR:-.}"
+
+    # No session id means no key to file the event under — the log is session-keyed.
+    # This bail-out is structurally unreportable; see the contract's "Known blind spot".
+    if [ -z "$_session" ]; then
+        echo "tessera-degraded: no session id; cannot record ($_component/$_reason)" >&2
+        return 1
+    fi
+
+    _ts=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || printf '')
+    _dir="$_project/.tessera/logs"
+    [ -d "$_dir" ] || mkdir -p "$_dir" 2>/dev/null || true
+    [ -d "$_dir" ] || { echo "tessera-degraded: no $_dir" >&2; return 1; }
+
+    printf '{"type":"degraded","ts":"%s","session_id":"%s","source":"%s","data":{"component":"%s","reason":"%s","detail":"%s"}}\n' \
+        "$_ts" "$(json_escape "$_session")" "$(json_escape "$_component")" \
+        "$(json_escape "$_component")" "$(json_escape "$_reason")" \
+        "$(json_escape "$_detail")" >> "$_dir/$(json_escape "$_session")".jsonl 2>/dev/null \
+        || { echo "tessera-degraded: write failed" >&2; return 1; }
+    return 0
+}
+
+if [ -n "${SELFTEST:-}" ]; then
+    _t="${TMPDIR:-/tmp}/tessera-degraded-selftest.$$"
+    mkdir -p "$_t/.tessera/logs"
+    emit gate-scan no-jq 'a "quoted" detail' sess-1 "$_t" ""
+    _line=$(cat "$_t/.tessera/logs/sess-1.jsonl")
+    case "$_line" in
+        *'"type":"degraded"'*'"component":"gate-scan"'*'"reason":"no-jq"'*'\"quoted\"'*) ;;
+        *) echo "SELF-TEST FAIL: $_line"; rm -rf "$_t"; exit 1 ;;
+    esac
+    # stdin-derived session/project, no flags — the wired-command path
+    emit spend-guard missing-guard "" "" "" '{"session_id": "sess-2", "cwd": "'"$_t"'"}'
+    [ -f "$_t/.tessera/logs/sess-2.jsonl" ] || { echo "SELF-TEST FAIL: stdin parse"; rm -rf "$_t"; exit 1; }
+    # no session anywhere → must refuse, not write garbage
+    if CLAUDE_CODE_SESSION_ID="" emit x y "" "" "$_t" "" 2>/dev/null; then
+        echo "SELF-TEST FAIL: wrote without a session id"; rm -rf "$_t"; exit 1
+    fi
+    rm -rf "$_t"
+    echo "tessera-degraded self-test PASS"
+    exit 0
+fi
+
+[ -n "$COMPONENT" ] && [ -n "$REASON" ] || {
+    echo "usage: tessera-degraded --component <c> --reason <r> [--detail <d>] [--session <id>] [--project <dir>]" >&2
+    echo "       hook JSON may be piped on stdin to supply session_id/cwd" >&2
+    exit 64
+}
+
+STDIN=""
+[ -t 0 ] || STDIN=$(cat 2>/dev/null || printf '')
+
+emit "$COMPONENT" "$REASON" "$DETAIL" "$SESSION" "$PROJECT" "$STDIN"
+# Never fail the caller: this records a problem, it must not become one.
+exit 0
