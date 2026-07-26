@@ -27,6 +27,8 @@ import re
 import sys
 from pathlib import Path
 
+from decision_amendments import build_amendments, render_amendments
+
 ROOT = Path(__file__).resolve().parent.parent
 MAX_DOCS = 3
 
@@ -102,12 +104,16 @@ def lookup(target: str, index: dict[str, list[dict]]) -> list[dict]:
     return hits[:MAX_DOCS]
 
 
-def render(target: str, hits: list[dict]) -> str:
+def render(target: str, hits: list[dict], amendments: dict[str, list[str]] | None = None) -> str:
+    amendments = amendments or {}
     out = [f"DECISION SURFACE — {target}"]
     for h in hits:
         out.append(f"  {h['title']}")
         if h["gloss"]:
             out.append(f"    → {h['gloss']}")
+        # The amendment edge lives in decision_amendments.py — see its docstring.
+        if h["kind"] == "adr":
+            out += render_amendments(h["title"].split()[0], amendments)
     out.append(f"  Read before editing: {', '.join(sorted({h['doc'] for h in hits}))}")
     return "\n".join(out)
 
@@ -144,11 +150,12 @@ def emit_hook(target: str) -> None:
     rel = relative(target)
     try:
         hits = lookup(rel, build_index())
+        amendments = build_amendments()
     except Exception as exc:
         _print_context(f"DECISION-SURFACE UNAVAILABLE: {exc}")
         return
     if hits:
-        _print_context(render(rel, hits))
+        _print_context(render(rel, hits, amendments))
 
 
 def _print_context(text: str) -> None:
@@ -164,7 +171,7 @@ def main() -> int:
             hits = lookup(probe, idx)
             print(f"\n{probe} -> {len(hits)} hit(s)")
             if hits:
-                print(render(probe, hits))
+                print(render(probe, hits, build_amendments()))
         return 0
 
     args = [a for a in sys.argv[1:] if a != "--hook"]
@@ -177,11 +184,12 @@ def main() -> int:
     # Plain-text mode: standalone/CLI use only. NOT the wired hook path.
     try:
         hits = lookup(relative(target), build_index())
+        amendments = build_amendments()
     except Exception as exc:
         print(f"DECISION-SURFACE UNAVAILABLE: {exc}", file=sys.stderr)
         return 0
     if hits:
-        print(render(relative(target), hits))
+        print(render(relative(target), hits, amendments))
     return 0
 
 
