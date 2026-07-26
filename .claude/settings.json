@@ -70,7 +70,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -x \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/tessera-spend-guard.sh\" ]; then exec \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/tessera-spend-guard.sh\"; fi; exit 0",
+            "command": "if [ -x \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/tessera-spend-guard.sh\" ]; then exec \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/tessera-spend-guard.sh\"; fi; for d in bin scripts; do r=\"${CLAUDE_PROJECT_DIR:-.}/$d/tessera-degraded\"; [ -x \"$r\" ] && exec \"$r\" --component spend-guard --reason hook-unavailable --detail \"wired hook tessera-spend-guard.sh is missing or not executable; it has never run\"; done; exit 0",
             "timeout": 5,
             "statusMessage": "Checking spend authorization..."
           }
@@ -114,7 +114,7 @@
           },
           {
             "type": "command",
-            "command": "if [ -x \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/tessera-gate-scan.sh\" ]; then exec \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/tessera-gate-scan.sh\"; fi; exit 0",
+            "command": "if [ -x \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/tessera-gate-scan.sh\" ]; then exec \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/tessera-gate-scan.sh\"; fi; for d in bin scripts; do r=\"${CLAUDE_PROJECT_DIR:-.}/$d/tessera-degraded\"; [ -x \"$r\" ] && exec \"$r\" --component gate-scan --reason hook-unavailable --detail \"wired hook tessera-gate-scan.sh is missing or not executable; it has never run\"; done; exit 0",
             "timeout": 10,
             "statusMessage": "Scanning for unlogged suggestion-gates..."
           }
@@ -124,7 +124,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -x \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/tessera-spend-backstop.sh\" ]; then exec \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/tessera-spend-backstop.sh\"; fi; exit 0",
+            "command": "if [ -x \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/tessera-spend-backstop.sh\" ]; then exec \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/tessera-spend-backstop.sh\"; fi; for d in bin scripts; do r=\"${CLAUDE_PROJECT_DIR:-.}/$d/tessera-degraded\"; [ -x \"$r\" ] && exec \"$r\" --component spend-backstop --reason hook-unavailable --detail \"wired hook tessera-spend-backstop.sh is missing or not executable; it has never run\"; done; exit 0",
             "timeout": 5,
             "statusMessage": "Checking spend denials were dispositioned..."
           }
