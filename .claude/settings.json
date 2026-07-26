@@ -80,7 +80,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -x \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/tessera-decision-surface.sh\" ]; then exec \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/tessera-decision-surface.sh\"; fi; exit 0"
+            "command": "if [ -x \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/tessera-decision-surface.sh\" ]; then exec \"${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/tessera-decision-surface.sh\"; fi; for d in bin scripts; do r=\"${CLAUDE_PROJECT_DIR:-.}/$d/tessera-degraded\"; [ -x \"$r\" ] && exec \"$r\" --component decision-surface --reason hook-unavailable --detail \"wired hook tessera-decision-surface.sh is missing or not executable; it has never run\"; done; exit 0"
           }
         ]
       }
