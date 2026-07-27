@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# Spec 11 / A5b: report "I could not do my job" instead of exiting 0 into the dark.
+_HOOKDIR=$(cd "$(dirname "$0")" 2>/dev/null && pwd)
+degraded() {
+  for _c in "$_HOOKDIR/../../bin/tessera-degraded" "$_HOOKDIR/../../scripts/tessera-degraded"; do
+    if [ -x "$_c" ]; then "$_c" "$@" >/dev/null 2>&1 || true; return 0; fi
+  done
+  command -v tessera-degraded >/dev/null 2>&1 && tessera-degraded "$@" >/dev/null 2>&1
+  return 0
+}
 case "$(dirname "$0")" in
   */.claude/scripts) cd "$(dirname "$0")/../.." 2>/dev/null || exit 0 ;;
 esac
@@ -44,5 +53,15 @@ printf '%s\n' "$TARGET" >> "$SEEN" 2>/dev/null
 # corrupt the JSON the harness parses. On exit 0 the harness ignores stderr anyway.
 # Stdlib-only by design, so bare python3 is correct here (CLAUDE.md's interpreter split).
 OUT=$(python3 scripts/decision_surface.py --hook "$TARGET" 2>/dev/null)
+rc=$?
+# A5b (2026-07-27): this used to test only `[ -n "$OUT" ]`, so a CRASH in decision_surface.py
+# was indistinguishable from "this file has no governing decisions" — silence either way.
+# This hook already shipped silent once (2026-07-24, the bare-stdout channel bug); it should
+# not be able to do it a second way.
+if [ "$rc" -ne 0 ]; then
+  degraded --component decision-surface --reason runner-crashed \
+    --detail "scripts/decision_surface.py exited $rc; governing ADRs were not surfaced for $TARGET"
+  exit 0
+fi
 [ -n "$OUT" ] && printf '%s\n' "$OUT"
 exit 0
