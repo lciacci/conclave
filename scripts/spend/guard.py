@@ -89,9 +89,28 @@ COMMITTING = re.compile(
 # The wrapper prefix is NOT optional decoration: anchoring alone lost `bash -c "tessera-authorize
 # grant …"`, where the verb is in command position *of the wrapper's payload* rather than of the
 # segment. Both directions are tested — prose about the verb passes, a wrapped invocation does not.
+# LAUNCHERS — an interpreter or exec-wrapper standing in front of the verb. ADDED 2026-07-27,
+# when `bin/tessera-verify` found this deny list bypassable by the most ordinary invocation form
+# there is: `python3 bin/tessera-authorize grant` returned **ALLOW**, and so did
+# `.venv/bin/python …`, `env …`, `command …`, and `uv run …`. Five bypasses, on the control that
+# ADR-0016 had just declared unconditional.
+#
+# THE PART WORTH REMEMBERING: the contract already recorded a "known ceiling — a *runtime-assembled*
+# invocation slips past". That sentence read like it covered this, and it does not. These are plain
+# literals, statically visible, and the form a person actually types — the *mistake* case this guard
+# exists for, not the evasion case it disclaims. A documented ceiling is not a documented hole.
+# `INVOKED_SCRIPT` below already carried this exact interpreter group; SELF_AUTHORIZING was written
+# without it, and nothing compared them.
+#
+# BOUNDED, not open-ended: `{0,3}` rather than `*`, so no nested unbounded quantifier can backtrack
+# pathologically on hostile input. Widening this to "any leading tokens" would re-open the false
+# positive documented above — prose about the verb has to keep passing.
+_LAUNCHER = r"(?:[\w./~-]*/)?(?:env|command|exec|uv|pipx|python3\.\d+|python3?)"
+
 SELF_AUTHORIZING = re.compile(
     r"^\s*(?:\w+=\S*\s+)*"                            # FOO=bar …
     r"(?:(?:bash|sh|zsh|dash)\s+-c\s+['\"]?)?"        # … optional `bash -c "` payload
+    r"(?:" + _LAUNCHER + r"\s+(?:run\s+)?(?:\w+=\S*\s+)*){0,3}"  # … python3 | env | uv run | …
     r"(?:[\w./~-]*/)?tessera-authorize\s+"            # … bin/tessera-authorize | tessera-authorize
     r"(grant|dismiss)\b",
     re.IGNORECASE,

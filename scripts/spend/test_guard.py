@@ -5,6 +5,7 @@ original spec shipped, and the `destroy && apply` bypass that a naive first-matc
 classifier waves through.
 """
 import json
+import time
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -413,3 +414,59 @@ def test_a_real_invocation_inside_a_wrapper_is_still_blocked():
     """The other direction — command position is per segment, so `bash -c` does not launder it."""
     assert decide('bash -c "tessera-authorize grant --usd 5 --ttl 1h --note x"',
                   None, NOW)[0] is False
+
+
+# ── The launcher bypass (found 2026-07-27 by bin/tessera-verify) ───────────────────────
+#
+# ADR-0016 shipped `SELF_AUTHORIZING` and the contract declared grant/dismiss "refused
+# unconditionally". They were not. An explicit interpreter or exec-wrapper in front of the verb
+# walked straight through — FIVE distinct forms, every one a plain literal you could type by
+# hand. `INVOKED_SCRIPT` already carried the interpreter group this pattern was missing.
+#
+# NOTE WHY THE CONTRACT DID NOT COVER THIS: it records a "known ceiling — a *runtime-assembled*
+# invocation slips past". These are not assembled; they are static text. A documented ceiling is
+# not a documented hole, and reading one as the other is how this survived review.
+
+@pytest.mark.parametrize("command", [
+    "python3 bin/tessera-authorize grant --usd 20 --ttl 4h --note x",
+    ".venv/bin/python bin/tessera-authorize grant --usd 99 --ttl 9h --note x",
+    "python3.13 bin/tessera-authorize grant --usd 5 --ttl 1h --note x",
+    "python3 bin/tessera-authorize dismiss --reason x",
+    "env bin/tessera-authorize grant --usd 5 --ttl 1h --note x",
+    "command bin/tessera-authorize grant --usd 5 --ttl 1h --note x",
+    "exec bin/tessera-authorize grant --usd 5 --ttl 1h --note x",
+    "uv run bin/tessera-authorize grant --usd 5 --ttl 1h --note x",
+    "CLAUDE_CODE_SESSION_ID=abc python3 bin/tessera-authorize grant --usd 5 --ttl 1h --note x",
+    "env FOO=bar python3 bin/tessera-authorize dismiss --reason x",
+])
+def test_an_interpreter_prefix_does_not_launder_self_authorization(command):
+    assert decide(command, None, NOW)[0] is False, f"launcher bypass still open: {command}"
+
+
+@pytest.mark.parametrize("command", [
+    "python3 scripts/doccheck.py",
+    "python3 -m pytest scripts/spend/",
+    '.venv/bin/python -c "import icpg"',
+    "uv run pytest",
+    "env FOO=bar python3 scripts/gate/emit.py --fired --kind design --note x",
+    "command ls",
+])
+def test_the_launcher_group_does_not_block_ordinary_interpreter_calls(command):
+    """The cost of widening a deny pattern is paid here. An interpreter running ANYTHING ELSE
+    must stay allowed — the group only fires when the very next token is the authorize verb."""
+    assert decide(command, None, NOW)[0] is True, f"new false positive: {command}"
+
+
+def test_a_pathological_launcher_chain_terminates_fast():
+    """`{0,3}` on the launcher group, never `*` — a nested unbounded quantifier is where a regex
+    goes exponential, and this one runs on EVERY Bash call the agent makes. A guard that hangs
+    the harness is its own outage.
+
+    Deliberately asserts timing, not verdict. Stacking 4+ launchers (`env env env env …`) DOES
+    slip past the bound, and that is an accepted limit, not a bug this test blesses: the contract
+    scopes this guard to "an agent that boots a GPU by mistake or without authorization — not one
+    actively trying to evade it", and layer 3 bounds evasion. Asserting ALLOW here would codify a
+    bypass as intended behaviour."""
+    start = time.monotonic()
+    decide("env " * 200 + "bin/tessera-authorize grant --usd 5", None, NOW)
+    assert time.monotonic() - start < 1.0, "SELF_AUTHORIZING backtracks pathologically"
