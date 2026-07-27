@@ -344,3 +344,72 @@ def test_softening_never_narrows_the_reducing_check(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     assert classify('terraform apply -var="enable_gpu=false"') == "reducing"
     assert decide('terraform apply -var="enable_gpu=false"', None, NOW)[0] is True
+
+
+# ── ADR-0016: self-authorization is refused unconditionally ───────────────────────────
+#
+# `tessera-authorize grant` was agent-callable until 2026-07-27 — driving the real hook with
+# it returned rc=0. No tty check; granted_by is just $USER. The deny-by-default control on
+# external spend had an authorization verb the agent could invoke on itself, held back only
+# by a sentence in the contract. PreToolUse fires on the AGENT's Bash calls only, so a
+# deny-list entry is real enforcement and leaves the human's own terminal untouched.
+
+def test_the_agent_cannot_grant_itself_an_envelope():
+    allow, reason = decide("bin/tessera-authorize grant --usd 5 --ttl 1h --note x",
+                           None, NOW)
+    assert allow is False
+    assert "self-authorization" in reason
+
+
+def test_a_live_envelope_does_not_unlock_self_authorization():
+    """THE reason this is not a COMMITTING pattern. A committing command is gated — allowed
+    when an envelope is live. If grant were merely gated, a live envelope would let the agent
+    extend its own, which is the whole control defeating itself."""
+    live = {"expires_at": "2999-01-01T00:00:00Z", "usd": 20}
+    allow, reason = decide("tessera-authorize grant --usd 500 --ttl 99h --note x", live, NOW)
+    assert allow is False, "a live envelope must not authorize granting a bigger one"
+
+
+def test_dismiss_is_blocked_too():
+    allow, _ = decide('tessera-authorize dismiss --reason "false positive"', None, NOW)
+    assert allow is False
+
+
+def test_show_and_revoke_are_never_blocked():
+    """revoke REDUCES authorization. A spend gate must never be able to block the exit."""
+    assert decide("tessera-authorize show", None, NOW)[0] is True
+    assert decide("tessera-authorize revoke", None, NOW)[0] is True
+
+
+def test_mentioning_the_verb_in_quotes_is_data_not_an_invocation():
+    """Naming is not invoking — the lesson that stopped `cp guard.py test_guard.py` reading
+    as a GPU boot. A commit message or doc that quotes the command must not be blocked."""
+    allow, _ = decide('git commit -m "add tessera-authorize grant to the deny list"',
+                      None, NOW)
+    assert allow is True
+
+
+def test_a_bundled_teardown_is_refused_but_the_teardown_alone_is_not():
+    """The deliberate tension with 'never block the exit'. If reducing won, `tessera-authorize
+    grant && terraform destroy` would be waved through — a one-token bypass. So the bundle is
+    refused, and the exit stays reachable because the teardown on its own still passes."""
+    assert decide("tessera-authorize grant --usd 5 --ttl 1h --note x && terraform destroy",
+                  None, NOW)[0] is False
+    assert decide("terraform destroy", None, NOW)[0] is True
+
+
+def test_prose_about_the_verb_inside_a_wrapper_is_not_blocked():
+    """THE FALSE POSITIVE THIS PATTERN CAUSED ON ITS FIRST RUN. A `python3 - <<PY` heredoc is
+    wrapper-led, so its body is code and nothing is stripped — the first version matched the
+    verb anywhere in the text and blocked the commit that documented the feature. A guard that
+    blocks writing about itself is one people learn to route around."""
+    doc_edit = ("python3 - <<'PY'\n"
+                "s = 'run tessera-authorize grant --usd 5 to authorize'\n"
+                "open('docs/x.md','w').write(s)\nPY")
+    assert decide(doc_edit, None, NOW)[0] is True
+
+
+def test_a_real_invocation_inside_a_wrapper_is_still_blocked():
+    """The other direction — command position is per segment, so `bash -c` does not launder it."""
+    assert decide('bash -c "tessera-authorize grant --usd 5 --ttl 1h --note x"',
+                  None, NOW)[0] is False

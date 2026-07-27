@@ -73,6 +73,19 @@ emit() {
     [ -n "$_project" ] || _project=$(json_str cwd "$_stdin")
     [ -n "$_project" ] || _project="${CLAUDE_PROJECT_DIR:-.}"
 
+    # Anchor to the PROJECT ROOT. Every source above is a SESSION cwd, which any Bash `cd`
+    # moves — so on 2026-07-26 the spend guard's fail-open was correctly reported, into
+    # `scripts/.tessera/logs/`, where `tessera-watch` P13 reading the repo root will never
+    # see it. The alarm fired into an empty room: pattern #9 inside the reporter itself.
+    # **A degraded reporter that a directory change can silence is not a reporter.**
+    # Builtins only, per this file's contract — it reports on broken infrastructure and may
+    # not assume working infrastructure. Falls back to the original on no match, never empty.
+    _d="$_project"
+    while [ -n "$_d" ] && [ "$_d" != "/" ]; do
+        if [ -e "$_d/.git" ] || [ -f "$_d/.tessera/project.yml" ]; then _project="$_d"; break; fi
+        case "$_d" in */*) _d="${_d%/*}" ;; *) break ;; esac
+    done
+
     # No session id means no key to file the event under — the log is session-keyed.
     # This bail-out is structurally unreportable; see the contract's "Known blind spot".
     if [ -z "$_session" ]; then

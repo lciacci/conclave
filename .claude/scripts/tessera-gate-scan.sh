@@ -68,7 +68,24 @@ CWD=$(printf '%s' "$HOOK_INPUT" | jq -r '.cwd // empty' 2>/dev/null)
 # docs/contracts/degraded-event.md ("Known blind spot") rather than silently accepted.
 [ -z "$SESSION_ID" ] && exit 0
 
-PROJECT_DIR="${CWD:-$PWD}"
+# Anchor to the PROJECT ROOT, not the session cwd: `.cwd` is the SESSION's working
+# directory and any Bash `cd` moves it. Live case 2026-07-26 — `cd scripts` made the spend
+# guard resolve scripts/scripts/spend/guard.py -> absent -> spend commands ALLOWED. Same
+# root cause silenced 12 hooks on 07-24 and made gate/ratio.py report ZERO over ZERO.
+# CLAUDE_PROJECT_DIR is preferred but is EMPTY in some invocations, so relying on it alone
+# is a no-op fix. Pure parameter expansion — no dirname/sed, these hooks must survive a
+# broken toolchain, which is precisely when they have to report. See ADR-0015 / observatory.
+# Sets $_root. Returns via a VARIABLE, not stdout: a PreToolUse hook's bare stdout is a
+# real channel, and doccheck's pretooluse-hooks-reach-the-model rightly cannot tell a
+# function's `printf` from the hook writing to it. Also saves a subshell fork per call.
+_anchor_root() {
+    _d="$1"; _root="$1"      # fall back to the input; never yield empty
+    while [ -n "$_d" ] && [ "$_d" != "/" ]; do
+        if [ -e "$_d/.git" ] || [ -f "$_d/.tessera/project.yml" ]; then _root="$_d"; return 0; fi
+        case "$_d" in */*) _d="${_d%/*}" ;; *) break ;; esac
+    done
+}
+_anchor_root "${CLAUDE_PROJECT_DIR:-${CWD:-$PWD}}"; PROJECT_DIR="$_root"
 
 # LOUD: a Stop hook is always handed a transcript_path. Absent means the contract broke,
 # not that there is nothing to scan.

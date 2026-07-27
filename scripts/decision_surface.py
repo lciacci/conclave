@@ -39,6 +39,27 @@ MAX_DOCS = 3
 _PATH = re.compile(r"`((?:bin|scripts|templates|docs|hooks|\.claude|_project_specs)/[A-Za-z0-9._/-]+)`")
 _ADR_TITLE = re.compile(r"^#\s*(ADR-\d+):\s*(.+?)\s*$")
 _STATUS = re.compile(r"^-\s*\*\*Status:\*\*\s*(.+?)\s*$", re.M)
+_EXECUTED = re.compile(r"^-\s*\*\*Executed:\*\*\s*(.+?)\s*$", re.M)
+
+
+def _execution_warning(body: str) -> str:
+    """Loud ONLY when acting on the ADR is risky — i.e. it was decided and not (fully) built.
+
+    A shipped ADR needs no annotation; an UNSHIPPED one read as settled is the failure this
+    exists to stop. On 2026-07-26 a session read ADR-0008's verdict, acted on it, and the cut
+    had been sitting unexecuted for 12 days. The amendment edge says "this was revisited";
+    this says "this was never done".
+    """
+    m = _EXECUTED.search(body)
+    if not m:
+        return ""
+    value = m.group(1).strip()
+    low = value.lower()
+    if low.startswith("not yet"):
+        return "\u23f3 NOT EXECUTED \u2014 decided, never built. Do not act on it as settled."
+    if low.startswith("partially"):
+        return f"\u23f3 PARTIALLY EXECUTED \u2014 {value[len('partially'):].lstrip(' \u2014-')}"
+    return ""
 
 
 def _first_decision_line(body: str) -> str:
@@ -73,6 +94,7 @@ def build_index() -> dict[str, list[dict]]:
             "gloss": _first_decision_line(body),
             "kind": "adr",
             "sort": adr.name,
+            "execution": _execution_warning(body),
         }
         for path in set(_PATH.findall(body)):
             index.setdefault(path, []).append(entry)
@@ -112,6 +134,8 @@ def render(target: str, hits: list[dict], amendments: dict[str, list[str]] | Non
         if h["gloss"]:
             out.append(f"    → {h['gloss']}")
         # The amendment edge lives in decision_amendments.py — see its docstring.
+        if h.get("execution"):
+            out.append(f"    {h['execution']}")
         if h["kind"] == "adr":
             out += render_amendments(h["title"].split()[0], amendments)
     out.append(f"  Read before editing: {', '.join(sorted({h['doc'] for h in hits}))}")

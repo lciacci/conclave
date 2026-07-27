@@ -60,6 +60,43 @@ COMMITTING = re.compile(
     re.IGNORECASE,
 )
 
+# SELF-AUTHORIZING: refused UNCONDITIONALLY, never gated on the envelope (ADR-0016).
+#
+# `tessera-authorize grant` was agent-callable until 2026-07-27 — driving this very hook with
+# it returned rc=0. There is no tty check and `granted_by` is `$USER`, the same value whichever
+# party typed it, so the deny-by-default control on external spend had an authorization verb
+# the agent could invoke on itself, held back only by a sentence in the contract ("Do not grant
+# yourself a spend envelope you do not need"). That is principle #17 on the highest-stakes gate
+# in the repo.
+#
+# PreToolUse fires on the AGENT's Bash calls only; a human in their own terminal never passes
+# through this hook. So a deny-list entry is real enforcement, not a request — and it leaves the
+# human path completely untouched.
+#
+# WHY THIS IS NOT A `COMMITTING` PATTERN: a committing command is *gated* — allowed when an
+# envelope is live. Self-authorization must be refused even then, or a live envelope would let
+# the agent extend its own.
+#
+# `show` and `revoke` are deliberately ABSENT: `revoke` reduces authorization, and a spend gate
+# must never be able to block the exit.
+# COMMAND POSITION ONLY — first token of a segment, after any leading env assignments and an
+# optional path prefix. Naming is not invoking, the same rule INVOKED_SCRIPT follows and for the
+# same reason: the first version of this pattern matched the verb ANYWHERE in the command text
+# and immediately blocked the doc edit describing it (a `python3 - <<PY` heredoc is wrapper-led,
+# so its body is code and nothing is stripped). Every commit message and contract update about
+# this feature would have tripped it, and a guard that blocks writing about itself is one people
+# learn to route around — which is strictly worse than the hole it closes.
+# The wrapper prefix is NOT optional decoration: anchoring alone lost `bash -c "tessera-authorize
+# grant …"`, where the verb is in command position *of the wrapper's payload* rather than of the
+# segment. Both directions are tested — prose about the verb passes, a wrapped invocation does not.
+SELF_AUTHORIZING = re.compile(
+    r"^\s*(?:\w+=\S*\s+)*"                            # FOO=bar …
+    r"(?:(?:bash|sh|zsh|dash)\s+-c\s+['\"]?)?"        # … optional `bash -c "` payload
+    r"(?:[\w./~-]*/)?tessera-authorize\s+"            # … bin/tessera-authorize | tessera-authorize
+    r"(grant|dismiss)\b",
+    re.IGNORECASE,
+)
+
 # A local script the command invokes. The guard only ever sees the Bash command STRING, so
 # `./scripts/sweep-gpu-capacity.sh` is opaque — and conclave's sweep script runs
 # `terraform apply -auto-approve` on line 23. It boots g6e GPUs, it is the AZ-sweep from the
@@ -159,6 +196,11 @@ def _classify_one(segment: str, wrapped: bool) -> str:
     if REDUCING.search(segment):
         return "reducing"
     executable = segment if wrapped else QUOTED.sub(" ", segment)
+    # Checked on the same quote-stripped text as COMMITTING: a doc or commit message that
+    # MENTIONS the verb in quotes is data, not an invocation. Naming is not invoking — the
+    # lesson that stopped `cp guard.py test_guard.py` being read as a GPU boot.
+    if SELF_AUTHORIZING.search(executable):
+        return "self-authorizing"
     if COMMITTING.search(executable):
         return "committing"
     return _invoked_script_kind(segment) or "neutral"
@@ -180,6 +222,15 @@ def classify(command: str) -> str:
     wrapped = bool(WRAPPER.search(command))
     text = command if wrapped else _strip_heredocs(command)
     kinds = {_classify_one(s, wrapped) for s in _segments(text)}
+    # Ordering IS the policy, and this one is a deliberate tension with "never block the exit".
+    # `self-authorizing` outranks `reducing`: otherwise `tessera-authorize grant && terraform
+    # destroy` would be waved through by the teardown exemption, which is a one-token bypass of
+    # the whole rule. The cost is that a BUNDLED teardown gets refused with it.
+    # That is acceptable only because the exit stays reachable — a teardown on its own is still
+    # unconditionally allowed, and the denial message says so explicitly. A pure teardown never
+    # arrives here as self-authorizing: REDUCING is checked first, per segment.
+    if "self-authorizing" in kinds:
+        return "self-authorizing"
     if "committing" in kinds:
         return "committing"
     if "reducing" in kinds:
@@ -215,6 +266,10 @@ def decide(command: str, auth: dict | None, now: datetime) -> tuple[bool, str]:
     kind = classify(command)
     if kind == "reducing":
         return True, "cost-reducing — always allowed, never blocked"
+    # BEFORE the envelope check, and never gated by it (ADR-0016). A live envelope must not
+    # let the agent grant itself a bigger or longer one.
+    if kind == "self-authorizing":
+        return False, "self-authorization — a spend envelope is a human's to grant"
     if kind == "neutral":
         return True, "no external spend committed"
     if is_live(auth, now):
@@ -242,6 +297,29 @@ and stop:
 """
 
 
+SELF_AUTH_DENIAL = """BLOCKED — a spend envelope is a human's to grant, not yours (ADR-0016).
+
+  {command}
+
+`tessera-authorize grant` and `dismiss` are reachable from a human's own terminal, which
+never passes through this hook. They are not reachable from a tool call, and that is the
+whole point: until 2026-07-27 the contract said "do not grant yourself a spend envelope you
+do not need" and nothing enforced it.
+
+If a human is present, ask them to run it.
+
+If you are running unsupervised, raise a packet and stop:
+  bin/tessera-escalate raise --category spend_unauthorized \\
+      --summary "blocked: {short}" \\
+      --tried "self-authorization is refused unconditionally by the spend guard" \\
+      --option "a human grants an envelope with tessera-authorize" \\
+      --option "run the offline path instead, if one exists"
+
+If a TEARDOWN was bundled into this command, run it on its own — cost-reducing commands are
+never blocked, and the exit is always reachable.
+"""
+
+
 def main() -> int:
     raw = sys.stdin.read()
     if not raw.strip():
@@ -258,7 +336,8 @@ def main() -> int:
         return 0
 
     short = command.strip().splitlines()[0][:60]
-    sys.stderr.write(DENIAL.format(command=command.strip(), short=short))
+    template = SELF_AUTH_DENIAL if reason.startswith("self-authorization") else DENIAL
+    sys.stderr.write(template.format(command=command.strip(), short=short))
     _log_denial(command, reason)
     return 2
 

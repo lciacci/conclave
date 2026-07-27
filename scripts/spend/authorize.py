@@ -107,6 +107,32 @@ def cmd_revoke(args, path: Path, now: datetime) -> int:
     return 0
 
 
+def cmd_dismiss(args, path: Path, now: datetime) -> int:
+    """Record that this session's spend denials committed no spend (ADR-0016).
+
+    THE GAP THIS FILLS: the backstop's report ends "If the denial was a FALSE POSITIVE …
+    say so plainly and finish. That is a legitimate disposition" — and `undispositioned()`
+    cleared on exactly two things, a grant after the last denial or an escalation packet.
+    Saying it plainly cleared nothing, so the hook re-fired at every Stop. Both existing
+    exits are wrong for a false positive: a grant authorizes spend nobody requested, and a
+    packet manufactures the bogus escalation the contract calls worse than none.
+
+    Writes an EVENT, never the envelope. A dismissal is a statement about the guard's
+    patterns; it authorizes nothing, has no TTL, and cannot boot anything.
+
+    Human-invoked: `tessera-authorize dismiss` is on the spend guard's deny list, so a tool
+    call cannot reach it. A human's own terminal never passes through a PreToolUse hook.
+    """
+    emit("spend_dismissed", {
+        "dismissed_at": _iso(now),
+        "reason": args.reason,
+        "dismissed_by": os.environ.get("USER", "unknown"),
+    })
+    print(f"recorded — this session's spend denials are dismissed as false positives\n"
+          f"  reason: {args.reason}")
+    return 0
+
+
 def main(argv: list[str] | None = None, path: Path | None = None) -> int:
     p = argparse.ArgumentParser(description="Grant a run-scoped external-spend envelope.")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -116,6 +142,14 @@ def main(argv: list[str] | None = None, path: Path | None = None) -> int:
     g.add_argument("--ttl", required=True, help="how long, e.g. 30m or 4h — THIS is enforced")
     g.add_argument("--note", required=True, help="what this run needs to boot, and why")
     g.set_defaults(fn=cmd_grant)
+
+    d = sub.add_parser(
+        "dismiss",
+        help="record that this session's spend denials were FALSE POSITIVES"
+    )
+    d.add_argument("--reason", required=True,
+                   help="why the denial committed no spend — this is the record")
+    d.set_defaults(fn=cmd_dismiss)
 
     sub.add_parser("show", help="show the live envelope (exit 1 if none)").set_defaults(fn=cmd_show)
     sub.add_parser("revoke", help="revoke immediately").set_defaults(fn=cmd_revoke)
