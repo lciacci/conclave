@@ -1,0 +1,29 @@
+Warning: Input is not a terminal (fd=0).
+────────────────────────────────────────────────────────────────────────────────
+Aider v0.86.2
+Model: openai/coder with diff edit format
+Git repo: ../../../../Users/lorenzociacci/Claude/conclave/.git/worktrees/T1.r2 
+with 116 files
+Repo-map: disabled
+Added orchestrator/bench_local30_gen.py to the chat (read-only).
+Added orchestrator/bench_local30_grade.py to the chat (read-only).
+
+bench_local30_gen.py is a benchmark script that generates answers for the       
+"hard-30" query set using the local Qwen3-Coder-30B-A3B model (served via       
+Ollama's OpenAI-compatible endpoint). Its key features are:                     
+
+ • Local Generation: Runs entirely on a local machine (e.g., a 64GB Mac) using  
+   Ollama, avoiding cloud costs.                                                
+ • Incremental Persistence: Saves generated answers to                          
+   eval_candidates_local30_hard.json incrementally, allowing recovery from      
+   crashes.                                                                     
+ • Resume Support: Skips queries that already have answers in the output file.  
+ • Error Handling: Logs errors for failed requests and continues processing.    
+ • Demo Mode: Includes an offline self-check (--demo) that verifies logic       
+   without calling Ollama.                                                      
+
+The script outputs a JSON file mapping query IDs to a list of candidate answers 
+(with model name, content, latency, and error info), which is then used by      
+bench_local30_grade.py for head-to-head comparison against the 80B model.       
+
+Tokens: 5.6k sent, 226 received. Cost: $0.0023 message, $0.0023 session.

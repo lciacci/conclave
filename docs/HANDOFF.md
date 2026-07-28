@@ -1,6 +1,78 @@
 # HANDOFF — resume here
 
-> # 🛠️ 2026-07-28 (LATEST — RESUME HERE) — INSTRUMENT REPAIRED, HOSTED LEG NOT RUN. The T1–T3 harness went through THREE review rounds and 22 fixed defects; the local leg is clean; the paid leg was deliberately NOT attempted.
+> # ✅ 2026-07-28 (LATEST — RESUME HERE) — THE CLEAN T1–T3 COMPARISON RAN. Result is a NULL: no fidelity separation. The 2026-07-22 "80B's edits never landed" verdict is now settled — it was the HARNESS, and the 80B is FASTER, not slower.
+>
+> ## Nothing is billing. Pod terminated after 21 min. Session ≈ **$3.30 RunPod, $0 AWS**. Grant revoked.
+> ## Both legs at pinned BASE `a740565`, same aider build on the same laptop, only the endpoint differs.
+>
+> ### The measurement
+> | | local 30B (Q4, Ollama, laptop) | hosted 80B (FP8, vLLM, H200 US-GA-2) |
+> |---|---|---|
+> | T1 summarize | clean, 3–7s | clean, 3–5s |
+> | T2 comment | applied, 13 lines, 12–15s | applied, 10 lines, 2–4s |
+> | T3 `--dry-run` | applied, 56 lines, 39–41s | applied, 32 lines, 9–10s |
+> | reps | 3/3 byte-identical | 3/3 byte-identical |
+> | `edit_reject_blocks` | 0 on every row | 0 on every row |
+> | T3 FUNCTIONAL check | **PASS** | **PASS** |
+>
+> T3 was graded by RUNNING it, per the pre-registered rubric: the file's own `--demo` stays green and
+> `--dry-run` against a dead endpoint (`OLLAMA_BASE=http://127.0.0.1:9`) prints the count, exits 0,
+> and does NOT write the candidates file. Both implementations differ and both are correct — the 80B
+> guards inside `generate()` and self-tests via a subprocess; the 30B threads a `dry_run` parameter.
+>
+> ### What this SETTLES
+> - **The 2026-07-22 confound was the HARNESS, not the model.** That run concluded the 80B's correct
+>   edits "never landed". Under a matched harness the 80B applied edits on **6/6** edit tasks with
+>   **zero** rejects. Whole-edit-format + pod-side aider was the cause. Retire that open question.
+> - **"The 80B is slow in-harness" is WRONG and should not be repeated.** It is ~4× FASTER than the
+>   local 30B on T3 (10s vs 40s) despite 2.7× the parameters. The old 130–370s/task figure measured
+>   pod-side aider with a repo map, not the model. Running aider on the LAPTOP against the pod's
+>   endpoint is both the faster and the better-matched design — adopt it as the default.
+> - **T2 placement nit flips.** The 80B put the comment on line 2, ABOVE the docstring — a more
+>   literal reading of "module-level comment at the top" than the 30B's placement inside it.
+>   Recorded as a nit per the rubric, NOT scored.
+>
+> ### ⚠️ What this does NOT show — read this before quoting the null
+> **This is a capability FLOOR, not a fidelity ranking.** Three tasks, both models passed all three,
+> so the set discriminates NOTHING above that floor. It does NOT support "the local 30B matches the
+> 80B". The honest sentence is: **"both models can drive this harness on tasks of this difficulty."**
+> The pre-boot worry — that T1 is trivial and T2/T3 are deterministic, so a 3/3-vs-3/3 result would
+> carry no signal — is exactly what happened. **A harder T4 is now REQUIRED for any further
+> comparison**, and designing it is the next step if this line of work continues.
+>
+> ### The instrument (`harness/run-t1t3.sh`) — 5 review rounds, ~50 findings, and where it landed
+> Rounds 3, 4 and 5 each returned exactly TEN findings, and each round's findings were largely caused
+> by the previous round's FIXES. The core loop (pinned-BASE worktree → run aider → capture log+diff →
+> run T3's result) produced no finding after round 2; every later defect lived in the derived-metric
+> and rubric layer. So that layer was CUT: `adds` and `max_sent` deleted (neither ever changed a
+> verdict, both produced defects), `edit_reject_blocks` kept as the one column that distinguishes a
+> model edit failure from an aider drop. Round 5's remaining nine findings were deliberately NOT
+> fixed — they are operator misconfigurations (`REPEATS=00`, `TASK_TIMEOUT=" 420"`) and further
+> branch-coverage gaps in a grading table that four rounds failed to close. **Owner's rule, adopted:
+> spend money in service of progress rather than guarding against a careless operator who does not
+> exist.** Only the one finding that could burn a paid run was fixed (two consecutive zero-turn tasks
+> now abort — a wedged endpoint would otherwise bill the whole run and exit 0).
+>
+> ### Reusable infra facts (cost real money to learn)
+> - **US-GA-2 H200 = driver 580.159.04** (CUDA 13, vLLM 0.24 works). **US-NC-1 gave 570.124.06** —
+>   too old, $0.64 wasted. `nvidia-smi` FIRST; terminate and re-roll rather than debug.
+> - Boot ≈ 14 min: `pip install --break-system-packages 'huggingface-hub>=1.5,<2'` → `hf download`
+>   (75G, ~5 min) → `pip install vllm==0.24.0` → serve. CUDA-graph capture is the last phase and
+>   looks like a hang; it is not.
+> - **Drive it from the laptop over `https://<podid>-8011.proxy.runpod.net/v1`** with
+>   `--served-model-name coder` so `openai/coder` matches the metadata pin. No pod-side venv, no
+>   hf-hub conflict, no scp of results — artifacts land locally as they are written.
+>
+> ### ➡️ NEXT
+> 1. **Design T4** — the task set is exhausted as a discriminator. Without it, more runs cost money
+>    and return the same null.
+> 2. Branch `harness/t1t3-matched-instrument` is unmerged; round-5's nine known findings are open by
+>    decision, not by oversight. Merge or keep as-is deliberately.
+> 3. Everything below this block predates the clean comparison. The 2026-07-22 block's "harness is
+>    the confound" hypothesis is now CONFIRMED; its "needs a matched, edit-applying harness"
+>    follow-up is DONE.
+
+> # 🛠️ 2026-07-28 (superseded by the block above) — INSTRUMENT REPAIRED, HOSTED LEG NOT RUN. The T1–T3 harness went through THREE review rounds and 22 fixed defects; the local leg is clean; the paid leg was deliberately NOT attempted.
 >
 > ## Nothing is billing. Two pods created and terminated (~$1.75 RunPod, $0 AWS). Spend grant REVOKED.
 > ## Work is on branch `harness/t1t3-matched-instrument`, NOT merged — round-3 findings are open.
