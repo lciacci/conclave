@@ -75,9 +75,11 @@ a rubric fitted to it. Applies identically to both legs.
      (`edit_reject_blocks` sums the N in aider's `# N SEARCH/REPLACE blocks failed to match!` — it
      counts BLOCKS. The earlier `edit_rejects` counted how many times aider complained, so 3 bad
      blocks in one turn scored 1 while 1 bad block across 3 turns scored 3 — backwards.)
-  2. **`llm_turns=0` → VOID, and the run ABORTS.** aider never received a completion — dead
-     endpoint, wrong model id, vLLM 400. Evidence of nothing, and everything after it is missing
-     rather than passing.
+  2. **`llm_turns=0` → VOID.** aider never received a completion — dead endpoint, wrong model id,
+     vLLM 400. Evidence of nothing. The run aborts immediately UNLESS our own cap ended the task
+     (`exit=143/137`), in which case it VOIDs and continues — but **two consecutive zero-turn tasks
+     abort regardless**, because a wedged endpoint that accepts connections and never completes
+     looks exactly like a very slow model and would otherwise bill the whole run.
   3. **`exit=143`/`137` with `edit_reject_blocks=0` → VOID.** OUR cap killed it while it was still
      working. Report as "did not complete within Ns", never as a wrong answer.
   4. **READ-ONLY task (T1) with `exit=0`, `llm_turns>=1`, `edit_reject_blocks=0` → grade the LOG.**

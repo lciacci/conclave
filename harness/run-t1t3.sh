@@ -31,6 +31,7 @@ MODEL_SETTINGS="${MODEL_SETTINGS:-${HERE}/aider.model.settings.yml}"
 MODEL_METADATA="${MODEL_METADATA:-${HERE}/aider.model.metadata.json}"
 TASK_TIMEOUT="${TASK_TIMEOUT:-420}"          # 7 min — the 80B is slow in-harness; 150s starved it
 REPEATS="${REPEATS:-3}"
+CONSECUTIVE_VOIDS=0    # see the zero-turn handling in run_task — two in a row stops a paid run
 # Pinned, not derived. aider computes max_chat_history_tokens as
 # min(max(max_input_tokens/16, 1024), 8192) (models.py), which yields 8192 for the local model
 # (Ollama reports 262144) but 2048 for a 32768-token hosted endpoint. That silently gives the two
@@ -243,8 +244,23 @@ run_task() {
     echo "       ${RESULTS} is PARTIAL: rows after this point are MISSING, not passing."
     exit 1
   fi
+  # The rc=143 exemption above is necessary (our own cap must not be blamed on the endpoint) but it
+  # reopens the worst money hole: a pod that ACCEPTS the connection and never completes always ends
+  # at the cap, so every task would VOID-and-continue and the run would bill a full hour, exit 0,
+  # and print ">>> done" over nothing. One capped task is a slow model; two in a row is a wedged
+  # endpoint. Stop paying at two.
   if [ "$llm_turns" -eq 0 ]; then
-    echo ">>> ${id}: no completion before the ${TASK_TIMEOUT}s cap fired (rc=${rc}) — VOID, continuing."
+    CONSECUTIVE_VOIDS=$((CONSECUTIVE_VOIDS + 1))
+    echo ">>> ${id}: no completion before the ${TASK_TIMEOUT}s cap fired (rc=${rc}) — VOID (${CONSECUTIVE_VOIDS} in a row)."
+    if [ "$CONSECUTIVE_VOIDS" -ge 2 ]; then
+      echo "FATAL: ${CONSECUTIVE_VOIDS} consecutive tasks produced ZERO LLM turns."
+      echo "       The endpoint accepts connections but is not completing — a wedged or OOMed server"
+      echo "       looks exactly like this. Stopping rather than billing the remaining tasks."
+      echo "       ${RESULTS} is PARTIAL: rows after this point are MISSING, not passing."
+      exit 1
+    fi
+  else
+    CONSECUTIVE_VOIDS=0
   fi
   git -C "$REPO" worktree remove --force "$wt" 2>/dev/null || true
 }
