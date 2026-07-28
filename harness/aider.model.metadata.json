@@ -1,0 +1,12 @@
+{
+  "_comment": "Context-window metadata for the HOSTED leg. aider knows nothing about a raw vLLM endpoint served as `openai/coder`, so it never trims and never warns — and --no-show-model-warnings (needed for headless runs) hides the one hint that it is flying blind. Without this, a T3 conversation can exceed the pod's --max-model-len 32768, vLLM returns HTTP 400, no edit is produced, and the row reads `diff_lines=0 applied=no` — a silent recurrence of the 74k-context/vLLM-400 confound the 2026-07-22 run died of. Numbers match how the pod is actually booted (max_len 32768 in the fleet json), which in turn matches the local leg's num_ctx.",
+  "openai/coder": {
+    "max_input_tokens": 32768,
+    "max_output_tokens": 8192,
+    "max_tokens": 32768,
+    "input_cost_per_token": 0.0000004,
+    "output_cost_per_token": 0.0000004,
+    "litellm_provider": "openai",
+    "mode": "chat"
+  }
+}

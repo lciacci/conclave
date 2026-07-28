@@ -1,0 +1,25 @@
+Warning: Input is not a terminal (fd=0).
+────────────────────────────────────────────────────────────────────────────────
+Aider v0.86.2
+Model: ollama_chat/qwen3-coder:30b with diff edit format
+Git repo: ../../../../Users/lorenzociacci/Claude/conclave/.git/worktrees/T1.r2 
+with 116 files
+Repo-map: disabled
+Added orchestrator/bench_local30_grade.py to the chat (read-only).
+Added orchestrator/bench_local30_gen.py to the chat (read-only).
+
+bench_local30_gen.py generates answers to a set of 30 hard queries using the    
+Qwen3-Coder-30B model run locally via Ollama. It:                               
+
+ 1 Loads a predefined set of 30 hard queries (HARD_QUERY_SET)                   
+ 2 For each query, sends it to a local Ollama instance running the specified    
+   model                                                                        
+ 3 Saves results incrementally to a JSON file                                   
+   (eval_candidates_local30_hard.json)                                          
+ 4 Supports resuming from partial results if interrupted                        
+ 5 Includes a demo mode for offline testing without Ollama                      
+
+The script is designed to be run locally with an Ollama server already running  
+and the required model pulled, making it cost-free to execute.                  
+
+Tokens: 5.6k sent, 150 received.

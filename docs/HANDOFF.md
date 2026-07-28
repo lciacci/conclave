@@ -1,5 +1,109 @@
 # HANDOFF — resume here
 
+> # 🛠️ 2026-07-28 (LATEST — RESUME HERE) — INSTRUMENT REPAIRED, HOSTED LEG NOT RUN. The T1–T3 harness went through THREE review rounds and 22 fixed defects; the local leg is clean; the paid leg was deliberately NOT attempted.
+>
+> ## Nothing is billing. Two pods created and terminated (~$1.75 RunPod, $0 AWS). Spend grant REVOKED.
+> ## Work is on branch `harness/t1t3-matched-instrument`, NOT merged — round-3 findings are open.
+>
+> ### What this session actually produced
+> The goal was the clean T1–T3 fidelity re-run (local 30B vs hosted 80B) that 2026-07-22 left
+> confounded. **The comparison did not happen.** What exists instead is an instrument that three
+> adversarial review rounds could not knock over on mechanics, plus a local baseline that is
+> trustworthy for the first time. Against "the instrument is the deliverable" that is the right
+> trade; against "we were going to measure the 80B today" it is not what was planned. Both true.
+>
+> ### The one-line reason the paid leg was skipped
+> Every review round found defects that would have **flattered the 80B** — the first round's
+> `applied=no` rule would have scored its edit-format failures as our harness's fault. Booting a
+> $4.39/hr H200 to produce a number biased in a known direction is worse than not booting.
+>
+> ### `harness/run-t1t3.sh` — the matched instrument (BOTH legs, only the model may differ)
+> - `--edit-format diff`, `--map-tokens 0`, `--no-auto-commits`, `--max-chat-history-tokens 8192`
+> - **`BASE` PINNED to `a740565`** — unpinned, committing this harness between legs would put the
+>   rubric (T2's expected string, T3's spec) and `results/*/T3.*.diff` (the literal solution) into
+>   the second leg's worktree only. Both legs check out the same pre-harness tree.
+> - **Portable `run_capped`** — macOS ships no `timeout(1)` and Linux does, so the local leg had
+>   been running UNCAPPED while the pod would have been capped at 420s.
+> - Guards: LEG↔model both directions, metadata-key required for non-Ollama models, endpoint
+>   preflight, non-empty-results refusal, startup validation of `TASK_TIMEOUT`/`REPEATS`.
+> - `summary.txt` header records script sha256, aider version, every knob, endpoint — so
+>   "only the model differed" is checkable from the evidence alone.
+>
+> ### ⚠️ OPEN — round-3 findings still unfixed (fix these FIRST, then review round 4)
+> 1. `edit_rejects` counts reject MESSAGES not BLOCKS (`grep -c` on `# N SEARCH/REPLACE blocks
+>    failed to match!`). Extract N: `grep -oE '^# [0-9]+' | awk '{s+=$2} END{print s+0}'`, or
+>    rename the column `edit_reject_events`.
+> 2. `adds` bare-path regex also matches the wrapped filename in aider's
+>    `## SearchReplaceNoExactMatch: ... in {path}` dump (rich wraps at 80 cols, stdout not a tty),
+>    so ONE failed block gives `adds=3` and voids the row. Narrow the pattern.
+> 3. `max_input_tokens` is still DERIVED per leg — 262144 local (Ollama's report) vs 32768 hosted
+>    (the metadata file), while `num_ctx: 32768` caps the local model invisibly. Same overflow
+>    grades MODEL-failure locally and VOID hosted. Pin it for both.
+> 4. The `llm_turns=0` handler aborts only if the re-probe FAILS. A vLLM that is up but 400s every
+>    chat request passes `GET /models` forever → nine void rows and a clean `>>> done`. Abort on
+>    `llm_turns=0` itself, not on the probe.
+> 5. `TASK_TIMEOUT=0` is accepted (REPEATS rejects 0, TASK_TIMEOUT does not) → every task TERMed at
+>    once, nine `exit=143 seconds=0` rows, no error.
+> 6. `FORCE=1` truncates `summary.txt` but leaves the previous run's `.log`/`.diff` behind, so a
+>    grader can pick up artefacts from a run no longer referenced by any row.
+>
+> ### The rubric is now FAIL-CLOSED (`harness/EXPERIMENT.md`) — this was the session's real design call
+> Rounds 1–3 kept finding holes *between* rubric branches, always biased the same way. Enumerating
+> the state space failed three times, so the table stopped trying: **anything not matching a named
+> branch is VOID**, positive evidence of a model failure (`edit_rejects>0`) is checked BEFORE the
+> timeout void, and three rules stop VOID becoming a retry budget — one re-run per task, void
+> counts reported as a RESULT, k-of-N denominated on non-void rows with the void count attached.
+>
+> ### Findings worth keeping (measured, not inferred)
+> - **T1's "list the Python files in orchestrator/" clause was pathological, not a probe.** With
+>   `--map-tokens 0` the model GUESSES filenames; `--yes-always` auto-adds each; context grows
+>   5.6k→25k→32k and the task loops to the cap. Evidence: `results/t1t3-local30-t1loop/`. Dropped.
+> - **Aider silently discards a reply's edits when it mentions a repo file not in the chat**
+>   (`base_coder.py` — `check_for_file_mentions()` returns BEFORE `apply_updates()`). This is the
+>   likely mechanism behind the 2026-07-22 hosted 80B's swallowed T3 diff, which HANDOFF then
+>   blamed on whole-edit-format. `bench_local30_gen.py`'s docstring names both
+>   `bench_local30_grade.py` (pre-added as the fix) and `design.md` (609 lines — detected, not
+>   pre-added).
+> - **`temperature=0` is NOT reproducibility.** k3's three reps were byte-identical; v2's third rep
+>   under identical config ran into the cap. Repeats are needed; one run can miss the only failure.
+> - **Context sensitivity is real and separate from sampling:** adding ONE read-only file turned a
+>   broken T3 into a correct one (run1→run2). Hence the pinned `BASE` and added-file set.
+> - **Driver lottery, again:** US-NC-1 H200 = 570.124.06/CUDA 12.8 (too old for vLLM 0.24, needs
+>   ≥580); **US-GA-2 H200 = 580.159.04** — the documented good datacenter held. `nvidia-smi` FIRST,
+>   terminate and re-roll rather than debug. Cost of the dud: $0.64.
+>
+> ### Local leg (canonical, `results/t1t3-local30/`) — 9/9 clean
+> T1 4–7s · T2 12–13s (13-line diff, comment at docstring END = recorded nit, not a fail) ·
+> T3 39–40s (56-line diff). All `applied` as expected, `edit_rejects=0`, `llm_turns=1`, `adds=2/2`.
+> T3 graded by RUNNING it: `--demo` green, `--dry-run` exits 0 without dialing a dead endpoint.
+> Six evidence sets are kept, including two that document their own invalidity:
+> `-run1-confounded` (pre-fix harness) and `-t1loop` (the T1 clause pathology).
+>
+> ### ➡️ NEXT, in order
+> 1. Fix the six open findings above.
+> 2. Review round 4 on the delta. Rounds 1–3 each found real defects; do not assume 4 is clean.
+> 3. Re-run the local leg (free) — it is also the regression test.
+> 4. Commit + push to main, THEN boot. The pod clones from GitHub; the script must be on `main`.
+> 5. **Fresh spend grant** (human-only, ADR-0016): `python3 scripts/spend/authorize.py grant
+>    --usd 15 --ttl 2h --note "..."`. Boot ONE H200 in **US-GA-2**, `nvidia-smi` before anything
+>    else, wire the watchdog TTL inside the grant window, `LEG=hosted80 AIDER_MODEL=openai/coder`,
+>    pull results off the pod as they generate (a RunPod stop WIPES `/workspace`), terminate.
+>
+> ### ❓ DECIDE BEFORE BOOTING — is the task set even discriminating?
+> T1 is now trivial (4–7s, one turn) and T2/T3 are 3/3 deterministic on the local 30B. **If the
+> hosted 80B also passes 3/3, the run yields no separation** — it confirms the harness works and
+> the 80B is reachable, nothing about relative fidelity. Decide whether a harder T4 belongs in the
+> set BEFORE spending, not after seeing a flat result. Cheapest honest framing if it stays as-is:
+> this measures "can each model drive the harness at all", not "which is better".
+>
+> ### 📌 Parked (do NOT chase mid-experiment)
+> **Kimi K3 is live on RunPod** (hosted endpoint $3/$15 per Mtok; self-host on B200/H200; MXFP4,
+> 1M ctx). Does NOT re-open the judge — one more strong generalist concentrates the hierarchy, it
+> does not re-diverge the landscape, which is the parked judge's stated trigger. Where it *could*
+> matter is the [[lab-frontier-escalation]] shape: a hosted tier with no provisioning, no driver
+> lottery, no 75GB download — the three things that ate this session. Revisit AFTER the current
+> measurement, gated on the instrument, not on the launch.
+
 > # 🖥️ 2026-07-22 (LATEST — RESUME HERE) — HOSTED-80B T1–T3 RAN on a RunPod H200. Result: 80B GENERATIONS are correct; the aider-on-raw-vLLM HARNESS is the confound. Fidelity head-to-head NOT cleanly settled — it needs a matched, edit-applying harness.
 >
 > ## The run happened. Not a fleet — ONE `Qwen3-Coder-Next-FP8` on ONE H200, driven by aider POD-SIDE

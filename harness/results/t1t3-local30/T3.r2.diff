@@ -1,0 +1,56 @@
+diff --git a/orchestrator/bench_local30_gen.py b/orchestrator/bench_local30_gen.py
+index b836333..6d48a84 100644
+--- a/orchestrator/bench_local30_gen.py
++++ b/orchestrator/bench_local30_gen.py
+@@ -36,12 +36,20 @@ OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                    "eval_candidates_local30_hard.json")
+ 
+ 
+-def generate() -> dict[str, list[dict]]:
++def generate(dry_run: bool = False) -> dict[str, list[dict]]:
+     # Resume from any partial file: a crash mid-run keeps finished answers.
+     cache: dict[str, list[dict]] = {}
+     if os.path.exists(OUT):
+         with open(OUT) as f:
+             cache = json.load(f)
++    
++    total_queries = len(HARD_QUERY_SET)
++    remaining_queries = total_queries - len(cache)
++    
++    if dry_run:
++        print(f"Would generate {remaining_queries} out of {total_queries} queries")
++        return cache
++    
+     for q in HARD_QUERY_SET:
+         if q["id"] in cache:
+             continue
+@@ -84,17 +92,26 @@ def demo() -> None:
+         generate()
+         assert os.path.getmtime(OUT) == n_before, "resume: no rewrite when complete"
+         print(f"ok — gen shape + resume verified offline ({len(c)} queries)")
++        
++        # Test dry-run functionality
++        dry_run_cache = generate(dry_run=True)
++        assert len(dry_run_cache) == len(c), "dry run should not change cache"
++        print("ok — dry-run functionality verified")
+     finally:
+         ensemble.http_call = real
+         globals()["http_call"] = real
+ 
+ 
+ if __name__ == "__main__":
++    dry_run = "--dry-run" in sys.argv
+     if "--demo" in sys.argv:
+         demo()
+     else:
+         print(f"generating {MODEL} on {len(HARD_QUERY_SET)} hard queries "
+               f"via {OLLAMA_BASE} (max_tokens={MAX_TOKENS}) ...")
+-        cache = generate()
+-        ok = sum(1 for v in cache.values() if v[0]["content"] is not None)
+-        print(f"done — {ok}/{len(HARD_QUERY_SET)} generated -> {OUT}")
++        cache = generate(dry_run=dry_run)
++        if dry_run:
++            print("Dry run complete")
++        else:
++            ok = sum(1 for v in cache.values() if v[0]["content"] is not None)
++            print(f"done — {ok}/{len(HARD_QUERY_SET)} generated -> {OUT}")

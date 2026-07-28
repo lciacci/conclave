@@ -1,0 +1,57 @@
+diff --git a/orchestrator/bench_local30_gen.py b/orchestrator/bench_local30_gen.py
+index b836333..751c35a 100644
+--- a/orchestrator/bench_local30_gen.py
++++ b/orchestrator/bench_local30_gen.py
+@@ -36,7 +36,7 @@ OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                    "eval_candidates_local30_hard.json")
+ 
+ 
+-def generate() -> dict[str, list[dict]]:
++def generate(dry_run: bool = False) -> dict[str, list[dict]]:
+     # Resume from any partial file: a crash mid-run keeps finished answers.
+     cache: dict[str, list[dict]] = {}
+     if os.path.exists(OUT):
+@@ -48,8 +48,12 @@ def generate() -> dict[str, list[dict]]:
+         msgs = [{"role": "user", "content": q["prompt"]}]
+         t0 = time.monotonic()
+         try:
+-            content = http_call(OLLAMA_BASE, MODEL, msgs, TIMEOUT, max_tokens=MAX_TOKENS)
+-            err = None
++            if dry_run:
++                content = f"answer to {q['prompt'][:20]}..."
++                err = None
++            else:
++                content = http_call(OLLAMA_BASE, MODEL, msgs, TIMEOUT, max_tokens=MAX_TOKENS)
++                err = None
+         except Exception as e:
+             content, err = None, f"{type(e).__name__}: {e}"
+         rec = {"model": "coder30", "content": content,
+@@ -83,6 +87,9 @@ def demo() -> None:
+         time.sleep(0.01)
+         generate()
+         assert os.path.getmtime(OUT) == n_before, "resume: no rewrite when complete"
++        # test dry-run
++        c = generate(dry_run=True)
++        assert len(c) == 0, "dry-run generates nothing"
+         print(f"ok — gen shape + resume verified offline ({len(c)} queries)")
+     finally:
+         ensemble.http_call = real
+@@ -93,8 +100,13 @@ if __name__ == "__main__":
+     if "--demo" in sys.argv:
+         demo()
+     else:
+-        print(f"generating {MODEL} on {len(HARD_QUERY_SET)} hard queries "
+-              f"via {OLLAMA_BASE} (max_tokens={MAX_TOKENS}) ...")
+-        cache = generate()
+-        ok = sum(1 for v in cache.values() if v[0]["content"] is not None)
+-        print(f"done — {ok}/{len(HARD_QUERY_SET)} generated -> {OUT}")
++        dry_run = "--dry-run" in sys.argv
++        if dry_run:
++            print(f"dry-run: would generate {len(HARD_QUERY_SET)} hard queries")
++        else:
++            print(f"generating {MODEL} on {len(HARD_QUERY_SET)} hard queries "
++                  f"via {OLLAMA_BASE} (max_tokens={MAX_TOKENS}) ...")
++        cache = generate(dry_run)
++        if not dry_run:
++            ok = sum(1 for v in cache.values() if v[0]["content"] is not None)
++            print(f"done — {ok}/{len(HARD_QUERY_SET)} generated -> {OUT}")

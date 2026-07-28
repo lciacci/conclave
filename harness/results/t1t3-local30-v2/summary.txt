@@ -1,0 +1,9 @@
+task=T1.r1 leg=local30 model=ollama_chat/qwen3-coder:30b base=a7405650 seconds=22 exit=0 diff_lines=0 applied=no edit_reject=no llm_turns=1 adds=2/2
+task=T2.r1 leg=local30 model=ollama_chat/qwen3-coder:30b base=a7405650 seconds=14 exit=0 diff_lines=13 applied=yes edit_reject=no llm_turns=1 adds=2/2
+task=T3.r1 leg=local30 model=ollama_chat/qwen3-coder:30b base=a7405650 seconds=43 exit=0 diff_lines=56 applied=yes edit_reject=no llm_turns=1 adds=2/2
+task=T1.r2 leg=local30 model=ollama_chat/qwen3-coder:30b base=a7405650 seconds=8 exit=0 diff_lines=0 applied=no edit_reject=no llm_turns=1 adds=2/2
+task=T2.r2 leg=local30 model=ollama_chat/qwen3-coder:30b base=a7405650 seconds=14 exit=0 diff_lines=13 applied=yes edit_reject=no llm_turns=1 adds=2/2
+task=T3.r2 leg=local30 model=ollama_chat/qwen3-coder:30b base=a7405650 seconds=40 exit=0 diff_lines=56 applied=yes edit_reject=no llm_turns=1 adds=2/2
+task=T1.r3 leg=local30 model=ollama_chat/qwen3-coder:30b base=a7405650 seconds=420 exit=143 diff_lines=0 applied=no edit_reject=yes llm_turns=4 adds=2/2
+task=T2.r3 leg=local30 model=ollama_chat/qwen3-coder:30b base=a7405650 seconds=13 exit=0 diff_lines=13 applied=yes edit_reject=no llm_turns=1 adds=2/2
+task=T3.r3 leg=local30 model=ollama_chat/qwen3-coder:30b base=a7405650 seconds=40 exit=0 diff_lines=56 applied=yes edit_reject=no llm_turns=1 adds=2/2

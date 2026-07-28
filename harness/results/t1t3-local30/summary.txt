@@ -1,0 +1,13 @@
+# harness=run-t1t3.sh sha256=2c0677dabc9e6831 aider=aider 0.86.2
+# leg=local30 model=ollama_chat/qwen3-coder:30b base=a74056503e6de1888d125598b540fd032994fe2a
+# task_timeout=420 repeats=3 edit_format=diff map_tokens=0 chat_history_tokens=8192 auto_commits=off
+# endpoint=http://127.0.0.1:11434/api/tags
+task=T1.r1 leg=local30 model=ollama_chat/qwen3-coder:30b base=a7405650 seconds=7 exit=0 diff_lines=0 applied=no edit_rejects=0 llm_turns=1 adds=2/2
+task=T2.r1 leg=local30 model=ollama_chat/qwen3-coder:30b base=a7405650 seconds=13 exit=0 diff_lines=13 applied=yes edit_rejects=0 llm_turns=1 adds=2/2
+task=T3.r1 leg=local30 model=ollama_chat/qwen3-coder:30b base=a7405650 seconds=39 exit=0 diff_lines=56 applied=yes edit_rejects=0 llm_turns=1 adds=2/2
+task=T1.r2 leg=local30 model=ollama_chat/qwen3-coder:30b base=a7405650 seconds=6 exit=0 diff_lines=0 applied=no edit_rejects=0 llm_turns=1 adds=2/2
+task=T2.r2 leg=local30 model=ollama_chat/qwen3-coder:30b base=a7405650 seconds=13 exit=0 diff_lines=13 applied=yes edit_rejects=0 llm_turns=1 adds=2/2
+task=T3.r2 leg=local30 model=ollama_chat/qwen3-coder:30b base=a7405650 seconds=40 exit=0 diff_lines=56 applied=yes edit_rejects=0 llm_turns=1 adds=2/2
+task=T1.r3 leg=local30 model=ollama_chat/qwen3-coder:30b base=a7405650 seconds=4 exit=0 diff_lines=0 applied=no edit_rejects=0 llm_turns=1 adds=2/2
+task=T2.r3 leg=local30 model=ollama_chat/qwen3-coder:30b base=a7405650 seconds=12 exit=0 diff_lines=13 applied=yes edit_rejects=0 llm_turns=1 adds=2/2
+task=T3.r3 leg=local30 model=ollama_chat/qwen3-coder:30b base=a7405650 seconds=39 exit=0 diff_lines=56 applied=yes edit_rejects=0 llm_turns=1 adds=2/2

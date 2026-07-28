@@ -1,0 +1,3 @@
+task=T1 leg=local30 model=ollama_chat/qwen3-coder:30b seconds=20 exit=0 diff_lines=0 applied=no llm_turns=1
+task=T2 leg=local30 model=ollama_chat/qwen3-coder:30b seconds=15 exit=0 diff_lines=13 applied=yes llm_turns=1
+task=T3 leg=local30 model=ollama_chat/qwen3-coder:30b seconds=43 exit=0 diff_lines=56 applied=yes llm_turns=1
