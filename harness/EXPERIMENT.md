@@ -64,27 +64,40 @@ a rubric fitted to it. Applies identically to both legs.
   Three review rounds killed the previous approach: each round added branches to close a gap and
   each set of branches opened a new one, and *every* gap biased the same way — toward flattering
   the model. Round 3's worst hole was that the single likeliest hosted-80B failure (a reply with
-  prose or a whole-file block: `applied=no edit_rejects=0 llm_turns=1 exit=0`) matched no branch
+  prose or a whole-file block: `applied=no edit_reject_blocks=0 llm_turns=1 exit=0`) matched no branch
   at all. Enumerating the state space ahead of time did not work three times, so the table no
   longer tries to. Checked IN THIS ORDER — positive evidence of a model failure is checked FIRST,
   because a row can carry both a real failure and a harness artefact:
-  1. **`edit_rejects>0` and `applied=no` → MODEL failure, SCORED.** aider saw edit blocks and could
-     match none of them; nothing landed. Checked before the timeout rule on purpose: a row that is
-     both a real edit failure AND slow is still a real edit failure, and voiding it on the timeout
-     would exclude the 80B's likeliest failure mode.
-  2. **`llm_turns=0` → VOID.** aider never received a completion — dead endpoint, wrong model id,
-     vLLM 400. Evidence of nothing.
-  3. **`exit=143`/`137` with `edit_rejects=0` → VOID.** OUR cap killed it while it was still
+  1. **`edit_reject_blocks>0` and `applied=no` → MODEL failure, SCORED.** aider saw edit blocks and
+     could match none of them; nothing landed. Checked before the timeout rule on purpose: a row
+     that is both a real edit failure AND slow is still a real edit failure, and voiding it on the
+     timeout would exclude the 80B's likeliest failure mode.
+     (`edit_reject_blocks` sums the N in aider's `# N SEARCH/REPLACE blocks failed to match!` — it
+     counts BLOCKS. The earlier `edit_rejects` counted how many times aider complained, so 3 bad
+     blocks in one turn scored 1 while 1 bad block across 3 turns scored 3 — backwards.)
+  2. **`llm_turns=0` → VOID, and the run ABORTS.** aider never received a completion — dead
+     endpoint, wrong model id, vLLM 400. Evidence of nothing, and everything after it is missing
+     rather than passing.
+  3. **`exit=143`/`137` with `edit_reject_blocks=0` → VOID.** OUR cap killed it while it was still
      working. Report as "did not complete within Ns", never as a wrong answer.
-  4. **`applied=yes`, no other flag → grade the DIFF, by running it.** See the per-task criteria
-     below. `edit_rejects>0` here means the model emitted a bad block and then landed *something* —
-     do NOT assume it recovered: the columns cannot prove the retry fixed the same edit rather than
-     a later one failing. Read the log.
-  5. **ANYTHING ELSE → VOID.** This is the fail-closed default and the point of the rewrite. An
+  4. **READ-ONLY task (T1) with `exit=0`, `llm_turns>=1`, `edit_reject_blocks=0` → grade the LOG.**
+     T1 is passed via `--read`, so it can NEVER set `applied=yes` and `diff_lines` is always 0 —
+     without this branch every clean T1 row fell through to the default and was mandatorily VOID,
+     including all three reps of the canonical local set. Pass = an accurate summary, no edit
+     attempted.
+  5. **`applied=yes`, no other flag → grade the DIFF, by running it.** See the per-task criteria
+     below. `edit_reject_blocks>0` here means the model emitted a bad block and then landed
+     *something* — do NOT assume it recovered: the columns cannot prove the retry fixed the same
+     edit rather than a later one failing. Read the log.
+  6. **ANYTHING ELSE → VOID.** This is the fail-closed default and the point of the rewrite. An
      unenumerated state can never be silently scored in either direction. If the table cannot name
      it, it does not count — it gets re-run once and, failing that, reported as unclassified.
-  - `adds > EXPECTED_ADDS` → context inflation; a diff touching anything outside
-    `bench_local30_gen.py` is VOID regardless of the branch above.
+  - **Context divergence is checked by READING, not by a column.** `adds` and `max_sent` were
+    deleted in review round 4: across four rounds neither ever changed a verdict, while each
+    produced defects — `adds` in its broad form counted aider's own error dump as added files, in
+    its narrow form could not exceed the expected count at all, and `max_sent` implied token
+    precision its rounded source does not have. A `.log` showing extra files entering the chat, or
+    a `.diff` touching anything outside `bench_local30_gen.py`, still voids the row.
 
 - **Three rules that keep the fail-closed default from becoming an escape hatch.** VOID is not a
   retry budget; without these it would quietly re-roll the dice until the model produced a

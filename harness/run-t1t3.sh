@@ -57,15 +57,20 @@ BASE="${BASE:-a740565}"
 #
 # TARGET's docstring ALSO says "see design.md", which matches tracked docs/design.md by basename and
 # fires the same trap. design.md is 609 lines — pre-adding it would change the context both legs see
-# far more than the bug it prevents. So that one is DETECTED, not suppressed: added_files below
-# records every file aider pulled in, and anything past the expected 2 is visible in the summary.
+# far more than the bug it prevents. It is therefore NEITHER suppressed NOR auto-detected: the
+# column that tried to detect it (`adds`) was deleted in review round 4 for never once changing a
+# verdict while producing defects in both its forms. If a task's `.log` shows extra files entering
+# the chat, or its `.diff` touches anything outside TARGET, the row is void — read the log.
 MENTIONED="orchestrator/bench_local30_grade.py"
-EXPECTED_ADDS=2
 
 command -v aider >/dev/null || { echo "ERROR: aider not on PATH."; exit 1; }
 # Validate the cap BEFORE any task runs. run_capped re-checks, but by then a results dir exists and
 # the first task has been announced — a misconfigured cap should never get that far.
-case "$TASK_TIMEOUT" in ''|*[!0-9]*) echo "ERROR: TASK_TIMEOUT must be a whole number of seconds, got '${TASK_TIMEOUT}'."; exit 1 ;; esac
+# 0 must be rejected, not just non-numerics: `sleep 0` returns instantly, the watchdog TERMs every
+# task before aider gets a token, and all nine rows record exit=143 seconds=0 with no error.
+# Arithmetic, not a glob: the `|0)` pattern rejected "0" but sailed past "00", "000" etc, each of
+# which makes `sleep` return instantly and TERMs every task before aider gets a token.
+[ "$TASK_TIMEOUT" -gt 0 ] 2>/dev/null || { echo "ERROR: TASK_TIMEOUT must be a positive whole number of seconds, got '${TASK_TIMEOUT}'."; exit 1; }
 case "$REPEATS" in ''|*[!0-9]*|0) echo "ERROR: REPEATS must be a positive whole number, got '${REPEATS}'."; exit 1 ;; esac
 
 # Guard the operator errors that produce PLAUSIBLE-LOOKING WRONG EVIDENCE. Both directions matter:
@@ -84,18 +89,30 @@ if [ "$LEG" != "local30" ] && [ "$AIDER_MODEL" = "$DEFAULT_MODEL" ]; then
 fi
 # The metadata fix is keyed on an EXACT model name. If it does not match, aider is context-blind
 # and --no-show-model-warnings hides it — the 74k-context/vLLM-400 confound, silently reinstated.
-case "$AIDER_MODEL" in
-  ollama_chat/*|ollama/*) ;;
-  *) python3 -c "import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if sys.argv[2] in d else 1)" \
-       "$MODEL_METADATA" "$AIDER_MODEL" \
-       || { echo "ERROR: '${AIDER_MODEL}' has no entry in ${MODEL_METADATA}."; \
-            echo "       Add one, or aider runs context-blind with the warning suppressed."; exit 1; } ;;
-esac
+# Applies to BOTH legs now. The old ollama_chat/* exemption was written when there deliberately was
+# no local entry; now that both legs are pinned, exempting the local model means a renamed or
+# typo'd key silently restores aider's trust in Ollama's advertised 262144 while num_ctx caps the
+# real window at 32768 — the exact asymmetry the entry was added to remove, with no error.
+python3 -c "import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if sys.argv[2] in d else 1)" \
+  "$MODEL_METADATA" "$AIDER_MODEL" \
+  || { echo "ERROR: '${AIDER_MODEL}' has no entry in ${MODEL_METADATA}."; \
+       echo "       Add one, or aider runs context-blind with the warning suppressed."; exit 1; }
 # Never write into a results set that already holds a run. Evidence is the deliverable here.
 if [ -s "${RESULTS}/summary.txt" ] && [ "${FORCE:-0}" != "1" ]; then
   echo "ERROR: ${RESULTS}/summary.txt already holds a run. Choose a new RESULTS dir, or FORCE=1."
   exit 1
 fi
+# NOTE: the FORCE cleanup itself runs LATER, after every gate that can abort — see clear_previous().
+# Deleting here would destroy the previous run's evidence and then exit on an unreachable endpoint
+# or a bad BASE, leaving nothing in its place.
+clear_previous() {
+  [ "${FORCE:-0}" = "1" ] && [ -d "$RESULTS" ] || return 0
+  echo ">>> FORCE=1 — clearing previous artefacts in ${RESULTS}"
+  # Truncating summary.txt alone left the previous run's per-task .log/.diff in place: re-running
+  # with REPEATS=1 after a REPEATS=3 run leaves r2/r3 artefacts with no row referencing them, and
+  # these directories are graded by reading each .log against its .diff.
+  find "$RESULTS" -maxdepth 1 -type f \( -name 'T*.log' -o -name 'T*.diff' -o -name 'summary.txt' \) -delete
+}
 
 # PREFLIGHT the inference endpoint. aider exits 0 on API errors, so without this a dead endpoint
 # produces nine rows of 'exit=0 diff_lines=0 applied=no' that read exactly like a clean run.
@@ -115,7 +132,9 @@ run_capped() {
   # too. Without it a malformed TASK_TIMEOUT makes `sleep` fail instantly, the watchdog TERMs
   # immediately, and all nine tasks record exit=143 seconds=0 — indistinguishable, in the rubric,
   # from the model timing out on everything.
-  case "$secs" in ''|*[!0-9]*) echo "FATAL: TASK_TIMEOUT must be a whole number of seconds, got '${secs}'." >&2; exit 2 ;; esac
+  # Same arithmetic check as the startup guard — kept in sync deliberately: this one is the backstop
+  # for any future caller that reaches run_capped without passing through startup validation.
+  [ "$secs" -gt 0 ] 2>/dev/null || { echo "FATAL: TASK_TIMEOUT must be a positive whole number of seconds, got '${secs}'." >&2; exit 2; }
   "$@" & local pid=$!
   ( sleep "$secs"; kill -TERM "$pid" 2>/dev/null; sleep 10; kill -KILL "$pid" 2>/dev/null ) & local wd=$!
   local rc=0; wait "$pid" || rc=$?
@@ -141,6 +160,9 @@ mkdir -p "$RESULTS"
 git -C "$REPO" rev-parse --verify --quiet "${BASE}^{commit}" >/dev/null \
   || { echo "ERROR: BASE '${BASE}' is not a commit in this repo."; exit 1; }
 BASE_FULL="$(git -C "$REPO" rev-parse "$BASE")"
+# Every abortable gate (endpoint preflight, LEG/model, metadata key, BASE) has now passed, so it is
+# finally safe to destroy the previous run's evidence.
+clear_previous
 echo ">>> leg=${LEG} model=${AIDER_MODEL} base=${BASE_FULL:0:8} timeout=${TASK_TIMEOUT}s repeats=${REPEATS}"
 echo ">>> results -> ${RESULTS}"
 
@@ -179,38 +201,50 @@ run_task() {
   # fault. Each discriminator below is ANCHORED on the exact string aider emits, not on a substring
   # that also appears in aider's system prompt — an unanchored "SEARCH/REPLACE" grep matched the
   # instructional text and flagged clean runs as model failures.
-  #   edit_rejects  aider counted failed blocks: editblock_coder.py:84
-  #                 "# N SEARCH/REPLACE blocks failed to match!"  (N is a real count)
-  #                 With applied=yes this means the model RECOVERED on a later turn — note, not fail.
-  #   llm_turns=0   aider never got a completion back => endpoint/API failure => row is VOID
-  #   llm_turns>1   aider re-prompted (file-mention reflection, or an edit retry)
-  #   adds>2        aider pulled in an unexpected file (e.g. design.md via the docstring mention)
-  local applied edit_rejects llm_turns adds
+  #   edit_reject_blocks  aider counted failed blocks: editblock_coder.py
+  #                       "# N SEARCH/REPLACE blocks failed to match!"  (N is a real count)
+  #   llm_turns=0         aider never got a completion back => endpoint/API failure => VOID
+  #   llm_turns>1         aider re-prompted (file-mention reflection, or an edit retry)
+  #
+  # DELETED after review round 4: `adds` and `max_sent`. Across four rounds neither ever changed a
+  # verdict — every clean row read adds=2/2 and max_sent~5700 — while each produced defects: the
+  # bare-path form of `adds` counted aider's own error dump as added files, its anchored form could
+  # no longer exceed the expected count at all (making the rule it fed dead code), and `max_sent`
+  # printed exact-looking totals from a source that rounds to the nearest 1000 above 10k. Three
+  # columns' worth of maintenance for zero decisions. Context divergence between legs is instead
+  # caught where it is unambiguous: the pinned BASE, the fixed --read set, and reading the log.
+  local applied edit_reject_blocks llm_turns
   applied=no; grep -q "^Applied edit to " "${RESULTS}/${id}.log" && applied=yes
-  edit_rejects=$(grep -cE "^# [0-9]+ SEARCH/REPLACE block(s)? failed to match!" "${RESULTS}/${id}.log" || true)
+  # Count BLOCKS, not messages: `grep -c` counts how many TIMES aider complained, so 3 bad blocks in
+  # one turn scored 1 while 1 bad block across 3 turns scored 3 — backwards. Match the FULL anchored
+  # sentence (not the `^# N SEARCH/REPLACE block` prefix, which would also catch a numbered list or
+  # a future message reformat), then sum the N.
+  # `|| true` is LOAD-BEARING: `set -o pipefail` is on and grep exits 1 when it finds nothing, which
+  # is the NORMAL case for a clean task. Without it the first successful task aborts the run.
+  edit_reject_blocks=$( { grep -oE "^# [0-9]+ SEARCH/REPLACE blocks? failed to match!" \
+    "${RESULTS}/${id}.log" || true; } | awk '{s+=$2} END{print s+0}')
   llm_turns=$(grep -c "^Tokens:" "${RESULTS}/${id}.log" || true)
-  # A HEURISTIC context-inflation flag, not an exact census. aider announces command-line files as
-  # "Added <path> to the chat" but echoes a later mention-path file as a BARE PATH line, so both
-  # forms are counted and the total can over-count (a path quoted in prose also matches). What
-  # matters is the comparison: adds > EXPECTED_ADDS means files beyond the two intended reached the
-  # context. Counting only the first form reported adds=2/2 on a run that had grown to 32k with four
-  # files in chat — the undercount hid the inflation that made the row worthless.
-  adds=$( { grep -cE "^Added .+ to the chat" "${RESULTS}/${id}.log" || true; \
-            grep -cE "^[A-Za-z0-9_./-]+\.(py|md|json|ya?ml|sh|txt)$" "${RESULTS}/${id}.log" || true; } \
-          | paste -sd+ - | bc )
 
-  printf 'task=%s leg=%s model=%s base=%s seconds=%s exit=%s diff_lines=%s applied=%s edit_rejects=%s llm_turns=%s adds=%s/%s\n' \
+  printf 'task=%s leg=%s model=%s base=%s seconds=%s exit=%s diff_lines=%s applied=%s edit_reject_blocks=%s llm_turns=%s\n' \
     "$id" "$LEG" "$AIDER_MODEL" "${BASE_FULL:0:8}" "$((t1-t0))" "$rc" \
-    "$(wc -l <"${RESULTS}/${id}.diff" | tr -d ' ')" "$applied" "$edit_rejects" "$llm_turns" \
-    "$adds" "$EXPECTED_ADDS" \
+    "$(wc -l <"${RESULTS}/${id}.diff" | tr -d ' ')" "$applied" "$edit_reject_blocks" "$llm_turns" \
     | tee -a "${RESULTS}/summary.txt"
 
-  # A dead endpoint mid-run yields nine clean-looking null rows. Fail fast instead: re-probe, and
-  # stop the run if the endpoint is gone. Cheap (one HTTP call per task) next to a wasted pod-hour.
+  # ZERO LLM turns means aider never got a completion. Abort on the FACT, not on a re-probe: a vLLM
+  # that 400s every chat request still answers GET /models with 200 forever, so a probe-gated abort
+  # would sail through nine void rows and print a clean ">>> done" over a run the operator paid for.
+  #
+  # BUT exempt our OWN kill. If run_capped TERMed the task before aider's first completion, turns=0
+  # is caused by the cap, not the endpoint — aborting there tears down a HEALTHY pod after one of
+  # nine tasks and blames the server, and the rubric already treats a capped row as VOID-and-survive.
+  if [ "$llm_turns" -eq 0 ] && [ "$rc" -ne 143 ] && [ "$rc" -ne 137 ]; then
+    echo "FATAL: ${id} recorded ZERO LLM turns — aider never received a completion."
+    echo "       Endpoint may be up but rejecting requests (context overflow, wrong model id)."
+    echo "       ${RESULTS} is PARTIAL: rows after this point are MISSING, not passing."
+    exit 1
+  fi
   if [ "$llm_turns" -eq 0 ]; then
-    echo ">>> WARNING: ${id} recorded ZERO LLM turns — re-probing the endpoint."
-    curl -sf --max-time 20 -H "Authorization: Bearer ${OPENAI_API_KEY:-x}" "$PROBE" >/dev/null \
-      || { echo "FATAL: endpoint ${PROBE} is gone. ${RESULTS} is PARTIAL — rows after this point are missing, not passing."; exit 1; }
+    echo ">>> ${id}: no completion before the ${TASK_TIMEOUT}s cap fired (rc=${rc}) — VOID, continuing."
   fi
   git -C "$REPO" worktree remove --force "$wt" 2>/dev/null || true
 }

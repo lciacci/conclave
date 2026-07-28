@@ -1,5 +1,5 @@
 {
-  "_comment": "Context-window metadata for the HOSTED leg. aider knows nothing about a raw vLLM endpoint served as `openai/coder`, so it never trims and never warns — and --no-show-model-warnings (needed for headless runs) hides the one hint that it is flying blind. Without this, a T3 conversation can exceed the pod's --max-model-len 32768, vLLM returns HTTP 400, no edit is produced, and the row reads `diff_lines=0 applied=no` — a silent recurrence of the 74k-context/vLLM-400 confound the 2026-07-22 run died of. Numbers match how the pod is actually booted (max_len 32768 in the fleet json), which in turn matches the local leg's num_ctx.",
+  "_comment": "Context accounting for BOTH legs, pinned so nothing is DERIVED per-leg. Two separate bugs live here. (1) aider knows nothing about a raw vLLM endpoint served as `openai/coder`, so it never trims and never warns, and --no-show-model-warnings (needed headless) hides that it is flying blind — a T3 that grows past the pod's --max-model-len 32768 gets a vLLM 400, which is the confound the 2026-07-22 run died of. (2) LESS OBVIOUS: without an entry for the LOCAL model, aider takes Ollama's advertised 262144, while aider.model.settings.yml caps the real window at num_ctx 32768 — a value aider cannot see. The same physical overflow would then be refused on the hosted leg (400 -> void) but silently TRUNCATED on the local leg and graded as a model failure. Same limit, opposite verdicts. Both entries are 32768 to match how the pod is booted (max_len in the fleet json) and how Ollama is pinned (num_ctx).",
   "openai/coder": {
     "max_input_tokens": 32768,
     "max_output_tokens": 8192,
@@ -7,6 +7,15 @@
     "input_cost_per_token": 0.0000004,
     "output_cost_per_token": 0.0000004,
     "litellm_provider": "openai",
+    "mode": "chat"
+  },
+  "ollama_chat/qwen3-coder:30b": {
+    "max_input_tokens": 32768,
+    "max_output_tokens": 8192,
+    "max_tokens": 32768,
+    "input_cost_per_token": 0,
+    "output_cost_per_token": 0,
+    "litellm_provider": "ollama",
     "mode": "chat"
   }
 }
