@@ -91,3 +91,32 @@ open. (2) The skeptic's null: role-diversity may already capture the decorrelati
 gain over role-alone could be ~0. (3) Rewriting guard (b) is an ADR-level, cross-repo decision (co-owned +
 Tessera-hosted) — this memo records the axis, it does not resolve the guard. (4) Excitement-bias: this is the
 router thesis reborn; gate on the instrument, not the instinct.
+
+## Result (2026-07-28) — the MODEL axis was measured. It added NOTHING.
+
+The addendum's variant was built (`orchestrator/s2_model_axis.py`) — NOT the parked port. Arms matched
+at TWO passes each, so this cannot be the candidate-count confound that retracted Self-MoA's +0.0977:
+
+| arm | recall | matched/55 | crit | FP |
+|---|---|---|---|---|
+| best single — claude reviewer | 0.509 | 28 | 6/8 | 30 |
+| **ROLE**-diverse union: claude-reviewer ∪ claude-arbiter | **0.618** | 34 | 7/8 | 35 |
+| **MODEL**-diverse union: claude-reviewer ∪ qwen-reviewer | **0.509** | 28 | 6/8 | **50** |
+| qwen reviewer alone | 0.073 | 4 | 0/8 | 16 |
+
+**MODEL diversity: +0.000 recall, +20 false positives. Zero decorrelated catches** — every true
+finding qwen produced was already in claude's set. ROLE diversity on the same corpus, same scorer,
+same pass count: +0.109 and the 8th critical.
+
+Scorer validation: this reproduces pr-arbiter's own committed numbers to 4 dp (0.5091 / 0.6182) using
+their `_approximate_match` and their `expected_findings`, so it is their definition of a true finding,
+not a new one.
+
+**BOUND — do not over-read this.** It tests *adding a much WEAKER model* (0.073 vs 0.509, ~7×), not
+model diversity among peers. A weak second model cannot add union-recall because its findings are a
+subset. So this is **directionally supportive of anti-conflation guard (b) but does NOT settle it.**
+The open question is unchanged in shape and now sharper: *does a second PEER-STRENGTH model
+decorrelate?* That needs a second frontier model and therefore money — it is not $0 like this was.
+
+Guard (b) is NOT rewritten here (boundary 4). No threshold is emitted (boundary 1). This records a
+measurement for whoever writes the ADR.

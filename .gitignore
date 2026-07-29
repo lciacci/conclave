@@ -56,3 +56,10 @@ orchestrator/eval_pairwise_*.json
 harness/venv/
 harness/.venv/
 .aider*
+
+# S2 model-axis raw passes. NOT committed on purpose: pr-arbiter's synthetic corpus contains PLANTED
+# credentials (a Stripe-format live-key literal in pr_001), and a reviewer pass quotes the secret it was
+# asked to find — which trips GitHub push protection, correctly. The scored aggregate lives in
+# orchestrator/s2_model_axis_result.json; regenerate the raw passes for $0 with:
+#     python3 orchestrator/s2_model_axis.py --gen
+orchestrator/s2_model_axis_qwen_passes.json

@@ -1,0 +1,34 @@
+{
+  "single_claude_reviewer": {
+    "expected": 55,
+    "matched": 28,
+    "recall": 0.5091,
+    "false_positives": 30,
+    "critical_expected": 8,
+    "critical_matched": 6
+  },
+  "role_diverse_union_2pass": {
+    "expected": 55,
+    "matched": 34,
+    "recall": 0.6182,
+    "false_positives": 35,
+    "critical_expected": 8,
+    "critical_matched": 7
+  },
+  "single_qwen_reviewer": {
+    "expected": 55,
+    "matched": 4,
+    "recall": 0.0727,
+    "false_positives": 16,
+    "critical_expected": 8,
+    "critical_matched": 0
+  },
+  "model_diverse_union_2pass": {
+    "expected": 55,
+    "matched": 28,
+    "recall": 0.5091,
+    "false_positives": 50,
+    "critical_expected": 8,
+    "critical_matched": 6
+  }
+}

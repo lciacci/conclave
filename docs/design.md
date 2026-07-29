@@ -396,6 +396,42 @@ and it's a drag for fast loops; escalate to the 80B/frontier for trust + speed. 
 `docs/HANDOFF.md`. The instrument itself was honest (`verdict_resolved: false`, correct t-not-z); the
 Phase-0 over-claim was in the write-up, now corrected.
 
+### 2026-07-28 — the agentic verdict above was measuring the HARNESS. Two corrections.
+
+The T1–T3 comparison was re-run under a matched harness (`harness/run-t1t3.sh`, both legs at pinned
+BASE, same aider build on the same laptop, only the model endpoint differing). Two claims above do
+not survive it, and both were harness artifacts:
+
+- **"SLOW" is wrong.** The hosted 80B is ~4× FASTER than the local 30B on the hardest task (10s vs
+  40s) despite 2.7× the parameters. The old 130–370s/task figure measured aider running POD-SIDE with
+  a repo map. Prefill-bound-on-15k-prompts remains true of Claude Code specifically, not of the model.
+- **"LOW-FIDELITY" is not supported at this difficulty.** Under the matched harness both models
+  applied edits on every edit task with ZERO rejects, 3/3 identical reps each, and both `--dry-run`
+  implementations pass the target file's own self-check. The confabulation finding stands as a
+  RECORDED failure mode (it happened, in `harness/results/t1t3-local30-run1-confounded/` and the T1
+  loop set) but it did not reproduce on the clean run.
+
+**What the clean run establishes is a capability FLOOR, not a ranking.** Three tasks, both models
+passed all three: it discriminates nothing above that floor and does NOT support "local matches the
+80B". The daily-driver decision therefore stands exactly as written above — **on cost, not on
+measured parity.**
+
+**STANDING OPERATING PROCEDURE for any future hosted comparison** (this cost real money to learn):
+
+1. **Drive aider from the LAPTOP against the pod's endpoint**
+   (`https://<podid>-8011.proxy.runpod.net/v1`, vLLM `--served-model-name coder`). NOT pod-side.
+   Same aider build, same filesystem, same script on both legs — the tightest reading of "only the
+   model may differ" — and it sidesteps the pod-side venv/hf-hub conflicts entirely. It is also the
+   configuration that produced the 4× speed-up above.
+2. **`nvidia-smi` BEFORE anything else.** vLLM 0.24 needs driver ≥580 / CUDA 13. US-GA-2 delivered
+   580.159.04; US-NC-1 delivered 570.124.06 and was a $0.64 write-off. Terminate and re-roll rather
+   than debug a too-old driver.
+3. **Pin context on BOTH legs.** aider derives `max_chat_history_tokens` from `max_input_tokens`,
+   which differs per backend (Ollama advertises 262144, a 32k vLLM endpoint gives 2048) — an
+   invisible asymmetry on the only multi-turn task. Pin both, in `harness/aider.model.metadata.json`.
+4. **Grade by RUNNING the result, not reading the diff.** Every real model failure this project has
+   caught was caught that way; none was caught by reading a plausible-looking diff.
+
 ## Cost controls
 
 Budget cap: **$100/mo — confirmed 2026-07-02.** All thresholds below parameterize off it.
