@@ -63,14 +63,52 @@
 >   `--served-model-name coder` so `openai/coder` matches the metadata pin. No pod-side venv, no
 >   hf-hub conflict, no scp of results — artifacts land locally as they are written.
 >
-> ### ➡️ NEXT
-> 1. **Design T4** — the task set is exhausted as a discriminator. Without it, more runs cost money
->    and return the same null.
-> 2. Branch `harness/t1t3-matched-instrument` is unmerged; round-5's nine known findings are open by
->    decision, not by oversight. Merge or keep as-is deliberately.
-> 3. Everything below this block predates the clean comparison. The 2026-07-22 block's "harness is
->    the confound" hypothesis is now CONFIRMED; its "needs a matched, edit-applying harness"
->    follow-up is DONE.
+> ### ✅ Done AFTER the comparison, same session — read these before planning anything
+> - **Branch MERGED to main** (`b7546a3`). Round-5's nine findings remain open BY DECISION (operator
+>   misconfigurations + grading-table branch coverage), not by oversight.
+> - **SOP recorded in `docs/design.md`**, where it will not scroll away: drive aider from the LAPTOP
+>   against the pod endpoint (never pod-side), `nvidia-smi` before anything, pin context on both legs,
+>   grade by RUNNING the result. It also corrects two claims in that doc that were measuring the
+>   harness rather than the model ("slow", "low-fidelity").
+> - **"Design T4" is CANCELLED as written** — replaced by `docs/LOCAL-CODER-FAILURES.md`. A synthetic
+>   T4 would likely saturate exactly as hard-30 (25/30 at ceiling) and T1–T3 did. A REAL task that
+>   defeats the local model IS the harder benchmark, costs nothing to obtain, and its failure modes
+>   ARE the escalation policy. Log failures there as they happen.
+> - **S2 MODEL-AXIS MEASURED** (`orchestrator/s2_model_axis.py`, result committed). See below.
+>
+> ### 🔬 S2 model-axis result — MODEL diversity added NOTHING on the adversarial path
+> Built the one variant `docs/S2-scoping.md`'s addendum carves out as adding new evidence; the memo's
+> PARK of the S2 *port* still stands. Arms matched at TWO passes (the candidate-count confound that
+> retracted Self-MoA's +0.0977 is exactly the trap here):
+>
+> | arm | recall | matched/55 | crit | FP |
+> |---|---|---|---|---|
+> | best single — claude reviewer | 0.509 | 28 | 6/8 | 30 |
+> | **ROLE**-diverse union (claude rev ∪ claude arbiter) | **0.618** | 34 | 7/8 | 35 |
+> | **MODEL**-diverse union (claude rev ∪ qwen rev) | **0.509** | 28 | 6/8 | **50** |
+> | qwen reviewer alone | 0.073 | 4 | 0/8 | 16 |
+>
+> **+0.000 recall, +20 false positives, ZERO decorrelated catches.** Scorer reproduces pr-arbiter's
+> committed numbers to 4dp using THEIR matcher and THEIR expected findings.
+> **BOUND:** this tests adding a much WEAKER model (~7×), not peer diversity — a weak model's findings
+> are a subset, so it *cannot* add union-recall. Directionally supportive of anti-conflation guard (b);
+> does NOT settle it. Guard (b) NOT rewritten (ADR-level, cross-repo). No threshold emitted.
+> **Second finding, and the sharper one for daily use:** the local 30B scores **0.073 recall, 0/8
+> criticals** on structured adversarial REVIEW vs 0.509 for claude on the identical task — while
+> matching the hosted 80B on edit-and-apply (T1–T3). **Task SHAPE, not model tier, is the escalation
+> trigger; review is the shape that breaks it.** Logged in `docs/LOCAL-CODER-FAILURES.md`.
+>
+> ### ➡️ WHAT IS ACTUALLY LEFT
+> 1. **Peer-strength model diversity — the one open measurable.** Does a SECOND FRONTIER model
+>    decorrelate on union-recall? The qwen arm cannot answer it. This one costs money (a second
+>    frontier API), unlike everything above.
+> 2. **Cross-repo coordination (owner-driven, NOT a conclave task).** The model-axis result is
+>    evidence for pr-arbiter's guard (b) and Tessera's D2/D3 ADRs. Surfacing it is the unblock
+>    `docs/S2-scoping.md` always said was needed; conclave's lane ends at the measurement.
+> 3. **Accumulate real failures** in `docs/LOCAL-CODER-FAILURES.md` through normal work. No run
+>    needed; n grows as work happens.
+> 4. Everything below this block predates the clean comparison. The 2026-07-22 "harness is the
+>    confound" hypothesis is CONFIRMED; its "needs a matched, edit-applying harness" follow-up is DONE.
 
 > # 🛠️ 2026-07-28 (superseded by the block above) — INSTRUMENT REPAIRED, HOSTED LEG NOT RUN. The T1–T3 harness went through THREE review rounds and 22 fixed defects; the local leg is clean; the paid leg was deliberately NOT attempted.
 >

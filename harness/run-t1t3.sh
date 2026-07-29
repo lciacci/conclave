@@ -136,6 +136,11 @@ run_capped() {
   # Same arithmetic check as the startup guard — kept in sync deliberately: this one is the backstop
   # for any future caller that reaches run_capped without passing through startup validation.
   [ "$secs" -gt 0 ] 2>/dev/null || { echo "FATAL: TASK_TIMEOUT must be a positive whole number of seconds, got '${secs}'." >&2; exit 2; }
+  # KNOWN + DELIBERATE (arbiter, 2026-07-28): each task leaves ONE orphaned `sleep` behind. Killing
+  # the watchdog subshell while it is blocked in `sleep` orphans that sleep, which then runs out its
+  # full duration. It is harmless — a bare `sleep` holds no PID and runs no kill, so it cannot reap a
+  # later aider and cannot fabricate an rc=137 void; the subshell dies before reaching its kill lines.
+  # NOT fixed: the poll-loop alternative costs ~420 sleep forks per task to retire one idle process.
   "$@" & local pid=$!
   ( sleep "$secs"; kill -TERM "$pid" 2>/dev/null; sleep 10; kill -KILL "$pid" 2>/dev/null ) & local wd=$!
   local rc=0; wait "$pid" || rc=$?
