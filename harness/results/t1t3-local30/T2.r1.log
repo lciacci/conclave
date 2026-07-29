@@ -1,0 +1,76 @@
+Warning: Input is not a terminal (fd=0).
+────────────────────────────────────────────────────────────────────────────────
+Aider v0.86.2
+Model: ollama_chat/qwen3-coder:30b with diff edit format
+Git repo: ../../../../Users/lorenzociacci/Claude/conclave/.git/worktrees/T2.r1 
+with 116 files
+Repo-map: disabled
+Added orchestrator/bench_local30_gen.py to the chat.
+Added orchestrator/bench_local30_grade.py to the chat (read-only).
+
+orchestrator/bench_local30_gen.py                                               
+
+                                                                                
+ <<<<<<< SEARCH                                                                 
+ #!/usr/bin/env python3                                                         
+ """Phase-0 local-first benchmark: generate Qwen3-Coder-30B-A3B candidates on   
+ the                                                                            
+ frozen hard-30, LOCALLY via Ollama's OpenAI-compatible endpoint — $0, no GPU   
+ boot.                                                                          
+                                                                                
+ WHY LOCAL. The 30B-A3B is MoE (~3B active), ~18GB at 4-bit, and runs on the    
+ 64GB                                                                           
+ Mac. If its quality holds vs the H200-served 80B                               
+ (eval_candidates_specialist_hard,                                              
+ coder 0.949), it deploys on the laptop for $0 — so the daily driver may never  
+ need                                                                           
+ a rented GPU. This measures that, reusing http_call (no new deps).             
+                                                                                
+ CONFOUND, stated on purpose: this is Ollama 4-bit vs the 80B's FP8, and the    
+ hard-30                                                                        
+ is knowledge-QA (biased toward the bigger model — see design.md). So a 30B     
+ that                                                                           
+ holds HERE is a strong signal; the real-task check comes when it is wired as a 
+ daily driver.                                                                  
+                                                                                
+ Run (Ollama up, model pulled):                                                 
+     python3 orchestrator/bench_local30_gen.py                                  
+     # -> eval_candidates_local30_hard.json  {id: [{model:"coder30", content,   
+ ...}]}                                                                         
+ Then merge + grade with bench_local30_grade.py.                                
+ """                                                                            
+ =======                                                                        
+ #!/usr/bin/env python3                                                         
+ """Phase-0 local-first benchmark: generate Qwen3-Coder-30B-A3B candidates on   
+ the                                                                            
+ frozen hard-30, LOCALLY via Ollama's OpenAI-compatible endpoint — $0, no GPU   
+ boot.                                                                          
+                                                                                
+ WHY LOCAL. The 30B-A3B is MoE (~3B active), ~18GB at 4-bit, and runs on the    
+ 64GB                                                                           
+ Mac. If its quality holds vs the H200-served 80B                               
+ (eval_candidates_specialist_hard,                                              
+ coder 0.949), it deploys on the laptop for $0 — so the daily driver may never  
+ need                                                                           
+ a rented GPU. This measures that, reusing http_call (no new deps).             
+                                                                                
+ CONFOUND, stated on purpose: this is Ollama 4-bit vs the 80B's FP8, and the    
+ hard-30                                                                        
+ is knowledge-QA (biased toward the bigger model — see design.md). So a 30B     
+ that                                                                           
+ holds HERE is a strong signal; the real-task check comes when it is wired as a 
+ daily driver.                                                                  
+                                                                                
+ Run (Ollama up, model pulled):                                                 
+     python3 orchestrator/bench_local30_gen.py                                  
+     # -> eval_candidates_local30_hard.json  {id: [{model:"coder30", content,   
+ ...}]}                                                                         
+ Then merge + grade with bench_local30_grade.py.                                
+                                                                                
+ LOCAL_CODER defaults to "qwen3-coder:30b"                                      
+ """                                                                            
+ >>>>>>> REPLACE                                                                
+                                                                                
+
+Tokens: 5.7k sent, 647 received.
+Applied edit to orchestrator/bench_local30_gen.py

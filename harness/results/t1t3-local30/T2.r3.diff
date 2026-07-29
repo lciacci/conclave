@@ -1,0 +1,13 @@
+diff --git a/orchestrator/bench_local30_gen.py b/orchestrator/bench_local30_gen.py
+index b836333..80c5ef5 100644
+--- a/orchestrator/bench_local30_gen.py
++++ b/orchestrator/bench_local30_gen.py
+@@ -16,6 +16,8 @@ Run (Ollama up, model pulled):
+     python3 orchestrator/bench_local30_gen.py
+     # -> eval_candidates_local30_hard.json  {id: [{model:"coder30", content, ...}]}
+ Then merge + grade with bench_local30_grade.py.
++
++LOCAL_CODER defaults to "qwen3-coder:30b"
+ """
+ from __future__ import annotations
+ 

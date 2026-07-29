@@ -1,0 +1,32 @@
+diff --git a/orchestrator/bench_local30_gen.py b/orchestrator/bench_local30_gen.py
+index b836333..482c325 100644
+--- a/orchestrator/bench_local30_gen.py
++++ b/orchestrator/bench_local30_gen.py
+@@ -42,6 +42,12 @@ def generate() -> dict[str, list[dict]]:
+     if os.path.exists(OUT):
+         with open(OUT) as f:
+             cache = json.load(f)
++
++    if "--dry-run" in sys.argv:
++        to_generate = [q for q in HARD_QUERY_SET if q["id"] not in cache]
++        print(f"dry-run: {len(to_generate)} queries would be generated (cache has {len(cache)})")
++        sys.exit(0)
++
+     for q in HARD_QUERY_SET:
+         if q["id"] in cache:
+             continue
+@@ -84,6 +90,14 @@ def demo() -> None:
+         generate()
+         assert os.path.getmtime(OUT) == n_before, "resume: no rewrite when complete"
+         print(f"ok — gen shape + resume verified offline ({len(c)} queries)")
++
++        # dry-run: verify it counts remaining queries and exits cleanly
++        import subprocess
++        result = subprocess.run([sys.executable, sys.argv[0], "--demo", "--dry-run"],
++                                capture_output=True, text=True)
++        assert result.returncode == 0, f"dry-run failed: {result.stderr}"
++        assert "dry-run:" in result.stdout, "dry-run should print count"
++        print("ok — dry-run flag verified")
+     finally:
+         ensemble.http_call = real
+         globals()["http_call"] = real
