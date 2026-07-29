@@ -34,7 +34,16 @@ is the escalation tier. **Agentic competence is now MEASURED (CC wired to local 
 2026-07-17):** it drives the tool-loop but is SLOW (prefill-bound on CC's ~15k prompts) and
 LOW-FIDELITY (confabulated completing half a multi-step task) — a **SUPERVISED / background FALLBACK
 tier, not an unsupervised peer** (auto-accept is unsafe: it lies about "done"). See `docs/HANDOFF.md`. Next practical step: wire the local coder into a harness (Claude Code
-via a LiteLLM proxy). **Positioning:** Conclave is the **substrate** (serving + the `divergence.py`
+via a LiteLLM proxy). **⚠️ 2026-07-28: pr-arbiter is CLOSED as a research project.** It is being rebuilt as a real tool,
+**arbiter**, and it is **no longer a gate**. Everything below about "graduation", "value-gated
+adoption", and conclave's S2 instrument being the "value-GATE" on that graduation is **superseded** —
+those describe a research-project-becoming-a-Tessera-command shape that no longer exists. Conclave's
+measurements do not stop being useful; their STATUS changes from *gate input* to *design input* for
+the tool. The canonical cohesion contract is Tessera-hosted and co-owned, so it is NOT rewritten here
+— that is the cross-repo coordination session (next: 2026-07-29). This note marks the stale claims so
+nobody plans off them in the meantime.
+
+**Positioning (pre-closure, read with the note above):** Conclave is the **substrate** (serving + the `divergence.py`
 instrument) in a three-project system with **Tessera** (governance + routing *policy*) and
 **pr-arbiter** (the adversarial-quality review pattern). Both conclave and pr-arbiter are DOWNSTREAM
 consumers of the Tessera framework AND contribute up (conclave serves + measures; pr-arbiter's pattern

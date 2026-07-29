@@ -1,5 +1,19 @@
 # Conclave in the three-project system — stub
 
+> ## ⚠️ STALE AS OF 2026-07-28 — pr-arbiter closed; `arbiter` is a real tool, NOT a gate
+> pr-arbiter is **closed as a research project** and is being rebuilt as a shipping tool,
+> **arbiter**. It is **no longer a gate**. Every claim below about *graduation*, *seam S4*,
+> *ADR-gated adoption* and *VALUE-gated* promotion describes a research-pattern-becomes-a-command
+> shape that no longer exists. **Do not plan off this file until it is reconciled.**
+>
+> What survives unchanged: conclave's own lane (serving + measurement), the anti-conflation guards
+> as *technical* claims, and the measurements themselves — their status shifts from **gate input**
+> to **design input** for the tool. Conclave's model-axis result (2026-07-28) is now evidence about
+> how to BUILD arbiter, not a condition on whether it may ship.
+>
+> NOT rewritten here on purpose: the canonical is Tessera-hosted and co-owned, so reconciling it is
+> the cross-repo coordination session (next: 2026-07-29), not a solo conclave edit.
+
 > **Canonical contract:** `../tessera/docs/contracts/three-project-cohesion.md` (Tessera-hosted,
 > peer contract; hosting ≠ ownership). This file is a STUB — conclave's own lane + the shared
 > anti-conflation guards. For the full map (layering, all seams, sequencing) read the canonical.

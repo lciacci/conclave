@@ -102,9 +102,15 @@
 > 1. **Peer-strength model diversity — the one open measurable.** Does a SECOND FRONTIER model
 >    decorrelate on union-recall? The qwen arm cannot answer it. This one costs money (a second
 >    frontier API), unlike everything above.
-> 2. **Cross-repo coordination (owner-driven, NOT a conclave task).** The model-axis result is
->    evidence for pr-arbiter's guard (b) and Tessera's D2/D3 ADRs. Surfacing it is the unblock
->    `docs/S2-scoping.md` always said was needed; conclave's lane ends at the measurement.
+> 2. **Cross-repo coordination — NEXT SESSION (2026-07-29), and the ground has MOVED.**
+>    **pr-arbiter is CLOSED as a research project** (owner, 2026-07-28); it is being rebuilt as a
+>    real tool, **arbiter**, and is **no longer a gate**. So the model-axis result is no longer
+>    "evidence for a graduation gate" — it is **design input for the tool**: it says building arbiter
+>    around a *fleet* buys nothing on union-recall, while ROLE differentiation buys +0.109. That is a
+>    more useful thing to hand a tool author than a gate verdict.
+>    Stale framing is MARKED (not rewritten) in `CLAUDE.md`, `docs/INTEGRATION.md` and the 2026-07-20
+>    block below — the canonical contract is Tessera-hosted and co-owned, so reconciling it is the
+>    coordination session itself, not a solo conclave edit.
 > 3. **Accumulate real failures** in `docs/LOCAL-CODER-FAILURES.md` through normal work. No run
 >    needed; n grows as work happens.
 > 4. Everything below this block predates the clean comparison. The 2026-07-22 "harness is the
@@ -272,7 +278,10 @@
 >   `ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 -p <tcpport> root@<ip>` (zsh does NOT word-split
 >   an `$SSHOPT` var — inline the flags). Full replay lives in the transcript + [[t1t3-hosted-run-blockers]].
 >
-> # 🧭 2026-07-20 — THREE-PROJECT POSITIONING LOCKED (owner) + a NEW open axis: MODEL-diversity in the adversarial path.
+> # ⚠️ 2026-07-20 — THREE-PROJECT POSITIONING — **SUPERSEDED 2026-07-28**: pr-arbiter is CLOSED as a
+> # research project; `arbiter` is a real TOOL and NOT a gate. The graduation / seam-S4 / value-gated
+> # framing below no longer describes reality. Kept for history; reconciliation is the 2026-07-29
+> # cross-repo session. Original heading: THREE-PROJECT POSITIONING LOCKED (owner) + a NEW open axis: MODEL-diversity in the adversarial path.
 >
 > ## Not an experiment — a positioning lock + one new question for the calculus. Read alongside
 > ## `docs/INTEGRATION.md` (stub) and `../tessera/docs/contracts/three-project-cohesion.md` (canonical;

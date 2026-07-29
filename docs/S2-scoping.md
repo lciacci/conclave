@@ -1,5 +1,10 @@
 # S2 (union-recall divergence variant) — scoping memo
 
+> **⚠️ 2026-07-28:** pr-arbiter is CLOSED as a research project; `arbiter` is a real TOOL and no
+> longer a gate. This memo's framing of S2 as feeding *"Tessera's is-review-fan-out-worth-it gate"*
+> is therefore stale. The MEASUREMENT below stands and its result is unaffected — only its STATUS
+> changes, from gate input to design input for the tool.
+>
 > **Status:** scoping only, no build. Produced 2026-07-20 from a read of the canonical contract
 > (`../tessera/docs/contracts/three-project-cohesion.md`) + pr-arbiter's code/eval + Tessera's gate
 > framing. Purpose: so S2 is never built blind, and so the "labels are the blocker" misread doesn't
