@@ -343,6 +343,20 @@ within-fleet routing (disproved). Deferred until the lab coder is a standing dai
 need the local tier working and a real workload before the escalation signal (what does the local
 model reliably fail?) can be measured rather than guessed.
 
+**UPDATE 2026-08-07 — the escalation signal has its first measured point, and it is not the shape
+the literature predicted.** The deferral above was blocked on "what does the local model reliably
+fail?". One answer is now measured: **task SHAPE, not model tier.** The local 30B *matches* the
+hosted 80B on edit-and-apply (T1–T3, 3/3 byte-identical, zero edit rejects) and collapses on
+find-the-defect (**0.073 recall, 0/8 criticals** vs claude's 0.509 on the identical task —
+`orchestrator/s2_model_axis.py`, logged in `docs/LOCAL-CODER-FAILURES.md`). So the first concrete
+escalation rule is a **shape classifier** — route review work up, keep edit work local — not the
+confidence gate the 2026-07-17 survey pointed at. A confidence gate scores *an answer*; this
+routes on *the request*, and it is cheaper (no local call needed before deciding).
+**The deferral still stands for the general cascade** — one shape is not a policy, and the standing
+daily driver plus workload trace are still the prerequisites. What changed is that the signal is no
+longer purely hypothetical, and the evidence arrived from peer work (`../arbiter`) rather than from
+a fleet experiment.
+
 **Build stance — local-first, hosted + frontier as escalation tiers (2026-07-17).** The owner's
 daily machine is a 64 GB Apple-Silicon Mac already running small coders via Ollama
 (`qwen2.5-coder:3b`, `qwen3:8b`). That RAM matters: **Qwen3-Coder-30B-A3B is MoE (~3B active),
