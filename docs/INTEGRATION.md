@@ -75,6 +75,32 @@ construction. Directionally supportive of guard 2; it does **not** settle peer-s
 Guard 2 still binds (it is co-owned and ADR-level), and the open measurable is now sharper: **does a
 second FRONTIER model decorrelate on union-recall?** See `docs/HANDOFF.md` § "What is actually left".
 
+## Running `arbiter` on conclave — what its reviews are, and are not
+
+Recorded here 2026-08-07 because it had not crossed. arbiter has reviewed conclave code twice; the
+*findings* landed (see `harness/run-t1t3.sh:139` and `:189`, both credited in place), but the
+**usage rules that came with them did not**, and they are the part conclave needs before the next run.
+
+- **The finder is better at LOCATING than at CONCLUDING.** Take the location, re-derive the
+  consequence yourself. Measured across three foreign-repo runs: reported defects have been reliable,
+  worked examples and proposed fixes have not. On conclave's watchdog it was right that the subshell
+  leaks a `sleep` and wrong about what the leak does — it claimed the orphan goes on to `kill -KILL`
+  the next aider invocation and fake an rc=137, which it cannot, since `kill "$wd"` takes the subshell
+  down before it reaches its kill lines. Verified by running a reduced copy. Real defect: one leaked
+  `sleep` per task, cosmetic.
+- **A false premise does not always make a finding worthless.** One tessera finding rested on a
+  premise that was false by construction and was still worth acting on, for a reason arbiter never
+  stated. Judge the defect, not the argument.
+- **`--ext ""` until the scope bug is fixed.** `is_reviewable()` filters on file extension, so
+  extensionless shebang scripts are dropped and *the output does not say so* — it prints
+  "N file(s) reviewed · 0 blocking" over files it never opened. `--path` cannot rescue it
+  (`is_reviewable` runs first). Conclave's harness is shell; assume nothing is reviewed until the
+  skipped-file list is printed. OPEN in `../arbiter` as its top item.
+- **Cost:** conclave's one measured run was 1 shell file / 287 lines / **$0.79**, the most expensive
+  per-file point in arbiter's table. Only *reviewable* files cost anything — a conclave branch
+  changing 114 files had 113 logs and result data and one reviewable file. Scope with `--path`,
+  and `--no-verify` roughly halves a run.
+
 ## Conclave's contributions to the seams
 
 - The OpenAI-compatible Tailscale gateway that Tessera routing and arbiter's `base_url` consume.

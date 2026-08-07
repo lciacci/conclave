@@ -39,3 +39,64 @@ neither. Preserves the deliberate over-detection while making adjudication monot
 401 crash mid-run) and the Claude Code sandbox blocking `git reset --hard` (forced manual
 squash-merge cleanup) — both real friction this session, but harness/cloud behavior, not the
 Tessera framework.
+
+---
+
+## F-002 — findings have a channel to the framework but none to a PEER project
+
+**Status:** open
+
+**Where:** `../tessera/docs/contracts/findings.md`, `../tessera/bin/tessera-findings`, and the
+SessionStart wiring in each downstream.
+
+**Friction:** `FINDINGS.md` + `tessera-findings` is a working channel, but it is **hub-directed by
+construction**. Every finding implicitly addresses the framework — there is no addressee field —
+and only Tessera's SessionStart reads the backlog. So a fact one downstream measures that binds
+*another downstream's* work has nowhere to go. It ends up in a coordination map
+(`docs/contracts/three-project-cohesion.md`), which is read at coordination time, not at work time.
+
+**What the evidence actually shows, and it is not what I first assumed.** Checking the conclave ↔
+arbiter pair (both carry `.tessera/project.yml`, so both are downstreams):
+
+- **Technical findings DID cross.** arbiter reviewed conclave twice; both defects are recorded in
+  conclave at the site, credited by name and date, with the not-fixing rationale
+  (`harness/run-t1t3.sh:139`, `:189`). That path works, because a finding about code has an obvious
+  home — the code.
+- **What did NOT cross is everything without a line number.** The usage rules that came with those
+  reviews ("the finder is better at locating than at concluding — take the location, re-derive the
+  consequence"; "`--ext ""` or the review is silently narrower than it claims") were absent from
+  conclave until 2026-08-07, and they are the part needed *before* the next run, not after.
+  Symmetrically, conclave's measurement that its local tier scores 0.073 recall on review — which
+  bounds arbiter's cost work and the D3 seam — was absent from arbiter for ten days.
+
+So the gap is narrower and sharper than "peers can't talk": **a finding that names a file finds its
+own way home; a usage rule, a negative result, or a bound on someone else's design does not.**
+Those are exactly the facts a coordination map is too slow to carry.
+
+**Why it's framework-level:** the fix is one optional field and one hook line, not a new store. The
+scanner already globs every `.tessera/` project, already parses `F-NNN` blocks and statuses, and
+already emits `--json`. It is a distributed database with git as the store and SessionStart as the
+notifier; it is missing an addressee, and the peers are missing the receiving end.
+
+**Suggested fix (lands in `../tessera`):**
+1. Optional `**To:** <project>` line in the finding shape. Absent = framework, so every existing
+   finding stays valid and the contract change is backward-compatible.
+2. `tessera-findings --to <project>` — a filter over parsing the scanner already does.
+3. A SessionStart line in each downstream running `tessera-findings --to <self>`. **This is the
+   load-bearing piece**; without it the change builds a mailbox nobody opens.
+4. Add `acknowledged:<ref>` to the status vocabulary. A peer-directed finding's terminal state is
+   not "transferred to the framework" — without it, peer findings can never close.
+
+**Impact to weigh:** the contract says shape changes land there, and tess-dashboard consumes
+`--json`. An addressee field has a downstream consumer.
+
+**Explicitly NOT proposed: a coordination database.** It would move facts away from the code they
+describe, need a service running at SessionStart, and could not be branched or reverted with the
+change that motivated it. The evidence against it is in these repos already — arbiter's own docs
+record a test count going stale twice and a commit trail running fifteen behind in a day, both
+hand-maintained mirrors of facts a command could answer. Their rule was "prefer a command in the
+doc over a number in the doc." A coordination DB is that failure class with a three-project blast
+radius.
+
+**When to fix:** not urgent — n is 2 projects and the manual writes are done. Worth doing if a
+third peer pair appears, or if the same fact is found missing a second time.

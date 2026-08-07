@@ -186,6 +186,9 @@ run_task() {
   echo ">>> ${id} running..."
   local t0 t1 rc=0
   t0=$(date +%s)
+  # `env -C` was reported non-portable (arbiter, 2026-07-28) and checked: true only for macOS <13.
+  # Works on this mac (26.5.2) and on GNU coreutils >=8.28. Inert — kept, and noted so it is not
+  # re-reported or "fixed" by a future reader.
   run_capped "$TASK_TIMEOUT" env -C "$wt" aider \
       --model "$AIDER_MODEL" \
       --model-settings-file "$MODEL_SETTINGS" \
