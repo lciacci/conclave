@@ -39,11 +39,11 @@ via a LiteLLM proxy). **⚠️ 2026-07-28: pr-arbiter is CLOSED as a research pr
 adoption", and conclave's S2 instrument being the "value-GATE" on that graduation is **superseded** —
 those describe a research-project-becoming-a-Tessera-command shape that no longer exists. Conclave's
 measurements do not stop being useful; their STATUS changes from *gate input* to *design input* for
-the tool. The canonical cohesion contract is Tessera-hosted and co-owned, so it is NOT rewritten here
-— that is the cross-repo coordination session (next: 2026-07-29). This note marks the stale claims so
-nobody plans off them in the meantime.
+the tool. **✅ RECONCILED 2026-08-07** — `docs/INTEGRATION.md` is rewritten (not marked) and the
+canonical contract carries conclave's four lane-corrections. Read `docs/INTEGRATION.md` for the
+current picture; the paragraph below is the pre-closure framing, kept only for history.
 
-**Positioning (pre-closure, read with the note above):** Conclave is the **substrate** (serving + the `divergence.py`
+**Positioning (pre-closure — SUPERSEDED by `docs/INTEGRATION.md`, kept for history):** Conclave is the **substrate** (serving + the `divergence.py`
 instrument) in a three-project system with **Tessera** (governance + routing *policy*) and
 **pr-arbiter** (the adversarial-quality review pattern). Both conclave and pr-arbiter are DOWNSTREAM
 consumers of the Tessera framework AND contribute up (conclave serves + measures; pr-arbiter's pattern

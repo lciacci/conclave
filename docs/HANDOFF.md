@@ -1,5 +1,46 @@
 # HANDOFF — resume here
 
+> # ✅ 2026-08-07 (LATEST — RESUME HERE) — CROSS-REPO RECONCILIATION DONE. No runs, no spend, no open branches. Conclave's own queue is now EMPTY except one paid experiment.
+>
+> ### What happened
+> The 2026-07-29 coordination session that items below were waiting on has occurred. **pr-arbiter is
+> closed as a study; `arbiter` (`../arbiter`, github.com/lciacci/arbiter) is a shipping CLI** —
+> reviewer → independent second pass → two-voice KEEP/DROP/UNSURE triage, exit 1 on high/critical.
+> One model, two roles, no fleet. **It independently built the arrangement conclave measured**, so
+> the model-axis result is a confirming measurement, and its forward use is *don't add a fleet later*.
+>
+> - `docs/INTEGRATION.md` **rewritten**, not marked (`e9f320e`). Stale banner gone.
+> - Canonical contract corrected on four conclave-lane claims (`tessera@15e3cf8`) — the retracted
+>   Phase-0 "≈" was filed there under **LIVE/proven** and binding three repos; guard (b) re-based on
+>   adversarial-path evidence *with* its weak-model bound; S2 marked built; D3 bounded.
+> - Peer debt paid both ways (`004a1aa` here, `arbiter@53d3ac2`).
+> - **F-002** raised in `docs/FINDINGS.md` — findings have a channel to the framework but none to a peer.
+>
+> ### The correction worth carrying — it reshaped the finding
+> I asserted conclave had no record of arbiter's findings against conclave code. **Wrong** — both
+> defects were already recorded at the site in `harness/run-t1t3.sh:139` and `:189`, credited by name
+> and date. A finding that names a file finds its own way home. **What never crossed was everything
+> without a line number**: the usage rules ("the finder locates better than it concludes"; `--ext ""`
+> or the review is silently narrower than it claims). Those are now in `docs/INTEGRATION.md` §
+> "Running arbiter on conclave" and are needed BEFORE the next run, not after.
+>
+> ### ➡️ WHAT IS LEFT IN CONCLAVE — one item, and it costs money
+> 1. **Peer-strength model diversity.** Does a SECOND FRONTIER model decorrelate on union-recall? The
+>    qwen arm cannot answer it (~7× weaker → findings are a near-subset → cannot add recall by
+>    construction). Design traps: match candidate count (2 passes); compare against **ROLE (0.618)**,
+>    not best-single (0.509), since roles are the incumbent and free; pre-register a validity gate —
+>    the second model must score comparably ALONE first. Score post-triage precision too, since the
+>    measured cost of MODEL diversity was +20 FP at +0.000 recall.
+>    **Recommendation: DON'T spend yet.** arbiter already plans a `/code-review` head-to-head on the
+>    typed-tool build. That is a peer-strength union-recall observation on real code for free —
+>    confounded (31-agent workflow vs ~4 calls/file is *architecture*, not model), but it may show
+>    whether the gap even looks model-shaped. Spend only if it does.
+> 2. **Accumulate real failures** in `docs/LOCAL-CODER-FAILURES.md` — passive, n grows with work.
+>
+> Not conclave's: arbiter's next move (its extensionless-file scope bug) and Tessera's
+> (`docs/observatory.md` lines ~1041–1095 are badly stale — old L40S fleet, "conclave carries both a
+> judge and a router" as the converging design, pr-arbiter Phase 1/2 numbers as live).
+
 > # ✅ 2026-07-28 (LATEST — RESUME HERE) — THE CLEAN T1–T3 COMPARISON RAN. Result is a NULL: no fidelity separation. The 2026-07-22 "80B's edits never landed" verdict is now settled — it was the HARNESS, and the 80B is FASTER, not slower.
 >
 > ## Nothing is billing. Pod terminated after 21 min. Session ≈ **$3.30 RunPod, $0 AWS**. Grant revoked.
@@ -102,7 +143,7 @@
 > 1. **Peer-strength model diversity — the one open measurable.** Does a SECOND FRONTIER model
 >    decorrelate on union-recall? The qwen arm cannot answer it. This one costs money (a second
 >    frontier API), unlike everything above.
-> 2. **Cross-repo coordination — NEXT SESSION (2026-07-29), and the ground has MOVED.**
+> 2. **Cross-repo coordination — ✅ DONE 2026-08-07 (see the top block); the ground had MOVED.**
 >    **pr-arbiter is CLOSED as a research project** (owner, 2026-07-28); it is being rebuilt as a
 >    real tool, **arbiter**, and is **no longer a gate**. So the model-axis result is no longer
 >    "evidence for a graduation gate" — it is **design input for the tool**: it says building arbiter
@@ -280,8 +321,8 @@
 >
 > # ⚠️ 2026-07-20 — THREE-PROJECT POSITIONING — **SUPERSEDED 2026-07-28**: pr-arbiter is CLOSED as a
 > # research project; `arbiter` is a real TOOL and NOT a gate. The graduation / seam-S4 / value-gated
-> # framing below no longer describes reality. Kept for history; reconciliation is the 2026-07-29
-> # cross-repo session. Original heading: THREE-PROJECT POSITIONING LOCKED (owner) + a NEW open axis: MODEL-diversity in the adversarial path.
+> # framing below no longer describes reality. Kept for history; **reconciliation DONE 2026-08-07** —
+> # current picture is `docs/INTEGRATION.md`. Original heading: THREE-PROJECT POSITIONING LOCKED (owner) + a NEW open axis: MODEL-diversity in the adversarial path.
 >
 > ## Not an experiment — a positioning lock + one new question for the calculus. Read alongside
 > ## `docs/INTEGRATION.md` (stub) and `../tessera/docs/contracts/three-project-cohesion.md` (canonical;

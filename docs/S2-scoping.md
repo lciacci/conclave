@@ -79,8 +79,10 @@ Don't build S2 now. Three reasons, each sufficient:
 **Only flip:** if a **demo** is wanted, the unified "one divergence tool across model + review headroom"
 is genuinely demoable — build the port for the story, not the evidence.
 
-**Next real unblock** is a cross-repo coordination session (thicken n / settle D1), owner-driven — not a
-conclave task. This memo is the pre-build artifact for whenever that happens.
+**Next real unblock** was a cross-repo coordination session (thicken n / settle D1). **It happened
+2026-08-07** — see `docs/HANDOFF.md` top block. The PARK still stands and D1 is still open; what
+changed is that the port is no longer gating anything, because `arbiter` is a shipping tool and is
+not gated. The one open measurable is the **peer-strength** arm of the addendum below.
 
 ## Addendum (2026-07-20) — a MODEL axis, if S2 is ever built
 
