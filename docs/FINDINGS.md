@@ -44,7 +44,17 @@ Tessera framework.
 
 ## F-002 — findings have a channel to the framework but none to a PEER project
 
-**Status:** open
+**Status:** transferred:`../tessera/docs/observatory.md` → "Findings have a channel to the framework
+but none to a PEER (conclave F-002, transferred 2026-08-07)"
+
+> **Disposed 2026-08-07 in Tessera (Lorenzo signed off).** Landed as a **Watching** observatory entry
+> carrying the sharp form of the gap, the four-part fix recorded unbuilt, the argument against a
+> coordination database, and the two revisit triggers below. **Not `rejected:`** — the recommendation
+> in this finding is *don't build yet*, which is a deferral, and `rejected:` would have hidden the
+> trigger from the default backlog with nothing watching it. Triggers as written here: **a third peer
+> pair**, or **the same fact found missing a second time**. Tessera's read on the near-miss: this
+> reconciliation was a third *manual write*, not a trigger hit, and counting it as one would be
+> manufacturing evidence for the mechanism.
 
 **Where:** `../tessera/docs/contracts/findings.md`, `../tessera/bin/tessera-findings`, and the
 SessionStart wiring in each downstream.
