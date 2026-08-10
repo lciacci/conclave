@@ -29,6 +29,13 @@
 > - **CLAUDE.md rewritten** the same day to cut accumulated drift (changelog-in-instructions, the
 >   superseded pre-closure positioning, the done-but-listed harness step).
 >
+> ### 📌 STANDING ITEM — `docs/conclave-overview.html` is MANUALLY DEPLOYED
+> The overview page goes live **by upload**, so a commit here does not update it. The repo and the
+> public page can disagree silently, and have: it spent ~3 weeks asserting the retracted
+> "slow / low-fidelity" claim and naming pr-arbiter after that project closed. **Keep it current** —
+> when a claim it carries is retracted or superseded, fix the page in the same pass and re-upload.
+> Corrected and re-uploaded 2026-08-10; repo and live copy match as of then.
+>
 > Also still open, unchanged: `docs/LOCAL-CODER-FAILURES.md` fills passively — and note that this has
 > been the plan since 2026-07-28 and has produced almost no data.
 

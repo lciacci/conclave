@@ -122,6 +122,10 @@ Requires the `mnemos` CLI on PATH (pip-installed globally). Hooks degrade gracef
 - Don't boot GPUs without surfacing a cost gate first. Every instance-hour is money. Wire the
   watchdog TTL before walking away, and **terminate** rather than stop — a RunPod stop wipes the
   container disk if there is no network volume
+- Don't leave `docs/conclave-overview.html` stale. It is **manually deployed by upload**, so a commit
+  does NOT update the live copy — the outward-facing page can be wrong while the repo is right. When a
+  claim it carries is retracted or superseded, fix the page in the **same pass** and flag that it needs
+  re-uploading. It once ran ~3 weeks publicly asserting a claim this repo had already retracted
 - Don't create AWS resources without the project cost tag (see `docs/design.md` § cost controls)
 - Don't expose public ports on an inference instance — Tailscale-only, no exceptions
 
