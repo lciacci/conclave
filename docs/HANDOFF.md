@@ -1,6 +1,24 @@
 # HANDOFF — resume here
 
-> # ✅ 2026-08-07 (LATEST — RESUME HERE) — CROSS-REPO RECONCILIATION DONE. No runs, no spend, no open branches. Conclave's own queue is now EMPTY except one paid experiment.
+> # ✅ 2026-08-10 (LATEST — RESUME HERE) — the free signal arrived and the paid experiment stays UNSPENT. Conclave's queue is now empty of everything except passive accumulation.
+>
+> `../arbiter/docs/STATE.md` § "Round 3" is the head-to-head the 2026-08-07 block was waiting on.
+> **Trigger not met — do not spend.** Three arms on one diff, but *all three are the same model*, so
+> it varies architecture, not model; the gap it shows is scale-shaped and triage-shaped. Full read in
+> `docs/INTEGRATION.md` § Guard 2.
+>
+> Two corrections it forced, both recorded there, both free:
+> - The S2 table is **single-draw point estimates**. arbiter re-ran one arm 4× on byte-identical
+>   input: **1–4 defects per run, union 5 of 7.** The MODEL null survives on structure; `0.618` does
+>   not survive as a *precise* number. Quote the direction. Deliberately **not** re-measured — the
+>   number changes no decision, and the instrument is the deliverable, not its output.
+> - The pre-registration gains a required arm: **same-model-k-draws**, not best-single, as the
+>   control. A second draw from one model took arbiter 2 → 5 of 7; a second *model* has to beat that.
+>
+> **What is left in conclave: `docs/LOCAL-CODER-FAILURES.md`, passively.** Nothing else is queued and
+> nothing is billing.
+
+> # ✅ 2026-08-07 — CROSS-REPO RECONCILIATION DONE. No runs, no spend, no open branches. Conclave's own queue is now EMPTY except one paid experiment.
 >
 > ### What happened
 > The 2026-07-29 coordination session that items below were waiting on has occurred. **pr-arbiter is
@@ -31,10 +49,10 @@
 >    not best-single (0.509), since roles are the incumbent and free; pre-register a validity gate —
 >    the second model must score comparably ALONE first. Score post-triage precision too, since the
 >    measured cost of MODEL diversity was +20 FP at +0.000 recall.
->    **Recommendation: DON'T spend yet.** arbiter already plans a `/code-review` head-to-head on the
->    typed-tool build. That is a peer-strength union-recall observation on real code for free —
->    confounded (31-agent workflow vs ~4 calls/file is *architecture*, not model), but it may show
->    whether the gap even looks model-shaped. Spend only if it does.
+>    **RESOLVED 2026-08-10 — still don't spend; see the top block.** The head-to-head ran (arbiter
+>    Round 3). It varies architecture, not model, so the trigger ("spend only if the gap looks
+>    model-shaped") is not met. It also added a required control arm to the design above:
+>    same-model-k-draws, not best-single.
 > 2. **Accumulate real failures** in `docs/LOCAL-CODER-FAILURES.md` — passive, n grows with work.
 >
 > Not conclave's: arbiter's next move (its extensionless-file scope bug) and Tessera's

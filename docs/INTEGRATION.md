@@ -75,6 +75,31 @@ construction. Directionally supportive of guard 2; it does **not** settle peer-s
 Guard 2 still binds (it is co-owned and ADR-level), and the open measurable is now sharper: **does a
 second FRONTIER model decorrelate on union-recall?** See `docs/HANDOFF.md` § "What is actually left".
 
+#### 2026-08-10 — arbiter's Round 3 was checked against that measurable. It does not move it.
+
+`../arbiter/docs/STATE.md` § "Round 3" runs three arms on one diff (arbiter, a 17-agent
+`/code-review`, cloud `ultra`) and reports union 7 / arbiter 2 / ultra 4 / workflow 7, with arbiter
+and ultra each catching one the other missed. **All three arms are the same model.** Round 3 varies
+*architecture*, so it cannot answer "does a second frontier MODEL decorrelate" — it is the Round 2
+confound at line ~139 of the canonical contract, one rung better controlled (the 17-agent arm found
+all seven, so scale does not explain arbiter's unique catch). Read it as *supporting* guard 2's ROLE
+half — two arrangements of one model decorrelate — not as settling its MODEL question.
+
+**Two corrections it does force on this table, and they are free:**
+
+1. **These are single-draw point estimates.** arbiter re-ran one arm four times on byte-identical
+   input and got **1–4 defects per run, union 5 of 7** — a 4× spread. The MODEL null survives on
+   structure (a ~7× weaker model's findings are a near-subset), but **0.618 vs 0.509 is a gap with
+   unmeasured spread.** Quote it as a direction, not a value. Anyone who needs it defended re-runs
+   `orchestrator/s2_model_axis.py`; that is what the instrument is for.
+2. **The control arm for any future model-diversity run is same-model-k-draws, not best-single.** A
+   second draw from the *same* model took arbiter 2 → 5 of 7. A second *model* must beat that, or it
+   is being credited for a re-draw effect. This is now a required arm in the pre-registration —
+   without it the experiment cannot distinguish model diversity from sampling.
+
+**Verdict on the queued paid experiment: still unspent.** The pre-registered trigger was "spend only
+if the gap looks model-shaped." Round 3's gap is scale-shaped and triage-shaped.
+
 ## Running `arbiter` on conclave — what its reviews are, and are not
 
 Recorded here 2026-08-07 because it had not crossed. arbiter has reviewed conclave code twice; the
