@@ -402,7 +402,8 @@ escalation tier for the reasoning/general/hard fraction where it measurably lead
 **Biggest bound — NOW TESTED (2026-07-17): the daily-driver workload (multi-turn, tool-use, in-repo
 editing).** hard-30 is single-turn knowledge-QA, the regime a 3B-active MoE at 4-bit is least
 stressed by — so the agentic question was tested directly: Claude Code wired to local Qwen (`harness/`),
-driven through T1–T3. Result: it works but is SLOW (prefill-bound on CC's ~15k prompts, a harness
+driven through T1–T3. **⚠️ Both adjectives in the next sentence were RETRACTED on 2026-07-28 — read
+the correction directly below before quoting any of it.** Result: it works but is SLOW (prefill-bound on CC's ~15k prompts, a harness
 cost) and LOW-FIDELITY (confabulated completing half a multi-step task). **Verdict: a SUPERVISED /
 background FALLBACK tier, not an unsupervised peer** — auto-accept is unsafe (it lies about "done"),
 and it's a drag for fast loops; escalate to the 80B/frontier for trust + speed. The failure modes

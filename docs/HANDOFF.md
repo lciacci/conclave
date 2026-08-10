@@ -478,7 +478,7 @@
 > mode (separate reason/edit models), NOT whole-format drop-in. Rig was `scratchpad/devstral-t123/`
 > (throwaway, auto-cleaned); model removed after the probe.
 >
-> # ✅ 2026-07-17 — AGENTIC EXPERIMENT RAN. Local Qwen drives CC but is SLOW + LOW-FIDELITY. It's a SUPERVISED FALLBACK tier, not a peer.
+> # ⚠️ 2026-07-17 — AGENTIC EXPERIMENT RAN — **"SLOW + LOW-FIDELITY" RETRACTED 2026-07-28** (both were harness artifacts; the 80B is ~4× FASTER and the matched re-run showed zero edit rejects on both models). Kept for history; the surviving claim is *supervised fallback on COST*, and the confabulation stands as a recorded failure mode, not a rate. Original heading: Local Qwen drives CC but is SLOW + LOW-FIDELITY. It's a SUPERVISED FALLBACK tier, not a peer.
 >
 > ## The Phase-0 hypothesis got its real test: Claude Code wired to the local `qwen3-coder:30b` via a
 > ## LiteLLM Anthropic↔Ollama proxy (`harness/`, committed; `harness/run-local-cc.sh`, `EXPERIMENT.md`).
