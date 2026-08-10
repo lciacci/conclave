@@ -4,54 +4,55 @@ Project-specific guidance for Claude Code working in this repo.
 
 ## What this is
 
-Conclave is a self-hosted multi-model inference lab. Open-weight models served via vLLM,
-reachable only over Tailscale (fleet now runs on RunPod; AWS is the documented fallback).
-The thesis STARTED as multi-model ensemble orchestration with a **judge** — a meta-reasoner
-that selects/synthesizes across parallel responses. That thesis was **measured and disproved on
-three fleets**: a judge does not pay on the old L40S fleet, on a deliberately ideal peer-modern one
-(Qwen3-32B / Gemma-3-27B / Mistral-3.2-24B), or on a genuine-specialist one (Qwen3-Coder-Next-80B /
-DeepSeek-R1-32B / Llama-3.3-70B) — the last is the MOST hierarchical: the 80B coder wins every
-category and 100% of pairwise tie-breaks. The surviving finding is **route, don't judge** — pick the
-right model per request; do not fan out and vote. The real deliverable is the **instrument**
-(`divergence.py` / `fleet_pairwise.py`) that measures whether a fleet is worth ensembling, for
-$0, before you build anything — it correctly said "don't ensemble" on all three fleets. Purpose
-remains learning cloud GPU infra, inference serving, and the "meta-reasoners over specialized
-outputs" pattern family; plus a demoable platform story.
+A self-hosted multi-model inference lab whose **research phase is finished**. Open-weight models
+served via vLLM on RunPod (AWS is the documented fallback), reachable only over Tailscale; plus a
+$0 4-bit Qwen3-Coder-30B running locally on the laptop via Ollama.
 
-Source of truth: `docs/design.md`; latest state: `docs/HANDOFF.md`. Arc: v1 single model → v2
-gateway + multi-model → v3 ensemble + judge (**done, disproved**) → modern fleet (**done**) →
-specialist-fleet Phase-1 gate (**done, RESOLVED — hierarchical, route to the coder**). Router is
-**fleet-DEPENDENT and shelved**: it only pays when pairwise winners SPLIT (the peer fleet, weakly);
-the specialist fleet CONCENTRATES, so no router. Judge is parked with a trigger (revisit if the
-model landscape re-diverges).
+The original thesis was multi-model ensemble orchestration with a **judge**. It was measured and
+**disproved on three fleets**, including a deliberately ideal peer-modern one and a genuine-specialist
+one. What survives is **route, don't judge** — pick the right model per request, don't fan out and
+vote — and the real deliverable is the **instrument** (`orchestrator/divergence.py`,
+`fleet_pairwise.py`) that tells you whether a fleet is worth ensembling, for $0, before you build
+anything. It correctly said "don't ensemble" all three times.
 
-**The thesis is DONE; the project PIVOTED to practical use (2026-07-17)** — stand up the owned coder
-for real project + agentic work, **LOCAL-FIRST**. Phase-0: a $0 4-bit Qwen3-Coder-30B on the laptop
-(Ollama, 64GB Mac) scored 0.900 vs the rented FP8 80B's 0.949 on coding-QA — UNDERPOWERED (n=30, CI
-crosses 0), and among the queries the grader could separate the 80B actually won 10–2, so local is
-the daily driver on **COST** (free, on-laptop), NOT on measured quality parity; the hosted 80B/H200
-is the escalation tier. **Agentic competence is now MEASURED (CC wired to local Qwen via `harness/`,
-2026-07-17):** it drives the tool-loop but is SLOW (prefill-bound on CC's ~15k prompts) and
-LOW-FIDELITY (confabulated completing half a multi-step task) — a **SUPERVISED / background FALLBACK
-tier, not an unsupervised peer** (auto-accept is unsafe: it lies about "done"). See `docs/HANDOFF.md`. Next practical step: wire the local coder into a harness (Claude Code
-via a LiteLLM proxy). **⚠️ 2026-07-28: pr-arbiter is CLOSED as a research project.** It is being rebuilt as a real tool,
-**arbiter**, and it is **no longer a gate**. Everything below about "graduation", "value-gated
-adoption", and conclave's S2 instrument being the "value-GATE" on that graduation is **superseded** —
-those describe a research-project-becoming-a-Tessera-command shape that no longer exists. Conclave's
-measurements do not stop being useful; their STATUS changes from *gate input* to *design input* for
-the tool. **✅ RECONCILED 2026-08-07** — `docs/INTEGRATION.md` is rewritten (not marked) and the
-canonical contract carries conclave's four lane-corrections. Read `docs/INTEGRATION.md` for the
-current picture; the paragraph below is the pre-closure framing, kept only for history.
+**The project has pivoted to practical use, local-first.** The open question is no longer *what is
+true about ensembles* but *what makes this a tool that gets used*. Options are laid out in
+`docs/TOOL-DIRECTION.md`; none is chosen.
 
-**Positioning (pre-closure — SUPERSEDED by `docs/INTEGRATION.md`, kept for history):** Conclave is the **substrate** (serving + the `divergence.py`
-instrument) in a three-project system with **Tessera** (governance + routing *policy*) and
-**pr-arbiter** (the adversarial-quality review pattern). Both conclave and pr-arbiter are DOWNSTREAM
-consumers of the Tessera framework AND contribute up (conclave serves + measures; pr-arbiter's pattern
-graduates into `/arbiter`) — same dual shape. Conclave's null is SELECT-BEST only — it does NOT bind
-pr-arbiter's union-recall, and the guard "diversity that pays is ROLE not MODEL" **still binds but is
-under an OPEN question** (2026-07-20: model-diversity on the *adversarial* path is untested — a
-different objective than the select-best null; see `docs/HANDOFF.md` top block + `docs/S2-scoping.md`).
-See `docs/INTEGRATION.md` (conclave's stub; canonical cohesion contract is Tessera-hosted).
+Source of truth for design: `docs/design.md`. Latest state and what to resume: `docs/HANDOFF.md`.
+Cross-project fit: `docs/INTEGRATION.md`.
+
+## What is settled
+
+Each of these is measured, and each cost real money or real time to learn. Don't re-derive them.
+
+- **Route, don't judge.** Judge/ensemble does not pay on any of the three fleets tested. The
+  specialist fleet is the most hierarchical of them: the 80B coder wins every category, including
+  each specialist's own turf.
+- **The diversity that pays is ROLE, not MODEL.** One strong model with role-differentiated prompts;
+  no fleet for the review pattern. Measured on the adversarial path, not just inferred.
+- **Peer-strength MODEL diversity is unmeasured, and the experiment to measure it is resolved as
+  don't-spend.** See `docs/INTEGRATION.md` § Guard 2.
+- **Task shape, not model tier.** The local 30B *matches* a hosted FP8 80B on edit-and-apply
+  (byte-identical, zero edit rejects) and loses ~7× on find-the-defect (0.073 vs 0.509 recall). This
+  is the most useful thing known about the local tier and it should drive what gets built on it.
+- **Local is the daily driver on COST, not on measured parity.** The Phase-0 coding-QA comparison
+  was underpowered, and among the queries the grader could separate, the 80B won 10–2.
+- **Recall figures in this repo are single-draw point estimates.** A 4× spread was measured on
+  byte-identical input. Quote them as directions, not values; re-run the instrument if a number ever
+  needs defending.
+
+**Watch for the two recurring failure modes**, both of which have bitten this repo more than once:
+reading a favourable non-result as a finding, and letting a retraction land only where the work
+happened while the claim keeps circulating elsewhere.
+
+## Positioning
+
+Conclave is the **substrate** — serving tiers plus the measurement instrument — in a three-project
+system with **Tessera** (governance and routing *policy*) and **arbiter** (a shipping review CLI).
+The hard boundary: **conclave exposes tiers; Tessera decides when to use them.** Do not build routing
+policy here. `docs/INTEGRATION.md` carries the guards that bind work in this repo; the canonical
+contract is Tessera-hosted.
 
 - **Tessera profile:** `standard` (see `.tessera/project.yml`).
 
@@ -89,6 +90,9 @@ How the project owner works. The most important section.
 - **Brief acknowledgments.** "Done," "Confirmed," "Clean" — not "Excellent! Great choice!"
 - **Flag confidence levels.** Be explicit about what you know vs. infer vs. guess.
 - **Tone is direct, not performative.** No witty-coworker framing.
+- **Name the decision that flips before proposing a measurement.** If nothing changes with the
+  result, don't propose it. Conclave is a toolset, not a case study — record the caveat, cite the
+  command that would answer it, and move on. The instrument is the deliverable, not its output.
 
 ## Hook lifecycle (Mnemos)
 
@@ -104,6 +108,8 @@ The hooks in `.claude/settings.json` invoke scripts in `.claude/scripts/`:
 
 When you see `MNEMOS CHECKPOINT` in context, a hook injected it — announce briefly, resume from
 it, don't re-derive. If no checkpoint fires on resume but `.mnemos/` exists, run `mnemos resume`.
+The checkpoint records *activity*, not *pending decisions* — if it doesn't mention something you are
+waiting on, that is a known gap, so still read `docs/HANDOFF.md`.
 
 Requires the `mnemos` CLI on PATH (pip-installed globally). Hooks degrade gracefully without it.
 
@@ -112,21 +118,31 @@ Requires the `mnemos` CLI on PATH (pip-installed globally). Hooks degrade gracef
 - Don't modify `.env` / `.env.*` (also denied in settings.json)
 - Don't add dependencies without checking existing ones cover the need
 - Don't commit secrets
-- Don't launch, resize, or terminate AWS instances without surfacing a gate first — every
-  instance-hour is money. Always confirm idle-stop is wired before walking away from a running box.
+- Don't build routing policy here — see Positioning
+- Don't boot GPUs without surfacing a cost gate first. Every instance-hour is money. Wire the
+  watchdog TTL before walking away, and **terminate** rather than stop — a RunPod stop wipes the
+  container disk if there is no network volume
 - Don't create AWS resources without the project cost tag (see `docs/design.md` § cost controls)
-- Don't expose public ports on the inference instance — Tailscale-only, no exceptions
+- Don't expose public ports on an inference instance — Tailscale-only, no exceptions
 
 ## Commands
 
-No app build yet. Infra work:
+**The local tier (free, on-laptop):**
+- `harness/run-local-cc.sh` — Claude Code driven by the local Qwen coder through a LiteLLM
+  Anthropic↔Ollama proxy. `--stop` kills the background proxy. Drive it in prompt-mode: a weaker
+  model can't run Bash/Edit unwatched.
+- `harness/run-t1t3.sh` — the matched-harness local-vs-hosted comparison instrument.
 
-- `aws ec2 describe-instances --filters "Name=tag:project,Values=conclave"` — what's running
-- `tailscale status` — mesh reachability
-- Phase scripts land in `scripts/` as they're built (start/stop instance, deploy vLLM config)
-- **RunPod fleet:** `runpod/boot.sh` with `FLEET_JSON=runpod/fleet_specialist.json` (the modern
-  specialist fleet: FP8 coder + R1 reasoner + Llama-70B general, one H100 each; `boot.sh` supports
-  per-card `device` pinning + per-model `extra_args`). The **RunPod MCP** (registered in
-  `~/.claude.json`, key from SSM `/conclave/runpod-api-key`) drives pod create/list/terminate — its
-  tools load only after a Claude Code restart. Same cost gate as AWS: surface before you boot,
-  wire the watchdog TTL before walking away, terminate (not stop) when done.
+**The instrument (offline, $0 against committed fixtures):**
+- `python3 orchestrator/divergence.py` / `fleet_pairwise.py` — is this fleet worth ensembling?
+- `python3 orchestrator/s2_model_axis.py` — union-recall on the adversarial path.
+
+**The hosted tier (costs money — gate it):**
+- `runpod/boot.sh` with `FLEET_JSON=runpod/fleet_specialist.json`. Supports per-card `device`
+  pinning and per-model `extra_args`. The **RunPod MCP** (registered in `~/.claude.json`, key from
+  SSM `/conclave/runpod-api-key`) drives pod create/list/terminate; its tools load only after a
+  Claude Code restart. `nvidia-smi` before anything else — the driver is a per-machine lottery and
+  vLLM 0.24 needs ≥580 / CUDA 13. Full SOP in `docs/design.md`.
+- `aws ec2 describe-instances --filters "Name=tag:project,Values=conclave"` — the AWS fallback;
+  capacity has been dry, RunPod is the live path.
+- `tailscale status` — mesh reachability.

@@ -15,8 +15,22 @@
 > - The pre-registration gains a required arm: **same-model-k-draws**, not best-single, as the
 >   control. A second draw from one model took arbiter 2 → 5 of 7; a second *model* has to beat that.
 >
-> **What is left in conclave: `docs/LOCAL-CODER-FAILURES.md`, passively.** Nothing else is queued and
-> nothing is billing.
+> ### ➡️ WHAT IS ACTUALLY NEXT — a design run, not a build
+> **`docs/TOOL-DIRECTION.md` (new)** holds the options for turning conclave into something *used*,
+> with pros/cons and the open questions, so the design run starts there instead of re-deriving it.
+> Nothing is chosen. Headlines:
+> - **The harness is already built** — `harness/run-local-cc.sh` + `litellm_config.yaml` run Claude
+>   Code on the local Qwen. CLAUDE.md listed this as a next step for weeks; it is done.
+> - **"Routing" is not conclave's to build** (guard 3). Conclave exposes tiers and can emit the
+>   escalation *signal*; Tessera owns the policy.
+> - **The measurement that should drive it:** local 30B *matches* the hosted 80B on edit-and-apply
+>   and loses ~7× on find-the-defect. Task shape, not model tier — and `run-local-cc.sh` currently
+>   hands it the whole agentic loop, the shape it fails at.
+> - **CLAUDE.md rewritten** the same day to cut accumulated drift (changelog-in-instructions, the
+>   superseded pre-closure positioning, the done-but-listed harness step).
+>
+> Also still open, unchanged: `docs/LOCAL-CODER-FAILURES.md` fills passively — and note that this has
+> been the plan since 2026-07-28 and has produced almost no data.
 
 > # ✅ 2026-08-07 — CROSS-REPO RECONCILIATION DONE. No runs, no spend, no open branches. Conclave's own queue is now EMPTY except one paid experiment.
 >
