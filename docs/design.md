@@ -37,6 +37,19 @@ it. The decision log below is preserved as-made; read the current-state banner f
 > fleet was the strongest test of that trigger — genuine specialists still didn't diverge (they
 > concentrated on the biggest model). Convergence makes judging pay *less* as models improve.
 >
+> **Trigger CHECKED against the Aug-2026 landscape — NOT met. Do not unpark on this evidence.**
+> The tempting read is that the field re-diverged: Muse Glimmer 30B leads MCP Atlas (75.5) and
+> reasoning while *losing* terminal/computer-use work, where Qwen3-Coder-Next and Laguna lead. That
+> is a split across *published benchmark suites*, and it is the weakest available evidence for this
+> trigger, because **the specialist fleet already had exactly that shape and still concentrated** —
+> a coder, a reasoner and a general model, each topping its own published benchmark, and per-query
+> winners went 18/30 to the coder, which beat each specialist on its own turf. Suite-level
+> specialization has been tested here and does not imply per-query divergence.
+> What *would* meet the trigger is pairwise per-query winners genuinely splitting across a
+> matched-strength fleet, which is what `fleet_pairwise.py` measures and nothing else does.
+> Bias named, because the timing invites it: this is the judge thesis reborn, arriving while the
+> queue is empty. Gate it on the instrument, not on release notes.
+>
 > **One mechanism DID pay** (earlier fleet): **Self-MoA** — sample the single best model N times
 > and select, +0.071 over baseline. A generation trick, not a fleet trick; production shape is
 > `n=8` in one vLLM request. Untested on the modern fleet.
@@ -346,12 +359,20 @@ model reliably fail?) can be measured rather than guessed.
 **UPDATE 2026-08-07 — the escalation signal has its first measured point, and it is not the shape
 the literature predicted.** The deferral above was blocked on "what does the local model reliably
 fail?". One answer is now measured: **task SHAPE, not model tier.** The local 30B *matches* the
-hosted 80B on edit-and-apply (T1–T3, 3/3 byte-identical, zero edit rejects) and collapses on
-find-the-defect (**0.073 recall, 0/8 criticals** vs claude's 0.509 on the identical task —
-`orchestrator/s2_model_axis.py`, logged in `docs/LOCAL-CODER-FAILURES.md`). So the first concrete
-escalation rule is a **shape classifier** — route review work up, keep edit work local — not the
-confidence gate the 2026-07-17 survey pointed at. A confidence gate scores *an answer*; this
-routes on *the request*, and it is cheaper (no local call needed before deciding).
+hosted 80B on edit-and-apply (T1–T3, 3/3 byte-identical, zero edit rejects) and trails on
+find-the-defect. So the first concrete escalation rule is a **shape classifier** — route review work
+up, keep edit work local — not the confidence gate the 2026-07-17 survey pointed at. A confidence
+gate scores *an answer*; this routes on *the request*, and it is cheaper (no local call needed
+before deciding).
+
+> **⚠️ MAGNITUDE CORRECTED 2026-08-14 — the shape classifier survives, its justification shrank by
+> two-thirds.** This paragraph originally read "collapses on find-the-defect (**0.073 recall, 0/8
+> criticals**)". That figure is retracted: it was `qwen3-coder:30b` at a 4096-token budget, and it
+> was read as a property of the tier rather than of one model. At a matched 16384 budget,
+> `muse-glimmer:30b` scores **0.309 / 5-of-8 criticals** (qwen itself scores 0.127 / 1-of-8) against
+> claude's 0.509 / 6-of-8. "Collapses" is the wrong verb for 2/3 of the reference recall at half the
+> false-positive rate. A shape classifier that routes *all* review work up is now harder to justify
+> on this evidence than it was. Full correction + method in `docs/LOCAL-CODER-FAILURES.md`.
 **The deferral still stands for the general cascade** — one shape is not a policy, and the standing
 daily driver plus workload trace are still the prerequisites. What changed is that the signal is no
 longer purely hypothetical, and the evidence arrived from peer work (`../arbiter`) rather than from
@@ -539,9 +560,14 @@ Controls first, compute second.
   slot where Qwen2.5-Coder-32B is the best open model that fits. Rejected zero-Qwen (DeepSeek-
   Coder-V2-16B for code) — it decorrelates fully but is a weaker coder; keeping Qwen in its
   strongest role is the better trade. Gemma caveat: non-OSI license (Google Gemma Terms, fine for
-  private lab) and may be HF-gated (token wired). **2026 landscape note:** the current top open
-  coders (GLM-5.2, DeepSeek-V4, Kimi K2.7, Qwen3.6) are all ~1T MoE — none fit one 48 GB card, so
-  co-resident v2 lives in 7–32B dense.
+  private lab) and may be HF-gated (token wired). **2026 landscape note — REVISED 2026-08-14, the
+  original was written before the small-and-strong tier existed:** the *frontier* open coders are
+  still ~1T-class MoE and still fit nothing here (GLM-5.2 753B-A40B, Kimi K3 ~2.8T-A104B, Qwen 3.8
+  ~2.4T, DeepSeek-V4 284B-A13B). What changed is underneath them — **Muse Glimmer 30B** (Meta, Aug
+  2026, Apache 2.0, dense, ~18 GB at q4) and **KAT-Coder-V2.5-Dev** (Kwai, Jul 2026, Apache 2.0,
+  35B-A3B) are near-frontier on coding benchmarks and fit one card or one 64 GB laptop. The old note
+  said the good models are all out of reach; that is no longer true at this size class. Co-resident
+  v2 still lives in 7–32B dense, but the ceiling of that band moved up a lot.
 
   **Build challenge:** partition one 48 GB GPU across 3 vLLM processes — each gets a
   `gpu-memory-utilization` fraction summing under ~0.9, KV cache carved from each slice. This is

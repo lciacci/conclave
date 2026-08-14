@@ -41,18 +41,42 @@ Two results on the same local model, from different sessions, that answer "what 
 | task shape | local 30B (Q4, Ollama) | reference | source |
 |---|---|---|---|
 | **edit-and-apply** | byte-identical 3/3 reps, **zero** edit rejects | matches hosted FP8 80B | `harness/results/t1t3-*`, 2026-07-28 |
-| **find-the-defect** | **0.073** recall, 0/8 criticals | claude reviewer 0.509 | S2 corpus scoring, guard (b) |
+| **find-the-defect** — `muse-glimmer:30b` | **0.309** recall, 5/8 criticals, 15 FP | claude reviewer 0.509, 6/8, 30 FP | S2 re-run, 2026-08-14 |
+| ~~**find-the-defect** — `qwen3-coder:30b` @4096~~ | ~~**0.073** recall, 0/8 criticals~~ | ~~claude reviewer 0.509~~ | **RETRACTED** — see `docs/LOCAL-CODER-FAILURES.md` |
 
-**Task shape, not model tier.** The local tier's demonstrated competence is *mechanically applying a
-change someone else specified*. That is close to the opposite of how it is currently exposed —
-`run-local-cc.sh` hands it the entire agentic loop, which is the shape it measurably fails at (it
-confabulated completing half a multi-step task; recorded in
-`harness/results/t1t3-local30-run1-confounded/`).
+> ### ⚠️ 2026-08-14 — THE PREMISE BELOW WAS BUILT ON THE RETRACTED ROW. Re-argue, don't patch.
+> Everything from here down was written when the local tier's review recall was believed to be
+> **0.073 with zero criticals** — i.e. "it can type, but it cannot think." At matched budget on a
+> current model it is **0.309 with 5-of-8 criticals and half claude's false-positive rate.** The
+> asymmetry that motivated Option 1's whole shape (delegate the *typing*, keep the *judgement*) is
+> roughly a third as large as it was, and the local tier is no longer disqualified from the review
+> shape it was designed to be kept away from. **Option 1 may still be right — but it now has to win
+> on the instruction-precision argument alone, not on "the alternative is impossible."**
+
+**Task shape, not model tier — still directionally true, with a third of the magnitude.** The local
+tier's strongest demonstrated competence is still *mechanically applying a change someone else
+specified*. But the claim that review is *the shape that breaks it* no longer holds: it runs review
+at ~2/3 of claude's recall for $0. What survives of the original observation is that
+`run-local-cc.sh` hands it the entire agentic loop, and the multi-step confabulation failure
+(`harness/results/t1t3-local30-run1-confounded/`) was never about review recall — it was about
+self-report, and that has not been re-measured on any successor.
 
 **Bound, stated up front:** the edit-apply parity is **n=3 and a capability FLOOR**, not a ranking.
 Both models passed all three tasks, so the set discriminates nothing above that floor. Every option
 below is being designed on that thin a base, and the first serious use may find the ceiling
 immediately.
+
+**Second bound, added 2026-08-14 — it was tested the same day, and it fired.** Both rows above were
+properties of **`qwen3-coder:30b`**, not of "the local tier". Re-running the probe on **Muse Glimmer
+30B** (Meta, Apache 2.0, in the Ollama library) took find-the-defect from 0.073 to **0.309**. The
+prediction written here — *"if a successor scores materially above 0.073, Option 1 is designed
+around a weakness the tier no longer has"* — is the case that occurred. **KAT-Coder-V2.5-Dev**
+(Kwai, Apache 2.0, 35B-A3B, 69.4% SWE-bench Verified) is a second untested candidate; it needs a
+GGUF conversion, so it was not run.
+
+**The transferable rule:** every capability claim in this document is one model's, and the model
+tier churns faster than the document. `orchestrator/s2_model_axis.py` takes `$LOCAL_CODER` and
+replays for $0 — **re-run it before an option is chosen on the strength of a number, not after.**
 
 ---
 

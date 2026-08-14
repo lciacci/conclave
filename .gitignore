@@ -62,4 +62,9 @@ harness/.venv/
 # asked to find — which trips GitHub push protection, correctly. The scored aggregate lives in
 # orchestrator/s2_model_axis_result.json; regenerate the raw passes for $0 with:
 #     python3 orchestrator/s2_model_axis.py --gen
-orchestrator/s2_model_axis_qwen_passes.json
+#
+# GLOB, not a literal path (2026-08-14). This was a single filename until the script grew per-model
+# passes files; the very first new model produced `s2_model_axis_muse-glimmer-30b_passes.json`, which
+# this rule did not match, and it was staged for commit with the live-key literal in it. Any rule that
+# enumerates the filenames a generator produces will be outrun by the generator.
+orchestrator/s2_model_axis_*_passes.json

@@ -63,17 +63,38 @@ passes (the candidate-count confound that retracted Self-MoA's number is exactly
 |---|---|---|---|---|
 | best single — claude reviewer | 0.509 | 28 | 6/8 | 30 |
 | **ROLE**-diverse union (claude rev ∪ claude arbiter) | **0.618** | 34 | 7/8 | 35 |
-| **MODEL**-diverse union (claude rev ∪ qwen rev) | **0.509** | 28 | 6/8 | **50** |
-| qwen reviewer alone | 0.073 | 4 | 0/8 | 16 |
+| **MODEL**-diverse union (claude rev ∪ muse-glimmer rev) | **0.527** | 29 | 6/8 | **61** |
+| muse-glimmer:30b reviewer alone *(2026-08-14)* | 0.309 | 17 | 5/8 | 15 |
+| qwen3-coder:30b reviewer alone, matched budget *(2026-08-14)* | 0.127 | 7 | 1/8 | 13 |
+| ~~qwen3-coder:30b reviewer alone, 4096-token budget *(2026-07-28)*~~ | ~~0.073~~ | ~~4~~ | ~~0/8~~ | ~~16~~ |
 
-MODEL diversity added **+0.000 recall, +20 false positives, zero decorrelated catches**. Scorer
-reproduces pr-arbiter's committed numbers to 4dp using their matcher and their expected findings.
+MODEL diversity added **+1 matched finding (28 → 29) for +31 false positives (30 → 61)**. One match
+in 55 is inside the draw spread arbiter measured on byte-identical input, so this is **not** a
+decorrelated catch. Scorer reproduces pr-arbiter's committed numbers to 4dp using their matcher and
+their expected findings.
 
-**BOUND, and it is load-bearing: this added a much WEAKER model (~7×), not a peer.** A weak model's
-findings are a near-subset, so it *cannot* add union-recall — the result is close to true by
-construction. Directionally supportive of guard 2; it does **not** settle peer-strength diversity.
-Guard 2 still binds (it is co-owned and ADR-level), and the open measurable is now sharper: **does a
-second FRONTIER model decorrelate on union-recall?** See `docs/HANDOFF.md` § "What is actually left".
+### 🔴 2026-08-14 — the "~7× weaker" bound is RETRACTED, and guard 2 is STRONGER for it
+
+Two corrections, from re-running the probe on `muse-glimmer:30b` (Meta, Apache 2.0, Aug 2026) with a
+matched-budget qwen control. Both are $0 replays: `LOCAL_CODER=<model> CONCLAVE_MAX_TOKENS=16384
+python3 orchestrator/s2_model_axis.py --gen`.
+
+1. **`0.073` was partly a HARNESS artifact and must stop being quoted.** It ran at
+   `CONCLAVE_MAX_TOKENS=4096`. At the 16384 the other arm needed, the *same* qwen build scores
+   **0.127 (7/55, 1/8 criticals)**. The 3-finding difference is itself inside the draw spread, so do
+   not claim "the budget caused it" either — the defensible statement is that **0.073 is not qwen's
+   number at matched budget; 0.127 is**, and neither is precise. This is the repo's recurring
+   failure mode #1 caught by its own control arm, which is the argument for running controls.
+2. **The "weak model, near-subset, cannot add recall by construction" escape hatch is GONE — and
+   the null survives without it.** Muse Glimmer is ~1.65× behind claude, not ~7×, and finds
+   criticals on its own (5/8). It is a genuine second reviewer. Adding it still bought one match
+   and doubled the false positives. **Guard 2 was previously supported by an argument; it is now
+   supported by evidence.**
+
+Still NOT settled: **peer-strength** (frontier-vs-frontier) diversity. A 1.65× gap is much closer to
+peer than 7× was, but claude is still the stronger arm. Guard 2 continues to bind and is co-owned +
+ADR-level; this block RECORDS the correction, it does not rewrite the canonical.
+**⚠️ The retracted figure is quoted in `../arbiter` and `../tessera` — see `docs/FINDINGS.md` F-003.**
 
 #### 2026-08-10 — arbiter's Round 3 was checked against that measurable. It does not move it.
 
@@ -88,10 +109,11 @@ half — two arrangements of one model decorrelate — not as settling its MODEL
 **Two corrections it does force on this table, and they are free:**
 
 1. **These are single-draw point estimates.** arbiter re-ran one arm four times on byte-identical
-   input and got **1–4 defects per run, union 5 of 7** — a 4× spread. The MODEL null survives on
-   structure (a ~7× weaker model's findings are a near-subset), but **0.618 vs 0.509 is a gap with
-   unmeasured spread.** Quote it as a direction, not a value. Anyone who needs it defended re-runs
-   `orchestrator/s2_model_axis.py`; that is what the instrument is for.
+   input and got **1–4 defects per run, union 5 of 7** — a 4× spread. The MODEL null no longer
+   rests on the near-subset structure at all (see the 2026-08-14 block above — it now holds against
+   a 1.65× model), but **0.618 vs 0.509 is still a gap with unmeasured spread.** Quote it as a
+   direction, not a value. Anyone who needs it defended re-runs `orchestrator/s2_model_axis.py`;
+   that is what the instrument is for.
 2. **The control arm for any future model-diversity run is same-model-k-draws, not best-single.** A
    second draw from the *same* model took arbiter 2 → 5 of 7. A second *model* must beat that, or it
    is being credited for a re-draw effect. This is now a required arm in the pre-registration —
@@ -136,12 +158,16 @@ Recorded here 2026-08-07 because it had not crossed. arbiter has reviewed concla
   parked: a labeled corpus and a working recall harness already existed, so the real lever was more
   seeds, not the port.
 - The escalation *tiers* (local → hosted → frontier); Tessera owns the *when*.
-- **A negative result that bounds the gateway seam — read this before pointing arbiter at conclave.**
-  On structured adversarial REVIEW, the local 30B scores **0.073 recall and 0/8 criticals** against
-  claude's 0.509 on the identical task — while *matching* the hosted 80B on edit-and-apply (T1–T3).
-  **Task SHAPE, not model tier, is the escalation trigger; review is the shape that breaks the local
-  tier.** So the gateway can serve arbiter mechanically and cannot serve it usefully at the local
-  tier. Logged in `docs/LOCAL-CODER-FAILURES.md`.
+- **A result that bounds the gateway seam — read this before pointing arbiter at conclave.
+  Substantially REVISED 2026-08-14; the old form said the local tier cannot review at all.**
+  On structured adversarial REVIEW the local tier is *behind* claude, not absent from the task:
+  **`muse-glimmer:30b` scores 0.309 recall / 5-of-8 criticals** against claude's 0.509 / 6-of-8 on
+  the identical corpus and prompt — while *matching* the hosted 80B on edit-and-apply (T1–T3).
+  The previously quoted 0.073 / 0-of-8 was `qwen3-coder:30b` at a starved token budget and is
+  retracted above. **Task SHAPE still moves the needle more than model tier, but the review gap is
+  ~1.65×, not ~7×** — which changes the seam from "cannot serve arbiter usefully" to "serves it at
+  roughly two-thirds the recall, for $0." Whether that trade is worth taking is arbiter's call and
+  Tessera's policy, not conclave's. Logged in `docs/LOCAL-CODER-FAILURES.md`.
 - **Cohesion note:** conclave's "route, don't judge" IS Tessera principle #5 ("ensembling is a tool,
   not a default"), measured — conclave is the empirical arm of a stance Tessera holds as philosophy.
 

@@ -110,3 +110,54 @@ radius.
 
 **When to fix:** not urgent — n is 2 projects and the manual writes are done. Worth doing if a
 third peer pair appears, or if the same fact is found missing a second time.
+
+> **🔔 TRIGGER HIT 2026-08-14 — see F-003 below.** The second of the two revisit triggers
+> ("the same fact is found missing a second time") has now fired, in its worse form: the fact did
+> not go missing, it went *stale in place* across both peers simultaneously. Tessera's disposition
+> note said counting the 2026-08-07 reconciliation as a trigger would be manufacturing evidence.
+> This is not that — it is an organic, dated, three-repo instance.
+
+---
+
+## F-003 — a retracted number stays live in every peer that copied it
+
+**Status:** open
+
+**Where:** `../arbiter/docs/{INTEGRATION.md,NEXT_SESSION.md,STATE.md}`,
+`../tessera/docs/{design-principles.md,observatory.md,contracts/three-project-cohesion.md}`.
+
+**Friction:** conclave measured `qwen3-coder:30b` at **0.073 recall / 0-of-8 criticals** on
+adversarial review and published it as the local tier's capability. On 2026-08-14 conclave retracted
+it: at a matched token budget the same model scores 0.127, and a current same-footprint model
+(`muse-glimmer:30b`) scores **0.309 / 5-of-8**. The "~7× weaker" characterisation is dead.
+
+The retraction landed in conclave in one pass — 8 files, because a `grep` finds them. It did **not**
+land in the six peer locations, and conclave cannot land it there: `three-project-cohesion.md` is
+the co-owned canonical (rewriting it is ADR-level), and arbiter's docs are arbiter's. The number is
+load-bearing in both: arbiter cites it as "a local tier that can review is dead", and Tessera cites
+it in the D3 seam and in principle #12's evidence chain.
+
+**Why it's framework-level, and why it is F-002's sharper twin.** F-002 established that a finding
+naming a file finds its own way home while a usage rule does not. This adds a third class and it is
+the worst of the three: **a NUMBER that was copied**. It propagates *better* than a usage rule
+(everyone quotes it), which means it goes stale in more places, and unlike a file-anchored finding
+there is no local artifact whose existence contradicts it. Nothing in any repo goes red when an
+upstream figure is retracted.
+
+**Suggested fix (lands in `../tessera`):** F-002's proposed `**To:** <project>` addressee plus
+`acknowledged:<ref>` is necessary but not sufficient here — a retraction needs *push*, not a
+mailbox. Minimum viable: when a finding's status becomes `retracted:`, `tessera-findings` should
+list every downstream that has cited it. That requires citations to be marked, which they are not.
+The cheap 80% version, requiring no schema change: **a `tessera-findings --grep <phrase>` that
+sweeps all `.tessera/` projects for a literal string**, so "who else quotes 0.073?" is one command
+instead of the ad-hoc `grep -rn` across sibling repos that found these six.
+
+**Impact to weigh:** the ad-hoc grep worked, took seconds, and needed no framework change. The
+honest counter-argument to building anything is that `grep` already is the tool and the real failure
+was nobody running it. Against that: this repo's own memory carries a
+[[retraction-propagation]] rule that says to run exactly that grep, and it still took four months
+and a fresh measurement to catch. A rule that is documented and skipped is a candidate for
+automation.
+
+**When to fix:** the corrections are the urgent part and they are manual either way. Build nothing
+until a third instance appears — but record the count, because this is now two.

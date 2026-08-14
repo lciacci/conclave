@@ -1,5 +1,68 @@
 # HANDOFF — resume here
 
+> # 🔴 2026-08-14 (LATEST — RESUME HERE) — the local tier's headline weakness was RETRACTED. A new open-weight model closed two-thirds of it, and the design run has NOT happened yet.
+>
+> ## Nothing spent. $0, laptop only, ~40 min of local generation. No GPU, no pod, no API.
+>
+> ### What happened, in one line
+> A routine "are there new open-weight models worth caring about" check turned into a retraction of
+> the number that TOOL-DIRECTION.md, INTEGRATION.md, design.md, CLAUDE.md and the public overview
+> page were all built on.
+>
+> ### The measurement (all arms `CONCLAVE_MAX_TOKENS=16384`, same corpus / prompt / scorer)
+> | reviewer | recall | matched/55 | crit | FP |
+> |---|---|---|---|---|
+> | claude-sonnet (reference) | 0.509 | 28 | 6/8 | 30 |
+> | ROLE-diverse union (claude rev ∪ claude arbiter) | **0.618** | 34 | 7/8 | 35 |
+> | MODEL-diverse union (claude rev ∪ muse-glimmer rev) | 0.527 | 29 | 6/8 | **61** |
+> | **`muse-glimmer:30b` alone** | **0.309** | 17 | **5/8** | **15** |
+> | `qwen3-coder:30b` alone, matched budget | 0.127 | 7 | 1/8 | 13 |
+> | ~~`qwen3-coder:30b` @4096 — the old headline~~ | ~~0.073~~ | ~~4~~ | ~~0/8~~ | ~~16~~ |
+>
+> ### Two findings, pointing opposite ways
+> 1. **🔴 "The local tier can't review (~7×, 0.073, 0/8 criticals)" is RETRACTED.** It was ONE model
+>    at a STARVED token budget, read as a property of the tier. Muse Glimmer 30B (Meta, Apache 2.0,
+>    Aug 2026, in the Ollama library) scores 0.309 with 5-of-8 criticals at **half** claude's false
+>    positives. Review is not the shape that breaks the local tier.
+> 2. **✅ Guard 2 / the MODEL-diversity null SURVIVES — on much better evidence.** The old bound was
+>    "a ~7× weaker model's findings are a near-subset, so it *cannot* add recall by construction."
+>    That escape hatch is gone: Muse Glimmer is ~1.65× behind and finds criticals unaided. It still
+>    added **+1 matched finding for +31 false positives**. One in 55 is inside the draw spread.
+>
+> ### ⚠️ The control arm is the reason to trust any of this
+> The two local arms could not share a budget — Muse Glimmer is a **thinking** model whose reasoning
+> and content share the completion budget, so 4096 measures truncation. Re-running qwen at the
+> matched 16384 moved it 0.073 → 0.127, which is inside the draw spread, so **do not claim the
+> budget caused it** — claim only that 0.073 is not the matched-budget figure. Without that control
+> this session would have published a 4.25× improvement that is really ~2.4×.
+>
+> ### ➡️ WHAT IS ACTUALLY NEXT — the design run STILL has not happened
+> It was deferred twice now: once on 2026-08-10, and again today because the assessment invalidated
+> its inputs. `docs/TOOL-DIRECTION.md` is corrected and carries a banner saying **Option 1 must be
+> re-argued, not patched** — it was designed around an asymmetry that is now a third the size, so it
+> has to win on instruction-precision cost alone, which nothing has measured.
+> 1. **Decide whether `muse-glimmer:30b` replaces `qwen3-coder:30b` as the local driver.** NOT done —
+>    `harness/litellm_config.yaml` still points at qwen. It wins on review (0.309 vs 0.127) but
+>    **edit-and-apply is unmeasured on it**, and that is the shape the harness actually uses.
+>    `harness/run-t1t3.sh` is the instrument; it is $0 and local-only.
+> 2. **Then the design run**, off the corrected TOOL-DIRECTION.md.
+> 3. **F-003 is open** (`docs/FINDINGS.md`) — six locations in `../arbiter` and `../tessera` still
+>    quote the retracted 0.073. Conclave cannot fix them (co-owned canonical + peer repo).
+> 4. ~~**`docs/conclave-overview.html` is corrected but NOT re-uploaded.**~~ **✅ DONE — corrected
+>    AND re-uploaded by the owner the same day.** Repo and live copy match. This is the first time
+>    the page has been fixed and deployed inside the same session as the retraction that caused it;
+>    the two prior instances drifted for ~3 weeks.
+>
+> ### Reusable facts
+> - **Ollama needed upgrading 0.31.1 → 0.32.11** (`brew upgrade ollama` + `brew services restart`);
+>   Muse Glimmer declares `requires 0.32.8`. All existing models survived; qwen smoke-tested after.
+> - **Thinking models change the harness contract.** Ollama's OpenAI-compat endpoint puts reasoning
+>   in a separate `reasoning` field so `content` stays clean — but `max_tokens` covers BOTH, so a
+>   tight budget returns EMPTY content, which `_extract_json` turns into `{"findings": []}` —
+>   indistinguishable from an honest "clean diff". `s2_model_axis.py` now counts and reports these.
+> - `s2_model_axis.py` takes `$LOCAL_CODER` + `$S2_PASSES_FILE`, one passes file per model. A shared
+>   file would have let the second model **resume into the first's rows** and score a silent blend.
+
 > # ✅ 2026-08-10 (LATEST — RESUME HERE) — the free signal arrived and the paid experiment stays UNSPENT. Conclave's queue is now empty of everything except passive accumulation.
 >
 > `../arbiter/docs/STATE.md` § "Round 3" is the head-to-head the 2026-08-07 block was waiting on.
@@ -26,6 +89,9 @@
 > - **The measurement that should drive it:** local 30B *matches* the hosted 80B on edit-and-apply
 >   and loses ~7× on find-the-defect. Task shape, not model tier — and `run-local-cc.sh` currently
 >   hands it the whole agentic loop, the shape it fails at.
+>   **🔴 The "~7×" here is RETRACTED (2026-08-14, top block).** One model, starved token budget.
+>   The real figure on a current model is 0.309 vs claude's 0.509, so the asymmetry this bullet
+>   builds on is about a third the size it claims.
 > - **CLAUDE.md rewritten** the same day to cut accumulated drift (changelog-in-instructions, the
 >   superseded pre-closure positioning, the done-but-listed harness step).
 >
@@ -173,7 +239,9 @@
 > **BOUND:** this tests adding a much WEAKER model (~7×), not peer diversity — a weak model's findings
 > are a subset, so it *cannot* add union-recall. Directionally supportive of anti-conflation guard (b);
 > does NOT settle it. Guard (b) NOT rewritten (ADR-level, cross-repo). No threshold emitted.
-> **Second finding, and the sharper one for daily use:** the local 30B scores **0.073 recall, 0/8
+> **Second finding, and the sharper one for daily use** — 🔴 **RETRACTED 2026-08-14, see the top
+> block; the corrected figure is 0.309 / 5-of-8 on a current model:** the local 30B scores
+> **0.073 recall, 0/8
 > criticals** on structured adversarial REVIEW vs 0.509 for claude on the identical task — while
 > matching the hosted 80B on edit-and-apply (T1–T3). **Task SHAPE, not model tier, is the escalation
 > trigger; review is the shape that breaks it.** Logged in `docs/LOCAL-CODER-FAILURES.md`.

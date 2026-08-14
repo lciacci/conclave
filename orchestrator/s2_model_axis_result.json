@@ -1,34 +1,87 @@
 {
-  "single_claude_reviewer": {
-    "expected": 55,
-    "matched": 28,
-    "recall": 0.5091,
-    "false_positives": 30,
-    "critical_expected": 8,
-    "critical_matched": 6
+  "_note": "Scored aggregate of orchestrator/s2_model_axis.py. The raw passes are gitignored (pr-arbiter fixtures contain a PLANTED Stripe-format live key that reviewer passes quote back); regenerate for $0 with LOCAL_CODER=<model> CONCLAVE_MAX_TOKENS=16384 python3 orchestrator/s2_model_axis.py --gen",
+  "_retraction_2026_08_14": "The former top-level key single_qwen_reviewer (recall 0.0727, 0/8 criticals) is RETRACTED. It ran at max_tokens=4096 and was quoted as a property of the local TIER rather than of one model. Both corrected arms are below. See docs/LOCAL-CODER-FAILURES.md.",
+  "reference_arms": {
+    "single_claude_reviewer": {
+      "expected": 55,
+      "matched": 28,
+      "recall": 0.5091,
+      "false_positives": 30,
+      "critical_expected": 8,
+      "critical_matched": 6
+    },
+    "role_diverse_union_2pass": {
+      "expected": 55,
+      "matched": 34,
+      "recall": 0.6182,
+      "false_positives": 35,
+      "critical_expected": 8,
+      "critical_matched": 7
+    }
   },
-  "role_diverse_union_2pass": {
-    "expected": 55,
-    "matched": 34,
-    "recall": 0.6182,
-    "false_positives": 35,
-    "critical_expected": 8,
-    "critical_matched": 7
-  },
-  "single_qwen_reviewer": {
-    "expected": 55,
-    "matched": 4,
-    "recall": 0.0727,
-    "false_positives": 16,
-    "critical_expected": 8,
-    "critical_matched": 0
-  },
-  "model_diverse_union_2pass": {
-    "expected": 55,
-    "matched": 28,
-    "recall": 0.5091,
-    "false_positives": 50,
-    "critical_expected": 8,
-    "critical_matched": 6
-  }
+  "local_arms": [
+    {
+      "model": "muse-glimmer:30b",
+      "max_tokens": 16384,
+      "status": "current",
+      "single": {
+        "expected": 55,
+        "matched": 17,
+        "recall": 0.3091,
+        "false_positives": 15,
+        "critical_expected": 8,
+        "critical_matched": 5
+      },
+      "model_diverse_union_2pass": {
+        "expected": 55,
+        "matched": 29,
+        "recall": 0.5273,
+        "false_positives": 61,
+        "critical_expected": 8,
+        "critical_matched": 6
+      }
+    },
+    {
+      "model": "qwen3-coder:30b",
+      "max_tokens": 16384,
+      "status": "matched-budget control",
+      "single": {
+        "expected": 55,
+        "matched": 7,
+        "recall": 0.1273,
+        "false_positives": 13,
+        "critical_expected": 8,
+        "critical_matched": 1
+      },
+      "model_diverse_union_2pass": {
+        "expected": 55,
+        "matched": 28,
+        "recall": 0.5091,
+        "false_positives": 50,
+        "critical_expected": 8,
+        "critical_matched": 6
+      }
+    },
+    {
+      "model": "qwen3-coder:30b",
+      "max_tokens": 4096,
+      "status": "RETRACTED \u2014 starved budget",
+      "single": {
+        "expected": 55,
+        "matched": 4,
+        "recall": 0.0727,
+        "false_positives": 16,
+        "critical_expected": 8,
+        "critical_matched": 0
+      },
+      "model_diverse_union_2pass": {
+        "expected": 55,
+        "matched": 28,
+        "recall": 0.5091,
+        "false_positives": 50,
+        "critical_expected": 8,
+        "critical_matched": 6
+      }
+    }
+  ]
 }

@@ -55,6 +55,13 @@ mechanically driving a harness.
 
 ### 2026-07-28 — structured adversarial REVIEW is a hard escalation trigger
 
+> ### 🔴 SUPERSEDED 2026-08-14 — read the entry below this one first.
+> Two things were wrong with this entry. **(a)** It ran at `CONCLAVE_MAX_TOKENS=4096`; at the 16384
+> a fair comparison needs, the same qwen build scores **0.127 (7/55, 1/8 criticals)**. **(b)** It
+> was read as a fact about *the local tier* when it was a fact about *one model* — a same-footprint
+> successor scores **0.309 with 5/8 criticals**. The `under-detection` class is real but it is
+> **model-scoped, and it is largely closed by a model swap**, not by escalating to a bigger tier.
+
 - **Task shape:** find planted defects in a PR diff and report them in a fixed schema
   (pr-arbiter's 20-PR corpus, 55 expected findings, their reviewer prompt verbatim).
 - **What it did:** recall **0.073** (4/55), **0/8 criticals**, ~1 finding per PR where 3–5 exist.
@@ -67,6 +74,39 @@ mechanically driving a harness.
 - **Why this one matters:** T1–T3 showed the local model matching the hosted 80B on *edit-and-apply*
   tasks. This shows an ~7× gap on *find-the-defect* tasks. **Task shape, not model tier, is what
   should drive escalation** — and review is the shape that breaks it.
+
+### 2026-08-14 — the review gap is ~1.65×, not ~7×, and a model swap closes most of it
+
+Re-ran the identical probe (same corpus, same verbatim prompt, same scorer, same matcher) on a
+successor that did not exist when the entry above was written, plus a matched-budget control on the
+original model. All three arms at `CONCLAVE_MAX_TOKENS=16384`. $0, ~40 min of laptop time.
+
+| reviewer | recall | matched/55 | criticals | FP |
+|---|---|---|---|---|
+| claude-sonnet (reference) | 0.509 | 28 | 6/8 | 30 |
+| **`muse-glimmer:30b`** | **0.309** | 17 | **5/8** | 15 |
+| `qwen3-coder:30b` (control, matched budget) | 0.127 | 7 | 1/8 | 13 |
+| `qwen3-coder:30b` @ 4096 (the retracted figure) | 0.073 | 4 | 0/8 | 16 |
+
+- **What changed the number most: the model.** 0.127 → 0.309 at identical budget, and criticals
+  1/8 → 5/8. Ten findings and four criticals apart is outside the 1–4 draw spread arbiter measured,
+  so this is not sampling noise.
+- **What changed it partly: the token budget.** Muse Glimmer is a *thinking* model — reasoning and
+  content share the completion budget, so 4096 measures truncation, not capability. Raising it for
+  the new arm forced re-running the old arm to match. The 4 → 7 shift on qwen *is* inside the draw
+  spread, so **do not claim the budget caused it**; claim only that 0.073 is not the matched-budget
+  figure.
+- **Class:** `under-detection` **downgraded from "hard escalation trigger" to "model-dependent
+  deficit"**. It still under-detects relative to claude, but it now catches most criticals, and its
+  false-positive rate is *better* than claude's (15 vs 30).
+- **Escalated?** n/a — a measurement. But the operating rule it feeds changes: review is no longer
+  a shape that *breaks* the local tier, it is one where the local tier runs at ~2/3 recall for free.
+
+**The methodological lesson, which is the durable part.** The original entry survived four months
+and propagated into two sibling repos as "the local tier cannot review." It was a single draw, on
+one model, at a budget nobody had matched. The instrument was always able to falsify it for $0 —
+nothing re-ran it because the number was *convenient*: it cleanly justified escalation policy and
+it flattered a guard. **A number that settles an argument is the one to re-run first.**
 
 ## Anti-over-claiming
 

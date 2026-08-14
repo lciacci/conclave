@@ -33,9 +33,14 @@ Each of these is measured, and each cost real money or real time to learn. Don't
   no fleet for the review pattern. Measured on the adversarial path, not just inferred.
 - **Peer-strength MODEL diversity is unmeasured, and the experiment to measure it is resolved as
   don't-spend.** See `docs/INTEGRATION.md` § Guard 2.
-- **Task shape, not model tier.** The local 30B *matches* a hosted FP8 80B on edit-and-apply
-  (byte-identical, zero edit rejects) and loses ~7× on find-the-defect (0.073 vs 0.509 recall). This
-  is the most useful thing known about the local tier and it should drive what gets built on it.
+- **Task shape, not model tier — magnitude CORRECTED 2026-08-14.** The local 30B *matches* a hosted
+  FP8 80B on edit-and-apply (byte-identical, zero edit rejects) and trails on find-the-defect —
+  **`muse-glimmer:30b` 0.309 recall / 5-of-8 criticals vs claude's 0.509 / 6-of-8**, at *half* the
+  false positives. The old "~7× (0.073 vs 0.509)" is **retracted**: it was `qwen3-coder:30b` at a
+  starved 4096-token budget, and at matched budget that model scores 0.127. Direction holds, the
+  ~7× does not. **Corollary that cost four months to learn: capability claims here are ONE MODEL's,
+  and the local tier churns. Re-run `LOCAL_CODER=<model> python3 orchestrator/s2_model_axis.py
+  --gen` ($0) before building on any of them.**
 - **Local is the daily driver on COST, not on measured parity.** The Phase-0 coding-QA comparison
   was underpowered, and among the queries the grader could separate, the 80B won 10–2.
 - **Recall figures in this repo are single-draw point estimates.** A 4× spread was measured on
