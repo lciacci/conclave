@@ -267,7 +267,12 @@
 > | best single — claude reviewer | 0.509 | 28 | 6/8 | 30 |
 > | **ROLE**-diverse union (claude rev ∪ claude arbiter) | **0.618** | 34 | 7/8 | 35 |
 > | **MODEL**-diverse union (claude rev ∪ qwen rev) | **0.509** | 28 | 6/8 | **50** |
-> | qwen reviewer alone | 0.073 | 4 | 0/8 | 16 |
+> | qwen reviewer alone | 0.073 | 4 | 0/8 | 16 | 🔴 **RETRACTED — starved budget; see top block** |
+>
+> 🔴 **THE TABLE ABOVE AND THE PARAGRAPH BELOW ARE SUPERSEDED (2026-08-14, top block).** The qwen arm
+> ran at a starved 4096-token budget, and the MODEL-diverse row was computed from it. Corrected:
+> MODEL-diverse union **0.527 (29 matched, 61 FP)** against a **near-peer** second model scoring
+> **0.309 / 5-of-8** alone. The null survives; the reasoning below for *why* does not.
 >
 > **+0.000 recall, +20 false positives, ZERO decorrelated catches.** Scorer reproduces pr-arbiter's
 > committed numbers to 4dp using THEIR matcher and THEIR expected findings.

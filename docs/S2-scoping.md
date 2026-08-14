@@ -122,8 +122,9 @@ Scorer validation: this reproduces pr-arbiter's own committed numbers to 4 dp (0
 their `_approximate_match` and their `expected_findings`, so it is their definition of a true finding,
 not a new one.
 
-**BOUND — do not over-read this.** It tests *adding a much WEAKER model* (0.073 vs 0.509, ~7×), not
-model diversity among peers. A weak second model cannot add union-recall because its findings are a
+**BOUND — do not over-read this.** ⚠️ **This whole paragraph is RETRACTED — see the 2026-08-14 block
+immediately below before quoting any of it.** It tests *adding a much WEAKER model* (0.073 vs 0.509,
+~7×), not model diversity among peers. A weak second model cannot add union-recall because its findings are a
 subset. So this is **directionally supportive of anti-conflation guard (b) but does NOT settle it.**
 The open question is unchanged in shape and now sharper: *does a second PEER-STRENGTH model
 decorrelate?* That needs a second frontier model and therefore money — it is not $0 like this was.
