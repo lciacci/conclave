@@ -76,8 +76,9 @@ arbiter pair (both carry `.tessera/project.yml`, so both are downstreams):
   reviews ("the finder is better at locating than at concluding — take the location, re-derive the
   consequence"; "`--ext ""` or the review is silently narrower than it claims") were absent from
   conclave until 2026-08-07, and they are the part needed *before* the next run, not after.
-  Symmetrically, conclave's measurement that its local tier scores 0.073 recall on review — which
-  bounds arbiter's cost work and the D3 seam — was absent from arbiter for ten days.
+  Symmetrically, conclave's measurement that its local tier scored 0.073 recall on review (**a
+  figure since RETRACTED — see F-003 below**) — which bounds arbiter's cost work and the D3 seam —
+  was absent from arbiter for ten days.
 
 So the gap is narrower and sharper than "peers can't talk": **a finding that names a file finds its
 own way home; a usage rule, a negative result, or a bound on someone else's design does not.**
@@ -135,7 +136,14 @@ third peer pair appears, or if the same fact is found missing a second time.
 >    **half** claude's false positives, for $0, feeding a triage stage arbiter already runs, that
 >    question is re-opened. Had this not been pushed, arbiter would have kept declining an option on
 >    evidence that no longer existed. That is the concrete cost of the F-002 gap, finally priced.
-> 2. **Tessera's own doccheck caught an error in the correction.** The first commit was BLOCKED —
+> 2. **The correction pass fixed the PEER's copy of a sentence and missed conclave's own.**
+>    F-002's narrative above cited 0.073 in the present tense. `../tessera/docs/observatory.md`
+>    carries that same sentence and it *was* corrected; the conclave original was not, and sat 45
+>    lines above this closure block claiming the propagation was complete. Caught by code review,
+>    not by the sweep. **F-003's failure mode reproduced inside the commit that closes F-003** —
+>    which is the strongest argument yet that the `--grep` sweep below should exist, since the sweep
+>    was run *by hand* and by someone who had just written the rule.
+> 3. **Tessera's own doccheck caught an error in the correction.** The first commit was BLOCKED —
 >    `referenced-paths-exist` flagged that a conclave-relative path (`docs/S2-scoping.md`) had been
 >    written into a Tessera-hosted doc where it does not resolve. A cross-repo write is exactly
 >    where that class of mistake happens, and the receiving repo's gate is what caught it.

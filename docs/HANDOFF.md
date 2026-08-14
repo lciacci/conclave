@@ -38,16 +38,17 @@
 >
 > ### ✅ SAME DAY — the driver-swap question is ANSWERED: keep qwen. Muse Glimmer is review-only.
 > Ran the matched T1–T3 harness on `muse-glimmer:30b` (`LEG=local30muse`, every other knob identical).
-> **9/9 applied, zero edit rejects — and 2/3 correct.** T3.r1 shipped the `--dry-run` flag, then
+> **6/6 edit tasks applied (T1 is read-only), zero edit rejects on all 9 rows — and 2/3 correct.**
+> T3.r1 shipped the `--dry-run` flag, then
 > faked the second subtask: `assert len([q for q in HARD_QUERY_SET if q["id"] not in c]) == 0`
 > under a `# exercise dry-run` comment. Tautological, never calls dry-run. r2/r3 wrote
 > `generate(dry_run=True)` correctly.
 >
 > | | qwen3-coder:30b | muse-glimmer:30b |
 > |---|---|---|
-> | T3 reps | **3/3 byte-identical**, 56 lines | 28/41/41 lines — **not identical** |
+> | T3 reps | **3/3 byte-identical**, 56 lines | 28/41/41 lines — **r1 differs; r2=r3** |
 > | T3 correct | **3/3** | **2/3** |
-> | T3 wall-clock | 39–41s | **248–258s** |
+> | T3 wall-clock | 40–48s | **248–258s** |
 > | review recall (S2) | 0.127 | **0.309** |
 >
 > **So the two axes disagree, and the harness axis is the one daily work runs.** Swapping on the
@@ -183,8 +184,14 @@
 > | | local 30B (Q4, Ollama, laptop) | hosted 80B (FP8, vLLM, H200 US-GA-2) |
 > |---|---|---|
 > | T1 summarize | clean, 3–7s | clean, 3–5s |
-> | T2 comment | applied, 13 lines, 12–15s | applied, 10 lines, 2–4s |
-> | T3 `--dry-run` | applied, 56 lines, 39–41s | applied, 32 lines, 9–10s |
+> | T2 comment | applied, 13 lines, **12s ×3** *(was "12–15s")* | applied, 10 lines, 2–4s |
+> | T3 `--dry-run` | applied, 56 lines, **40/41/48s** *(was "39–41s")* | applied, 32 lines, 9–10s |
+>
+> *(Two local-leg timings corrected 2026-08-14 against `harness/results/t1t3-local30/summary.txt`,
+> which was committed with this block and disagreed with it. Neither error changes any conclusion —
+> the 80B is still ~4–5× faster — but the T3 range excluded its own slowest rep, and it was copied
+> forward into the 2026-08-14 comparison before code review caught it. Ranges in this file are
+> hand-written; the summary.txt files are the evidence.)*
 > | reps | 3/3 byte-identical | 3/3 byte-identical |
 > | `edit_reject_blocks` | 0 on every row | 0 on every row |
 > | T3 FUNCTIONAL check | **PASS** | **PASS** |

@@ -106,7 +106,8 @@ original model. All three arms at `CONCLAVE_MAX_TOKENS=16384`. $0, ~40 min of la
 
 Same day, same model, the *other* axis. Ran the matched T1–T3 harness
 (`LEG=local30muse AIDER_MODEL=ollama_chat/muse-glimmer:30b harness/run-t1t3.sh`, every other knob
-identical to the qwen leg). 9/9 applied, `edit_reject_blocks=0` on every row — and one rep wrong.
+identical to the qwen leg). **6/6 edit tasks applied** (T1 is read-only, so its three rows are
+correctly `applied=no`), `edit_reject_blocks=0` on all 9 rows — and one rep wrong.
 
 - **Task shape:** two-part edit — add a `--dry-run` flag, *and* add a line to `demo()` exercising it.
 - **What it did:** r2 and r3 wrote `generate(dry_run=True)` under the `# exercise dry-run` comment.
@@ -115,6 +116,11 @@ identical to the qwen leg). 9/9 applied, `edit_reject_blocks=0` on every row —
   it does. The flag itself was correct in all three.
 - **Class:** `confabulated-completion`. Not new, but new *on this model*, and it is the class that
   makes auto-accept unsafe.
+- **Budget-starvation confound CHECKED and CLOSED** — this matters because muse is a thinking model
+  sharing `max_output_tokens: 8192` between reasoning and content, and this whole session exists to
+  retract a number that *was* a starved-budget artifact. `T3.r1.log` shows **5.4k received against
+  the 8192 cap**, and the reply ends with a complete SEARCH/REPLACE block plus `Applied edit to`.
+  It had room and used it. The drop is the model's, not the harness's.
 - **Recoverable?** 2/3 reps were correct, so a retry would likely have fixed it — which is exactly
   why it is dangerous: it is intermittent, not deterministic.
 - **Escalated?** n/a — a measurement.
@@ -133,8 +139,12 @@ loses the shape the harness actually runs — 2/3 vs qwen's 3/3, 248s vs 40s on 
 *variance* where qwen was byte-identical 3/3. Choosing on the review number alone would have taken a
 model that confabulates a subtask one run in three. `qwen3-coder:30b` remains the driver; Muse
 Glimmer is a candidate **review-only** tier.
-**Bound:** n=3 on one task. r1 may be draw variance rather than a stable property — but the
-determinism gap (byte-identical 3/3 vs three different outputs) is not a single-sample artifact.
+**Bound, and it is weaker than the first draft of this entry claimed.** n=3 on one task, and r1 may
+be draw variance rather than a stable property. The determinism gap is **1 distinct output (qwen,
+3/3 byte-identical) vs 2 distinct (muse: r1 differs; `T3.r2.diff` and `T3.r3.diff` are byte-identical,
+sha256 `14b5507ec6a5d29c`)** — not "three different outputs", which is what this entry originally
+said and which overstated the case. On n=3 that is a real but thin difference, and the decision to
+keep qwen rests more on **r1 being wrong** than on the variance count.
 
 **The methodological lesson, which is the durable part.** The original entry survived four months
 and propagated into two sibling repos as "the local tier cannot review." It was a single draw, on
