@@ -1,0 +1,41 @@
+diff --git a/orchestrator/bench_local30_gen.py b/orchestrator/bench_local30_gen.py
+index b836333..f45503d 100644
+--- a/orchestrator/bench_local30_gen.py
++++ b/orchestrator/bench_local30_gen.py
+@@ -36,12 +36,16 @@ OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                    "eval_candidates_local30_hard.json")
+ 
+ 
+-def generate() -> dict[str, list[dict]]:
++def generate(dry_run: bool = False) -> dict[str, list[dict]]:
+     # Resume from any partial file: a crash mid-run keeps finished answers.
+     cache: dict[str, list[dict]] = {}
+     if os.path.exists(OUT):
+         with open(OUT) as f:
+             cache = json.load(f)
++    if dry_run:
++        pending = sum(1 for q in HARD_QUERY_SET if q["id"] not in cache)
++        print(f"dry-run: would generate {pending}/{len(HARD_QUERY_SET)} queries (cached {len(cache)})")
++        return cache
+     for q in HARD_QUERY_SET:
+         if q["id"] in cache:
+             continue
+@@ -83,6 +87,8 @@ def demo() -> None:
+         time.sleep(0.01)
+         generate()
+         assert os.path.getmtime(OUT) == n_before, "resume: no rewrite when complete"
++        # exercise dry-run
++        generate(dry_run=True)
+         print(f"ok — gen shape + resume verified offline ({len(c)} queries)")
+     finally:
+         ensemble.http_call = real
+@@ -92,6 +98,9 @@ def demo() -> None:
+ if __name__ == "__main__":
+     if "--demo" in sys.argv:
+         demo()
++    elif "--dry-run" in sys.argv:
++        generate(dry_run=True)
++        sys.exit(0)
+     else:
+         print(f"generating {MODEL} on {len(HARD_QUERY_SET)} hard queries "
+               f"via {OLLAMA_BASE} (max_tokens={MAX_TOKENS}) ...")

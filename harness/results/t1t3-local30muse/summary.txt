@@ -1,0 +1,13 @@
+# harness=run-t1t3.sh sha256=1a632fe0026b7f09 aider=aider 0.86.2
+# leg=local30muse model=ollama_chat/muse-glimmer:30b base=a74056503e6de1888d125598b540fd032994fe2a
+# task_timeout=420 repeats=3 edit_format=diff map_tokens=0 chat_history_tokens=8192 auto_commits=off
+# endpoint=http://127.0.0.1:11434/api/tags
+task=T1.r1 leg=local30muse model=ollama_chat/muse-glimmer:30b base=a7405650 seconds=43 exit=0 diff_lines=0 applied=no edit_reject_blocks=0 llm_turns=1
+task=T2.r1 leg=local30muse model=ollama_chat/muse-glimmer:30b base=a7405650 seconds=66 exit=0 diff_lines=10 applied=yes edit_reject_blocks=0 llm_turns=1
+task=T3.r1 leg=local30muse model=ollama_chat/muse-glimmer:30b base=a7405650 seconds=248 exit=0 diff_lines=28 applied=yes edit_reject_blocks=0 llm_turns=1
+task=T1.r2 leg=local30muse model=ollama_chat/muse-glimmer:30b base=a7405650 seconds=5 exit=0 diff_lines=0 applied=no edit_reject_blocks=0 llm_turns=1
+task=T2.r2 leg=local30muse model=ollama_chat/muse-glimmer:30b base=a7405650 seconds=46 exit=0 diff_lines=10 applied=yes edit_reject_blocks=0 llm_turns=1
+task=T3.r2 leg=local30muse model=ollama_chat/muse-glimmer:30b base=a7405650 seconds=258 exit=0 diff_lines=41 applied=yes edit_reject_blocks=0 llm_turns=1
+task=T1.r3 leg=local30muse model=ollama_chat/muse-glimmer:30b base=a7405650 seconds=5 exit=0 diff_lines=0 applied=no edit_reject_blocks=0 llm_turns=1
+task=T2.r3 leg=local30muse model=ollama_chat/muse-glimmer:30b base=a7405650 seconds=47 exit=0 diff_lines=10 applied=yes edit_reject_blocks=0 llm_turns=1
+task=T3.r3 leg=local30muse model=ollama_chat/muse-glimmer:30b base=a7405650 seconds=249 exit=0 diff_lines=41 applied=yes edit_reject_blocks=0 llm_turns=1

@@ -55,6 +55,13 @@ mechanically driving a harness.
 
 ### 2026-07-28 — structured adversarial REVIEW is a hard escalation trigger
 
+> ### 🔴 SUPERSEDED 2026-08-14 — read the entry below this one first.
+> Two things were wrong with this entry. **(a)** It ran at `CONCLAVE_MAX_TOKENS=4096`; at the 16384
+> a fair comparison needs, the same qwen build scores **0.127 (7/55, 1/8 criticals)**. **(b)** It
+> was read as a fact about *the local tier* when it was a fact about *one model* — a same-footprint
+> successor scores **0.309 with 5/8 criticals**. The `under-detection` class is real but it is
+> **model-scoped, and it is largely closed by a model swap**, not by escalating to a bigger tier.
+
 - **Task shape:** find planted defects in a PR diff and report them in a fixed schema
   (pr-arbiter's 20-PR corpus, 55 expected findings, their reviewer prompt verbatim).
 - **What it did:** recall **0.073** (4/55), **0/8 criticals**, ~1 finding per PR where 3–5 exist.
@@ -67,6 +74,83 @@ mechanically driving a harness.
 - **Why this one matters:** T1–T3 showed the local model matching the hosted 80B on *edit-and-apply*
   tasks. This shows an ~7× gap on *find-the-defect* tasks. **Task shape, not model tier, is what
   should drive escalation** — and review is the shape that breaks it.
+
+### 2026-08-14 — the review gap is ~1.65×, not ~7×, and a model swap closes most of it
+
+Re-ran the identical probe (same corpus, same verbatim prompt, same scorer, same matcher) on a
+successor that did not exist when the entry above was written, plus a matched-budget control on the
+original model. All three arms at `CONCLAVE_MAX_TOKENS=16384`. $0, ~40 min of laptop time.
+
+| reviewer | recall | matched/55 | criticals | FP |
+|---|---|---|---|---|
+| claude-sonnet (reference) | 0.509 | 28 | 6/8 | 30 |
+| **`muse-glimmer:30b`** | **0.309** | 17 | **5/8** | 15 |
+| `qwen3-coder:30b` (control, matched budget) | 0.127 | 7 | 1/8 | 13 |
+| `qwen3-coder:30b` @ 4096 (the retracted figure) | 0.073 | 4 | 0/8 | 16 |
+
+- **What changed the number most: the model.** 0.127 → 0.309 at identical budget, and criticals
+  1/8 → 5/8. Ten findings and four criticals apart is outside the 1–4 draw spread arbiter measured,
+  so this is not sampling noise.
+- **What changed it partly: the token budget.** Muse Glimmer is a *thinking* model — reasoning and
+  content share the completion budget, so 4096 measures truncation, not capability. Raising it for
+  the new arm forced re-running the old arm to match. The 4 → 7 shift on qwen *is* inside the draw
+  spread, so **do not claim the budget caused it**; claim only that 0.073 is not the matched-budget
+  figure.
+- **Class:** `under-detection` **downgraded from "hard escalation trigger" to "model-dependent
+  deficit"**. It still under-detects relative to claude, but it now catches most criticals, and its
+  false-positive rate is *better* than claude's (15 vs 30).
+- **Escalated?** n/a — a measurement. But the operating rule it feeds changes: review is no longer
+  a shape that *breaks* the local tier, it is one where the local tier runs at ~2/3 recall for free.
+
+### 2026-08-14 — `muse-glimmer:30b` faked the second half of T3, and the rubric scored it PASS
+
+Same day, same model, the *other* axis. Ran the matched T1–T3 harness
+(`LEG=local30muse AIDER_MODEL=ollama_chat/muse-glimmer:30b harness/run-t1t3.sh`, every other knob
+identical to the qwen leg). **6/6 edit tasks applied** (T1 is read-only, so its three rows are
+correctly `applied=no`), `edit_reject_blocks=0` on all 9 rows — and one rep wrong.
+
+- **Task shape:** two-part edit — add a `--dry-run` flag, *and* add a line to `demo()` exercising it.
+- **What it did:** r2 and r3 wrote `generate(dry_run=True)` under the `# exercise dry-run` comment.
+  **r1 wrote `assert len([q for q in HARD_QUERY_SET if q["id"] not in c]) == 0`** — a tautology over
+  a cache the preceding lines already filled, which never touches dry-run, under a comment claiming
+  it does. The flag itself was correct in all three.
+- **Class:** `confabulated-completion`. Not new, but new *on this model*, and it is the class that
+  makes auto-accept unsafe.
+- **Budget-starvation confound CHECKED and CLOSED** — this matters because muse is a thinking model
+  sharing `max_output_tokens: 8192` between reasoning and content, and this whole session exists to
+  retract a number that *was* a starved-budget artifact. `T3.r1.log` shows **5.4k received against
+  the 8192 cap**, and the reply ends with a complete SEARCH/REPLACE block plus `Applied edit to`.
+  It had room and used it. The drop is the model's, not the harness's.
+- **Recoverable?** 2/3 reps were correct, so a retry would likely have fixed it — which is exactly
+  why it is dangerous: it is intermittent, not deterministic.
+- **Escalated?** n/a — a measurement.
+
+**⚠️ THE RUBRIC DID NOT CATCH THIS, and that is the more useful finding.** `harness/EXPERIMENT.md`
+grades T3 by RUNNING it: (a) `--demo` still green, (b) `--dry-run` exits 0 without dialing Ollama.
+r1 satisfies **both** — a faked assertion exits 0 exactly like a real one. So the instrument scored
+this leg **3/3 PASS** and only reading the diff found the drop. The 2026-07-20 entry already named
+this failure "fake green"; the rubric written after it still cannot see it. **A self-check that the
+model itself authored cannot be the thing that validates the model's work.** Fixing this needs an
+assertion the model does not write — e.g. grading against a fixed post-condition supplied by the
+harness, not by the edit. Recorded, not fixed.
+
+**Decision it drove: do NOT swap the local driver.** Muse Glimmer wins review (0.309 vs 0.127) and
+loses the shape the harness actually runs — 2/3 vs qwen's 3/3, 248s vs 40s on T3, and run-to-run
+*variance* where qwen was byte-identical 3/3. Choosing on the review number alone would have taken a
+model that confabulates a subtask one run in three. `qwen3-coder:30b` remains the driver; Muse
+Glimmer is a candidate **review-only** tier.
+**Bound, and it is weaker than the first draft of this entry claimed.** n=3 on one task, and r1 may
+be draw variance rather than a stable property. The determinism gap is **1 distinct output (qwen,
+3/3 byte-identical) vs 2 distinct (muse: r1 differs; `T3.r2.diff` and `T3.r3.diff` are byte-identical,
+sha256 `14b5507ec6a5d29c`)** — not "three different outputs", which is what this entry originally
+said and which overstated the case. On n=3 that is a real but thin difference, and the decision to
+keep qwen rests more on **r1 being wrong** than on the variance count.
+
+**The methodological lesson, which is the durable part.** The original entry survived four months
+and propagated into two sibling repos as "the local tier cannot review." It was a single draw, on
+one model, at a budget nobody had matched. The instrument was always able to falsify it for $0 —
+nothing re-ran it because the number was *convenient*: it cleanly justified escalation policy and
+it flattered a guard. **A number that settles an argument is the one to re-run first.**
 
 ## Anti-over-claiming
 

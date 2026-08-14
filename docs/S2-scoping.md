@@ -108,12 +108,15 @@ at TWO passes each, so this cannot be the candidate-count confound that retracte
 |---|---|---|---|---|
 | best single — claude reviewer | 0.509 | 28 | 6/8 | 30 |
 | **ROLE**-diverse union: claude-reviewer ∪ claude-arbiter | **0.618** | 34 | 7/8 | 35 |
-| **MODEL**-diverse union: claude-reviewer ∪ qwen-reviewer | **0.509** | 28 | 6/8 | **50** |
-| qwen reviewer alone | 0.073 | 4 | 0/8 | 16 |
+| ~~**MODEL**-diverse union: claude-reviewer ∪ qwen-reviewer~~ ⚠️ **derived from the starved arm below** | ~~0.509~~ | ~~28~~ | ~~6/8~~ | ~~50~~ |
+| ~~qwen reviewer alone~~ ⚠️ **starved budget — see the 2026-08-14 block below** | ~~0.073~~ | ~~4~~ | ~~0/8~~ | ~~16~~ |
 
-**MODEL diversity: +0.000 recall, +20 false positives. Zero decorrelated catches** — every true
-finding qwen produced was already in claude's set. ROLE diversity on the same corpus, same scorer,
-same pass count: +0.109 and the 8th critical.
+~~**MODEL diversity: +0.000 recall, +20 false positives. Zero decorrelated catches** — every true
+finding qwen produced was already in claude's set.~~ ⚠️ **Both struck rows and this sentence are
+superseded** — the union arm was computed from the starved qwen pass, so retracting the input
+retracts the output. The corrected figures are in the 2026-08-14 block below (+1 matched finding,
++31 false positives). ROLE diversity is unaffected — it never involved the local arm — and on the
+same corpus, same scorer, same pass count it remains **+0.109 and the 8th critical**.
 
 Scorer validation: this reproduces pr-arbiter's own committed numbers to 4 dp (0.5091 / 0.6182) using
 their `_approximate_match` and their `expected_findings`, so it is their definition of a true finding,
@@ -124,6 +127,32 @@ model diversity among peers. A weak second model cannot add union-recall because
 subset. So this is **directionally supportive of anti-conflation guard (b) but does NOT settle it.**
 The open question is unchanged in shape and now sharper: *does a second PEER-STRENGTH model
 decorrelate?* That needs a second frontier model and therefore money — it is not $0 like this was.
+
+### 🔴 2026-08-14 — the bound above is RETRACTED, and the result got STRONGER
+
+The probe was re-run on `muse-glimmer:30b` (Meta, Apache 2.0, Aug 2026) with a matched-budget qwen
+control, all arms at `CONCLAVE_MAX_TOKENS=16384`. Still $0.
+
+| arm | recall | matched/55 | crit | FP |
+|---|---|---|---|---|
+| best single — claude reviewer | 0.509 | 28 | 6/8 | 30 |
+| **ROLE**-diverse union: claude-reviewer ∪ claude-arbiter | **0.618** | 34 | 7/8 | 35 |
+| **MODEL**-diverse union: claude-reviewer ∪ **muse-glimmer**-reviewer | **0.527** | 29 | 6/8 | **61** |
+| muse-glimmer reviewer alone | 0.309 | 17 | 5/8 | 15 |
+| qwen reviewer alone (matched budget) | 0.127 | 7 | 1/8 | 13 |
+
+**The "weak second model cannot add union-recall by construction" argument no longer applies, and
+the null holds without it.** Muse Glimmer is ~1.65× behind claude (not ~7×) and finds 5 of 8
+criticals unaided — a real second reviewer, not a subset generator. Adding it moved matched findings
+**28 → 29** while moving false positives **30 → 61**. One match in 55 is inside the draw spread
+arbiter measured on byte-identical input.
+
+So the MODEL-diversity **null** — the finding that a second model does *not* pay — no longer rests
+*only* on an a-priori argument about weak models. It is now backed by a near-peer arm that failed to
+decorrelate in practice. **Peer-strength
+(frontier-vs-frontier) diversity is still unmeasured** and still costs money — but the gap between
+"what was measured" and "what is claimed" narrowed a lot. Guard (b) still NOT rewritten here
+(boundary 4); no threshold emitted (boundary 1).
 
 Guard (b) is NOT rewritten here (boundary 4). No threshold is emitted (boundary 1). This records a
 measurement for whoever writes the ADR.

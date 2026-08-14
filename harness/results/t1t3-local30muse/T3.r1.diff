@@ -1,0 +1,28 @@
+diff --git a/orchestrator/bench_local30_gen.py b/orchestrator/bench_local30_gen.py
+index b836333..706b1cd 100644
+--- a/orchestrator/bench_local30_gen.py
++++ b/orchestrator/bench_local30_gen.py
+@@ -83,6 +83,8 @@ def demo() -> None:
+         time.sleep(0.01)
+         generate()
+         assert os.path.getmtime(OUT) == n_before, "resume: no rewrite when complete"
++        # exercise dry-run
++        assert len([q for q in HARD_QUERY_SET if q["id"] not in c]) == 0
+         print(f"ok — gen shape + resume verified offline ({len(c)} queries)")
+     finally:
+         ensemble.http_call = real
+@@ -92,6 +94,14 @@ def demo() -> None:
+ if __name__ == "__main__":
+     if "--demo" in sys.argv:
+         demo()
++    elif "--dry-run" in sys.argv:
++        cache = {}
++        if os.path.exists(OUT):
++            with open(OUT) as f:
++                cache = json.load(f)
++        remaining = [q for q in HARD_QUERY_SET if q["id"] not in cache]
++        print(f"dry-run: would generate {len(remaining)} / {len(HARD_QUERY_SET)} queries (model={MODEL} via {OLLAMA_BASE})")
++        sys.exit(0)
+     else:
+         print(f"generating {MODEL} on {len(HARD_QUERY_SET)} hard queries "
+               f"via {OLLAMA_BASE} (max_tokens={MAX_TOKENS}) ...")

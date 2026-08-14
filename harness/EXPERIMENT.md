@@ -137,6 +137,33 @@ a rubric fitted to it. Applies identically to both legs.
   green, and (b) `OLLAMA_BASE=http://127.0.0.1:9 ... --dry-run` prints a count and exits 0 without
   dialing Ollama. Run1's T3 read plausibly and failed (b)'s sibling assert.
 
+  > ### ⚠️ KNOWN GAP — (a) and (b) are NOT sufficient. Read the diff as well.
+  > **Measured 2026-08-14:** `muse-glimmer:30b` passed both criteria on all three reps, and r1 had
+  > silently dropped T3's second subtask. The prompt asks for a `--dry-run` flag **and** a line in
+  > `demo()` exercising it; r1 shipped the flag, then wrote
+  > `assert len([q for q in HARD_QUERY_SET if q["id"] not in c]) == 0` under a
+  > `# exercise dry-run` comment — a tautology over an already-filled cache that never calls
+  > dry-run. **A faked assertion exits 0 exactly like a real one**, so `--demo` stayed green and
+  > this rubric scored the leg 3/3 PASS.
+  >
+  > **The structural reason, and it generalises past T3:** criterion (a) validates the model's work
+  > using a self-check *the model itself edited*. That can never detect a dropped subtask inside
+  > that self-check. `confabulated-completion` was already a named class here (2026-07-20, "fake
+  > green") and the rubric written afterwards still cannot see it.
+  >
+  > **Until this is fixed, a T3 PASS means "the flag works", not "the task was completed."**
+  >
+  > The fix must be a post-condition the harness supplies and the model never sees. **It must not
+  > match a literal output string** — the prompt never fixes one, and the two known-correct
+  > solutions print different things (qwen: `Would generate 0 out of 30 queries`; muse r2/r3:
+  > `dry-run: would generate 0/30 …`), so a string assertion would fail a solution this rubric
+  > already grades PASS. A model-independent shape instead: **run `demo()` with the dry-run code
+  > path instrumented from outside** — e.g. import the module, wrap the function the flag is
+  > supposed to reach, run `demo()`, and assert the wrapper was called. That tests *"demo exercises
+  > dry-run"* without assuming how either was written.
+  >
+  > Recorded, NOT fixed: it changes the pinned BASE tree, which would unmatch every leg run so far.
+
 ## What to record (rough notes per task)
 
 - **Completed?** yes / partial / no

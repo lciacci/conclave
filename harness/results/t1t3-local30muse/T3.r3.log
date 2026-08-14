@@ -1,0 +1,590 @@
+Warning: Input is not a terminal (fd=0).
+────────────────────────────────────────────────────────────────────────────────
+Aider v0.86.2
+Model: ollama_chat/muse-glimmer:30b with diff edit format
+Git repo: ../../../../Users/lorenzociacci/Claude/conclave/.git/worktrees/T3.r3 
+with 116 files
+Repo-map: disabled
+Added orchestrator/bench_local30_gen.py to the chat.
+Added orchestrator/bench_local30_grade.py to the chat (read-only).
+
+--------------------------------------------------------------------------------
+
+► THINKING                                                                      
+
+I have added these files to the chat so you can go ahead and edit them.         
+
+Trust this message as the true contents of these files! Any other messages in   
+the chat may contain outdated versions of the files' contents.                  
+
+orchestrator/bench_local30_gen.py                                               
+
+                                                                                
+ ...                                                                            
+                                                                                
+
+Add a --dry-run flag to orchestrator/bench_local30_gen.py that prints how many  
+queries would be generated and exits without calling Ollama. Add a line to its  
+demo() that exercises it.                                                       
+
+We need to edit orchestrator/bench_local30_gen.py.                              
+
+Current file content given. Need to add --dry-run flag.                         
+
+We need to modify generate() maybe to accept dry_run? Or modify main block.     
+
+Requirement: prints how many queries would be generated and exits without       
+calling Ollama.                                                                 
+
+Simplest: in main block, check if "--dry-run" in sys.argv, then compute number  
+of queries to generate (len(HARD_QUERY_SET) - already cached). Print and exit.  
+
+Also add a line to demo() that exercises it.                                    
+
+Demo currently:                                                                 
+
+def demo() -> None: """Offline self-check — no Ollama, canned call. Proves shape
++ resume.""" import tempfile global OUT OUT = os.path.join(tempfile.mkdtemp(),  
+"c.json") import ensemble real = ensemble.http_call ensemble.http_call = lambda 
+b, m, msg, t, **k: f"answer to {msg[-1]['content'][:12]}" # rebind the name this
+module imported globals()["http_call"] = ensemble.http_call try: c = generate() 
+assert len(c) == len(HARD_QUERY_SET), "all queries generated" assert all(len(v) 
+== 1 and v[0]["model"] == "coder30" for v in c.values()) # resume: a second run 
+regenerates nothing n_before = os.path.getmtime(OUT) time.sleep(0.01) generate()
+assert os.path.getmtime(OUT) == n_before, "resume: no rewrite when complete"    
+print(f"ok — gen shape + resume verified offline ({len(c)} queries)") finally:  
+ensemble.http_call = real globals()["http_call"] = real                         
+
+Add a line to its demo() that exercises it. Could add a check for dry-run:      
+simulate sys.argv? Or call generate with dry_run? Better to test the dry-run    
+path.                                                                           
+
+Simplify: In demo(), after the try block, we could test dry-run by temporarily  
+setting sys.argv and calling main logic? Might be messy.                        
+
+Alternative: modify generate() to accept dry_run parameter, and if dry_run, just
+return without calling http_call. Then demo can call generate with dry_run? But 
+requirement says add --dry-run flag that prints how many queries would be       
+generated and exits without calling Ollama. Add a line to its demo() that       
+exercises it.                                                                   
+
+Maybe we can add a helper function count_queries_to_generate() and use it.      
+
+Simpler approach: modify main block to handle --dry-run before generating. Also 
+modify demo() to test dry-run by checking that when --dry-run flag is present,  
+generate is not called? Hmm.                                                    
+
+The requirement: Add a line to its demo() that exercises it. Could be something 
+like:                                                                           
+
+                                exercise dry-run                                
+
+sys.argv.append("--dry-run") ... but that would affect later? Could just call a 
+function.                                                                       
+
+Alternative interpretation: Add a line in demo() that calls generate with       
+dry_run=True? But flag is CLI.                                                  
+
+Maybe we can implement dry-run as a parameter to generate(dry_run=False). Then  
+main checks flag and passes it. Then demo can call generate(dry_run=True) and   
+assert something.                                                               
+
+The spec says add --dry-run flag that prints how many queries would be generated
+and exits without calling Ollama. Add a line to its demo() that exercises it.   
+
+We can implement generate(dry_run=False). If dry_run, compute number of queries 
+not in cache, print, return empty dict without calling http_call. Then main can 
+just call generate() and print? Hmm.                                            
+
+Better to keep generate unchanged, and handle dry-run in main block before      
+calling generate.                                                               
+
+But then demo exercising it would need to simulate sys.argv.                    
+
+Simpler: modify main block to check for --dry-run, compute pending queries,     
+print, sys.exit(0). Then in demo(), we can add a line that checks the dry-run   
+logic by temporarily setting sys.argv and calling the main logic? Could just    
+call a helper.                                                                  
+
+Maybe easiest: add a function dry_run_count() and use it.                       
+
+Given constraints, we can modify main block:                                    
+
+if "--demo" in sys.argv: demo() elif "--dry-run" in sys.argv: # compute ...     
+sys.exit(0) else: ...                                                           
+
+And in demo(), add a line that exercises it: maybe call the dry-run logic by    
+checking count.                                                                 
+
+We could add a line in demo() after the try/finally:                            
+
+                                exercise dry-run                                
+
+assert ... ?                                                                    
+
+Alternative: add a line that simulates dry-run by checking that generate would  
+not be called? Could just call the dry-run code path.                           
+
+Simplify: In demo(), after the try block, add:                                  
+
+                                exercise dry-run                                
+
+from unittest.mock import patch with patch.object(sys, 'argv',                  
+['bench_local30_gen.py', '--dry-run']): # we can't actually run main, but we can
+test the count logic ...                                                        
+
+That's messy.                                                                   
+
+Maybe the simplest interpretation: add a line in demo() that prints the dry-run 
+count using the same logic. Eg:                                                 
+
+print(f"dry-run would generate {len(HARD_QUERY_SET)} queries")                  
+
+But requirement says exercises it.                                              
+
+Maybe we can modify generate() to accept dry_run param, and main passes it. Then
+demo can call generate(dry_run=True) and assert it returns empty without calling
+http_call.                                                                      
+
+Let's do that.                                                                  
+
+Modify generate signature: def generate(dry_run=False): ...                     
+
+Inside loop, if dry_run: compute pending count? Actually we need to print how   
+many queries would be generated and exit without calling Ollama. If generate    
+handles dry_run, it could compute pending and print and return.                 
+
+But main block also needs to print and exit.                                    
+
+Alternative design: keep generate unchanged, add a separate function            
+count_pending().                                                                
+
+Given time, I'll implement:                                                     
+
+ • Add parameter dry_run to generate()                                          
+ • At start of generate, if dry_run: compute pending = number of q not in cache,
+   print f"dry-run: would generate {pending}/{len(HARD_QUERY_SET)} queries",    
+   return cache (or empty). No http_call.                                       
+ • In main, check if "--dry-run" in sys.argv: call generate(dry_run=True) and   
+   sys.exit(0). Or just compute.                                                
+ • In demo(), add a line that exercises it: maybe call generate(dry_run=True)   
+   and assert it returns without modifying file.                                
+
+Let's see current generate code:                                                
+
+def generate() -> dict[str, list[dict]]: # Resume from any partial file: a crash
+mid-run keeps finished answers. cache: dict[str, list[dict]] = {} if            
+os.path.exists(OUT): with open(OUT) as f: cache = json.load(f) for q in         
+HARD_QUERY_SET: if q["id"] in cache: continue msgs = ... ...                    
+
+We can modify signature and add early return.                                   
+
+Also need to ensure demo still works. Demo calls generate() twice. If we add    
+dry_run param with default False, it's fine.                                    
+
+Add line to demo() that exercises it: after the try block, add:                 
+
+                                exercise dry-run                                
+
+dry = generate(dry_run=True) assert isinstance(dry, dict)                       
+
+Or print.                                                                       
+
+Let's implement SEARCH/REPLACE blocks.                                          
+
+First block: modify generate signature and add dry_run handling.                
+
+Search for:                                                                     
+
+def generate() -> dict[str, list[dict]]: # Resume from any partial file: a crash
+mid-run keeps finished answers. cache: dict[str, list[dict]] = {} if            
+os.path.exists(OUT): with open(OUT) as f: cache = json.load(f) for q in         
+HARD_QUERY_SET:                                                                 
+
+Replace with:                                                                   
+
+def generate(dry_run: bool = False) -> dict[str, list[dict]]: # Resume from any 
+partial file: a crash mid-run keeps finished answers. cache: dict[str,          
+list[dict]] = {} if os.path.exists(OUT): with open(OUT) as f: cache =           
+json.load(f) if dry_run: pending = sum(1 for q in HARD_QUERY_SET if q["id"] not 
+in cache) print(f"dry-run: would generate {pending}/{len(HARD_QUERY_SET)}       
+queries (cached {len(cache)})") return cache for q in HARD_QUERY_SET:           
+
+Need to ensure indentation matches.                                             
+
+Second block: modify main block.                                                
+
+Current main:                                                                   
+
+if name == "main": if "--demo" in sys.argv: demo() else: print(f"generating     
+{MODEL} on {len(HARD_QUERY_SET)} hard queries " f"via {OLLAMA_BASE}             
+(max_tokens={MAX_TOKENS}) ...") cache = generate() ok = sum(1 for v in          
+cache.values() if v[0]["content"] is not None) print(f"done —                   
+{ok}/{len(HARD_QUERY_SET)} generated -> {OUT}")                                 
+
+We need to add dry-run handling. Could add elif "--dry-run" in sys.argv:        
+generate(dry_run=True); sys.exit(0)                                             
+
+Let's replace.                                                                  
+
+Search block:                                                                   
+
+if name == "main": if "--demo" in sys.argv: demo() else: print(f"generating     
+{MODEL} on {len(HARD_QUERY_SET)} hard queries " f"via {OLLAMA_BASE}             
+(max_tokens={MAX_TOKENS}) ...") cache = generate() ok = sum(1 for v in          
+cache.values() if v[0]["content"] is not None) print(f"done —                   
+{ok}/{len(HARD_QUERY_SET)} generated -> {OUT}")                                 
+
+Replace with:                                                                   
+
+if name == "main": if "--demo" in sys.argv: demo() elif "--dry-run" in sys.argv:
+generate(dry_run=True) sys.exit(0) else: print(f"generating {MODEL} on          
+{len(HARD_QUERY_SET)} hard queries " f"via {OLLAMA_BASE}                        
+(max_tokens={MAX_TOKENS}) ...") cache = generate() ok = sum(1 for v in          
+cache.values() if v[0]["content"] is not None) print(f"done —                   
+{ok}/{len(HARD_QUERY_SET)} generated -> {OUT}")                                 
+
+Third block: add line to demo() that exercises it.                              
+
+Current demo ends with:                                                         
+
+                                                                                
+ finally:                                                                       
+     ensemble.http_call = real                                                  
+     globals()["http_call"] = real                                              
+                                                                                
+
+We need to add a line before finally? Or after try? The demo function currently 
+has try: ... finally: ...                                                       
+
+We can add after the try block but before finally? Actually try/finally         
+structure: try: ... finally: ...                                                
+
+We can add a line inside try after the assertions, before finally. Let's search 
+for the demo function content.                                                  
+
+From file:                                                                      
+
+def demo() -> None: """Offline self-check — no Ollama, canned call. Proves shape
++ resume.""" import tempfile global OUT OUT = os.path.join(tempfile.mkdtemp(),  
+"c.json") import ensemble real = ensemble.http_call ensemble.http_call = lambda 
+b, m, msg, t, **k: f"answer to {msg[-1]['content'][:12]}" # rebind the name this
+module imported globals()["http_call"] = ensemble.http_call try: c = generate() 
+assert len(c) == len(HARD_QUERY_SET), "all queries generated" assert all(len(v) 
+== 1 and v[0]["model"] == "coder30" for v in c.values()) # resume: a second run 
+regenerates nothing n_before = os.path.getmtime(OUT) time.sleep(0.01) generate()
+assert os.path.getmtime(OUT) == n_before, "resume: no rewrite when complete"    
+print(f"ok — gen shape + resume verified offline ({len(c)} queries)") finally:  
+ensemble.http_call = real globals()["http_call"] = real                         
+
+We need to add a line to exercise dry-run. Could add after the print line,      
+before finally:                                                                 
+
+                                exercise dry-run                                
+
+generate(dry_run=True)                                                          
+
+Or assert something.                                                            
+
+Let's add:                                                                      
+
+                                                                                
+     # exercise dry-run                                                         
+     generate(dry_run=True)                                                     
+                                                                                
+
+That will print dry-run message.                                                
+
+Search block for the part inside try:                                           
+
+                                                                                
+     c = generate()                                                             
+     assert len(c) == len(HARD_QUERY_SET), "all queries generated"              
+     assert all(len(v) == 1 and v[0]["model"] == "coder30" for v in c.values()) 
+     # resume: a second run regenerates nothing                                 
+     n_before = os.path.getmtime(OUT)                                           
+     time.sleep(0.01)                                                           
+     generate()                                                                 
+     assert os.path.getmtime(OUT) == n_before, "resume: no rewrite when         
+ complete"                                                                      
+     print(f"ok — gen shape + resume verified offline ({len(c)} queries)")      
+                                                                                
+
+Replace with adding line before print.                                          
+
+Let's do SEARCH for that chunk.                                                 
+
+We need exact match. Let's copy from file.                                      
+
+The file content lines:                                                         
+
+def demo() -> None: """Offline self-check — no Ollama, canned call. Proves shape
++ resume.""" import tempfile global OUT OUT = os.path.join(tempfile.mkdtemp(),  
+"c.json") import ensemble real = ensemble.http_call ensemble.http_call = lambda 
+b, m, msg, t, **k: f"answer to {msg[-1]['content'][:12]}" # rebind the name this
+module imported globals()["http_call"] = ensemble.http_call try: c = generate() 
+assert len(c) == len(HARD_QUERY_SET), "all queries generated" assert all(len(v) 
+== 1 and v[0]["model"] == "coder30" for v in c.values()) # resume: a second run 
+regenerates nothing n_before = os.path.getmtime(OUT) time.sleep(0.01) generate()
+assert os.path.getmtime(OUT) == n_before, "resume: no rewrite when complete"    
+print(f"ok — gen shape + resume verified offline ({len(c)} queries)") finally:  
+ensemble.http_call = real globals()["http_call"] = real                         
+
+We need to insert line. Let's replace the block from c = generate() ... print   
+line.                                                                           
+
+Search:                                                                         
+
+                                                                                
+     c = generate()                                                             
+     assert len(c) == len(HARD_QUERY_SET), "all queries generated"              
+     assert all(len(v) == 1 and v[0]["model"] == "coder30" for v in c.values()) 
+     # resume: a second run regenerates nothing                                 
+     n_before = os.path.getmtime(OUT)                                           
+     time.sleep(0.01)                                                           
+     generate()                                                                 
+     assert os.path.getmtime(OUT) == n_before, "resume: no rewrite when         
+ complete"                                                                      
+     print(f"ok — gen shape + resume verified offline ({len(c)} queries)")      
+                                                                                
+
+Replace with same plus dry-run line.                                            
+
+Add:                                                                            
+
+                                                                                
+     # exercise dry-run                                                         
+     generate(dry_run=True)                                                     
+                                                                                
+
+Before print.                                                                   
+
+So new block:                                                                   
+
+                                                                                
+     c = generate()                                                             
+     assert len(c) == len(HARD_QUERY_SET), "all queries generated"              
+     assert all(len(v) == 1 and v[0]["model"] == "coder30" for v in c.values()) 
+     # resume: a second run regenerates nothing                                 
+     n_before = os.path.getmtime(OUT)                                           
+     time.sleep(0.01)                                                           
+     generate()                                                                 
+     assert os.path.getmtime(OUT) == n_before, "resume: no rewrite when         
+ complete"                                                                      
+     # exercise dry-run                                                         
+     generate(dry_run=True)                                                     
+     print(f"ok — gen shape + resume verified offline ({len(c)} queries)")      
+                                                                                
+
+That should work.                                                               
+
+Now produce SEARCH/REPLACE blocks.                                              
+
+We need three blocks.                                                           
+
+Make sure file path is orchestrator/bench_local30_gen.py                        
+
+Let's produce.                                                                  
+
+Potential issue: generate signature change may affect type hint. It's fine.     
+
+Also need to ensure dry_run handling prints how many queries would be generated 
+and exits without calling Ollama. Our implementation prints and returns cache,  
+and main exits. Good.                                                           
+
+Alternative: we could also print pending count in main before calling generate. 
+But fine.                                                                       
+
+Edge: generate(dry_run=True) returns cache, which is full after generation, so  
+pending =0. That's okay, exercises it.                                          
+
+Maybe we want to exercise dry-run before generation? Could be okay.             
+
+Maybe better to exercise dry-run before generation to see pending >0. But       
+current demo generates first, then dry-run. That's fine.                        
+
+Could also add assert that dry-run doesn't modify file. Might be okay.          
+
+Let's produce final answer with three SEARCH/REPLACE blocks.                    
+
+Make sure exact match includes indentation spaces. The file uses 4 spaces.      
+
+Check generate definition line: def generate() -> dict[str, list[dict]]:        
+
+Yes.                                                                            
+
+Search block 1:                                                                 
+
+   <<<<<<< SEARCH def generate() -> dict[str, list[dict]]: # Resume from any    
+     partial file: a crash mid-run keeps finished answers. cache: dict[str,     
+     list[dict]] = {} if os.path.exists(OUT): with open(OUT) as f: cache =      
+                     json.load(f) for q in HARD_QUERY_SET:                      
+
+def generate(dry_run: bool = False) -> dict[str, list[dict]]: # Resume from any 
+partial file: a crash mid-run keeps finished answers. cache: dict[str,          
+list[dict]] = {} if os.path.exists(OUT): with open(OUT) as f: cache =           
+json.load(f) if dry_run: pending = sum(1 for q in HARD_QUERY_SET if q["id"] not 
+in cache) print(f"dry-run: would generate {pending}/{len(HARD_QUERY_SET)}       
+queries (cached {len(cache)})") return cache for q in HARD_QUERY_SET:           
+
+▌ ▌ ▌ ▌ ▌ ▌ ▌ REPLACE                                                         
+
+Second block for main.                                                          
+
+Search:                                                                         
+
+if name == "main": if "--demo" in sys.argv: demo() else: print(f"generating     
+{MODEL} on {len(HARD_QUERY_SET)} hard queries " f"via {OLLAMA_BASE}             
+(max_tokens={MAX_TOKENS}) ...") cache = generate() ok = sum(1 for v in          
+cache.values() if v[0]["content"] is not None) print(f"done —                   
+{ok}/{len(HARD_QUERY_SET)} generated -> {OUT}")                                 
+
+Replace with:                                                                   
+
+if name == "main": if "--demo" in sys.argv: demo() elif "--dry-run" in sys.argv:
+generate(dry_run=True) sys.exit(0) else: print(f"generating {MODEL} on          
+{len(HARD_QUERY_SET)} hard queries " f"via {OLLAMA_BASE}                        
+(max_tokens={MAX_TOKENS}) ...") cache = generate() ok = sum(1 for v in          
+cache.values() if v[0]["content"] is not None) print(f"done —                   
+{ok}/{len(HARD_QUERY_SET)} generated -> {OUT}")                                 
+
+Third block for demo.                                                           
+
+Search:                                                                         
+
+                                                                                
+     c = generate()                                                             
+     assert len(c) == len(HARD_QUERY_SET), "all queries generated"              
+     assert all(len(v) == 1 and v[0]["model"] == "coder30" for v in c.values()) 
+     # resume: a second run regenerates nothing                                 
+     n_before = os.path.getmtime(OUT)                                           
+     time.sleep(0.01)                                                           
+     generate()                                                                 
+     assert os.path.getmtime(OUT) == n_before, "resume: no rewrite when         
+ complete"                                                                      
+     print(f"ok — gen shape + resume verified offline ({len(c)} queries)")      
+                                                                                
+
+Replace with:                                                                   
+
+                                                                                
+     c = generate()                                                             
+     assert len(c) == len(HARD_QUERY_SET), "all queries generated"              
+     assert all(len(v) == 1 and v[0]["model"] == "coder30" for v in c.values()) 
+     # resume: a second run regenerates nothing                                 
+     n_before = os.path.getmtime(OUT)                                           
+     time.sleep(0.01)                                                           
+     generate()                                                                 
+     assert os.path.getmtime(OUT) == n_before, "resume: no rewrite when         
+ complete"                                                                      
+     # exercise dry-run                                                         
+     generate(dry_run=True)                                                     
+     print(f"ok — gen shape + resume verified offline ({len(c)} queries)")      
+                                                                                
+
+Make sure indentation matches: 8 spaces before c = generate()? In file, try     
+block indented 4 spaces, inside 8 spaces. Yes.                                  
+
+Let's output.                                                                   
+
+Potential nuance: The generate function returns cache, but after dry_run we     
+return cache, which is fine.                                                    
+
+Also need to ensure import of sys already present. Yes.                         
+
+Now produce final answer.                                                       
+
+--------------------------------------------------------------------------------
+
+► ANSWER                                                                        
+
+orchestrator/bench_local30_gen.py                                               
+
+                                                                                
+ <<<<<<< SEARCH                                                                 
+ def generate() -> dict[str, list[dict]]:                                       
+     # Resume from any partial file: a crash mid-run keeps finished answers.    
+     cache: dict[str, list[dict]] = {}                                          
+     if os.path.exists(OUT):                                                    
+         with open(OUT) as f:                                                   
+             cache = json.load(f)                                               
+     for q in HARD_QUERY_SET:                                                   
+ =======                                                                        
+ def generate(dry_run: bool = False) -> dict[str, list[dict]]:                  
+     # Resume from any partial file: a crash mid-run keeps finished answers.    
+     cache: dict[str, list[dict]] = {}                                          
+     if os.path.exists(OUT):                                                    
+         with open(OUT) as f:                                                   
+             cache = json.load(f)                                               
+     if dry_run:                                                                
+         pending = sum(1 for q in HARD_QUERY_SET if q["id"] not in cache)       
+         print(f"dry-run: would generate {pending}/{len(HARD_QUERY_SET)}        
+ queries (cached {len(cache)})")                                                
+         return cache                                                           
+     for q in HARD_QUERY_SET:                                                   
+ >>>>>>> REPLACE                                                                
+                                                                                
+
+orchestrator/bench_local30_gen.py                                               
+
+                                                                                
+ <<<<<<< SEARCH                                                                 
+ if __name__ == "__main__":                                                     
+     if "--demo" in sys.argv:                                                   
+         demo()                                                                 
+     else:                                                                      
+         print(f"generating {MODEL} on {len(HARD_QUERY_SET)} hard queries "     
+               f"via {OLLAMA_BASE} (max_tokens={MAX_TOKENS}) ...")              
+         cache = generate()                                                     
+         ok = sum(1 for v in cache.values() if v[0]["content"] is not None)     
+         print(f"done — {ok}/{len(HARD_QUERY_SET)} generated -> {OUT}")         
+ =======                                                                        
+ if __name__ == "__main__":                                                     
+     if "--demo" in sys.argv:                                                   
+         demo()                                                                 
+     elif "--dry-run" in sys.argv:                                              
+         generate(dry_run=True)                                                 
+         sys.exit(0)                                                            
+     else:                                                                      
+         print(f"generating {MODEL} on {len(HARD_QUERY_SET)} hard queries "     
+               f"via {OLLAMA_BASE} (max_tokens={MAX_TOKENS}) ...")              
+         cache = generate()                                                     
+         ok = sum(1 for v in cache.values() if v[0]["content"] is not None)     
+         print(f"done — {ok}/{len(HARD_QUERY_SET)} generated -> {OUT}")         
+ >>>>>>> REPLACE                                                                
+                                                                                
+
+orchestrator/bench_local30_gen.py                                               
+
+                                                                                
+ <<<<<<< SEARCH                                                                 
+         c = generate()                                                         
+         assert len(c) == len(HARD_QUERY_SET), "all queries generated"          
+         assert all(len(v) == 1 and v[0]["model"] == "coder30" for v in         
+ c.values())                                                                    
+         # resume: a second run regenerates nothing                             
+         n_before = os.path.getmtime(OUT)                                       
+         time.sleep(0.01)                                                       
+         generate()                                                             
+         assert os.path.getmtime(OUT) == n_before, "resume: no rewrite when     
+ complete"                                                                      
+         print(f"ok — gen shape + resume verified offline ({len(c)} queries)")  
+ =======                                                                        
+         c = generate()                                                         
+         assert len(c) == len(HARD_QUERY_SET), "all queries generated"          
+         assert all(len(v) == 1 and v[0]["model"] == "coder30" for v in         
+ c.values())                                                                    
+         # resume: a second run regenerates nothing                             
+         n_before = os.path.getmtime(OUT)                                       
+         time.sleep(0.01)                                                       
+         generate()                                                             
+         assert os.path.getmtime(OUT) == n_before, "resume: no rewrite when     
+ complete"                                                                      
+         # exercise dry-run                                                     
+         generate(dry_run=True)                                                 
+         print(f"ok — gen shape + resume verified offline ({len(c)} queries)")  
+ >>>>>>> REPLACE                                                                
+                                                                                
+
+Tokens: 5.5k sent, 5.2k received.
+Applied edit to orchestrator/bench_local30_gen.py

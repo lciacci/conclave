@@ -17,5 +17,15 @@
     "output_cost_per_token": 0,
     "litellm_provider": "ollama",
     "mode": "chat"
+  },
+  "_comment_muse": "Added 2026-08-14 for the muse-glimmer leg. IDENTICAL numbers to the qwen entry on purpose — this harness's whole claim is that only the MODEL differs between legs, so a context or output budget tuned per-model would void the comparison it exists to make. ⚠️ muse-glimmer is a THINKING model: reasoning and content share max_output_tokens, so 8192 buys it less usable output than it buys qwen. That asymmetry is REAL and is not corrected here — correcting it would unmatch the legs. If its T2/T3 diffs come back empty, suspect budget starvation before concluding the edit was never applied, and see docs/LOCAL-CODER-FAILURES.md for the same trap in the S2 probe.",
+  "ollama_chat/muse-glimmer:30b": {
+    "max_input_tokens": 32768,
+    "max_output_tokens": 8192,
+    "max_tokens": 32768,
+    "input_cost_per_token": 0,
+    "output_cost_per_token": 0,
+    "litellm_provider": "ollama",
+    "mode": "chat"
   }
 }
