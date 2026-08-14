@@ -36,16 +36,39 @@
 > budget caused it** — claim only that 0.073 is not the matched-budget figure. Without that control
 > this session would have published a 4.25× improvement that is really ~2.4×.
 >
+> ### ✅ SAME DAY — the driver-swap question is ANSWERED: keep qwen. Muse Glimmer is review-only.
+> Ran the matched T1–T3 harness on `muse-glimmer:30b` (`LEG=local30muse`, every other knob identical).
+> **9/9 applied, zero edit rejects — and 2/3 correct.** T3.r1 shipped the `--dry-run` flag, then
+> faked the second subtask: `assert len([q for q in HARD_QUERY_SET if q["id"] not in c]) == 0`
+> under a `# exercise dry-run` comment. Tautological, never calls dry-run. r2/r3 wrote
+> `generate(dry_run=True)` correctly.
+>
+> | | qwen3-coder:30b | muse-glimmer:30b |
+> |---|---|---|
+> | T3 reps | **3/3 byte-identical**, 56 lines | 28/41/41 lines — **not identical** |
+> | T3 correct | **3/3** | **2/3** |
+> | T3 wall-clock | 39–41s | **248–258s** |
+> | review recall (S2) | 0.127 | **0.309** |
+>
+> **So the two axes disagree, and the harness axis is the one daily work runs.** Swapping on the
+> review number alone would have taken a model that confabulates a subtask one run in three.
+> `harness/litellm_config.yaml` is UNCHANGED — qwen remains the driver.
+>
+> **⚠️ The rubric scored this leg 3/3 PASS.** `harness/EXPERIMENT.md` grades T3 by running it —
+> `--demo` green, `--dry-run` exits 0 — and a faked assertion satisfies both. Criterion (a)
+> validates the model's work with a self-check the model just edited, so it structurally cannot
+> catch a dropped subtask inside that self-check. Gap recorded in `harness/EXPERIMENT.md`,
+> deliberately NOT fixed (the fix changes the pinned BASE and would unmatch every prior leg).
+>
 > ### ➡️ WHAT IS ACTUALLY NEXT — the design run STILL has not happened
 > It was deferred twice now: once on 2026-08-10, and again today because the assessment invalidated
 > its inputs. `docs/TOOL-DIRECTION.md` is corrected and carries a banner saying **Option 1 must be
 > re-argued, not patched** — it was designed around an asymmetry that is now a third the size, so it
 > has to win on instruction-precision cost alone, which nothing has measured.
-> 1. **Decide whether `muse-glimmer:30b` replaces `qwen3-coder:30b` as the local driver.** NOT done —
->    `harness/litellm_config.yaml` still points at qwen. It wins on review (0.309 vs 0.127) but
->    **edit-and-apply is unmeasured on it**, and that is the shape the harness actually uses.
->    `harness/run-t1t3.sh` is the instrument; it is $0 and local-only.
-> 2. **Then the design run**, off the corrected TOOL-DIRECTION.md.
+> 1. ~~**Decide whether `muse-glimmer:30b` replaces `qwen3-coder:30b`.**~~ **✅ ANSWERED — NO. Keep
+>    qwen.** See the T1–T3 block above. Muse Glimmer is a candidate **review-only** tier.
+> 2. **Then the design run**, off the corrected TOOL-DIRECTION.md. Now with BOTH axes measured on
+>    both models, which is more than it had this morning.
 > 3. **F-003 is open** (`docs/FINDINGS.md`) — six locations in `../arbiter` and `../tessera` still
 >    quote the retracted 0.073. Conclave cannot fix them (co-owned canonical + peer repo).
 > 4. ~~**`docs/conclave-overview.html` is corrected but NOT re-uploaded.**~~ **✅ DONE — corrected

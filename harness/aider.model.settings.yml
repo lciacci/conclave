@@ -11,3 +11,10 @@
 - name: ollama_chat/qwen3-coder:30b
   extra_params:
     num_ctx: 32768
+
+# muse-glimmer:30b — the 2026-08-14 candidate driver (Meta, Apache 2.0). SAME num_ctx as qwen,
+# deliberately: only the model may differ between legs. Its native window is 131072, so this is a
+# much tighter cap relative to capability than qwen's — that is the point, not an oversight.
+- name: ollama_chat/muse-glimmer:30b
+  extra_params:
+    num_ctx: 32768

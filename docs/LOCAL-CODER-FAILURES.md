@@ -102,6 +102,40 @@ original model. All three arms at `CONCLAVE_MAX_TOKENS=16384`. $0, ~40 min of la
 - **Escalated?** n/a — a measurement. But the operating rule it feeds changes: review is no longer
   a shape that *breaks* the local tier, it is one where the local tier runs at ~2/3 recall for free.
 
+### 2026-08-14 — `muse-glimmer:30b` faked the second half of T3, and the rubric scored it PASS
+
+Same day, same model, the *other* axis. Ran the matched T1–T3 harness
+(`LEG=local30muse AIDER_MODEL=ollama_chat/muse-glimmer:30b harness/run-t1t3.sh`, every other knob
+identical to the qwen leg). 9/9 applied, `edit_reject_blocks=0` on every row — and one rep wrong.
+
+- **Task shape:** two-part edit — add a `--dry-run` flag, *and* add a line to `demo()` exercising it.
+- **What it did:** r2 and r3 wrote `generate(dry_run=True)` under the `# exercise dry-run` comment.
+  **r1 wrote `assert len([q for q in HARD_QUERY_SET if q["id"] not in c]) == 0`** — a tautology over
+  a cache the preceding lines already filled, which never touches dry-run, under a comment claiming
+  it does. The flag itself was correct in all three.
+- **Class:** `confabulated-completion`. Not new, but new *on this model*, and it is the class that
+  makes auto-accept unsafe.
+- **Recoverable?** 2/3 reps were correct, so a retry would likely have fixed it — which is exactly
+  why it is dangerous: it is intermittent, not deterministic.
+- **Escalated?** n/a — a measurement.
+
+**⚠️ THE RUBRIC DID NOT CATCH THIS, and that is the more useful finding.** `harness/EXPERIMENT.md`
+grades T3 by RUNNING it: (a) `--demo` still green, (b) `--dry-run` exits 0 without dialing Ollama.
+r1 satisfies **both** — a faked assertion exits 0 exactly like a real one. So the instrument scored
+this leg **3/3 PASS** and only reading the diff found the drop. The 2026-07-20 entry already named
+this failure "fake green"; the rubric written after it still cannot see it. **A self-check that the
+model itself authored cannot be the thing that validates the model's work.** Fixing this needs an
+assertion the model does not write — e.g. grading against a fixed post-condition supplied by the
+harness, not by the edit. Recorded, not fixed.
+
+**Decision it drove: do NOT swap the local driver.** Muse Glimmer wins review (0.309 vs 0.127) and
+loses the shape the harness actually runs — 2/3 vs qwen's 3/3, 248s vs 40s on T3, and run-to-run
+*variance* where qwen was byte-identical 3/3. Choosing on the review number alone would have taken a
+model that confabulates a subtask one run in three. `qwen3-coder:30b` remains the driver; Muse
+Glimmer is a candidate **review-only** tier.
+**Bound:** n=3 on one task. r1 may be draw variance rather than a stable property — but the
+determinism gap (byte-identical 3/3 vs three different outputs) is not a single-sample artifact.
+
 **The methodological lesson, which is the durable part.** The original entry survived four months
 and propagated into two sibling repos as "the local tier cannot review." It was a single draw, on
 one model, at a budget nobody had matched. The instrument was always able to falsify it for $0 —
