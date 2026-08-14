@@ -69,8 +69,13 @@
 >    qwen.** See the T1–T3 block above. Muse Glimmer is a candidate **review-only** tier.
 > 2. **Then the design run**, off the corrected TOOL-DIRECTION.md. Now with BOTH axes measured on
 >    both models, which is more than it had this morning.
-> 3. **F-003 is open** (`docs/FINDINGS.md`) — six locations in `../arbiter` and `../tessera` still
->    quote the retracted 0.073. Conclave cannot fix them (co-owned canonical + peer repo).
+> 3. ~~**F-003 is open**~~ **✅ CLOSED same day — all six peer citations corrected**
+>    (`../arbiter@c533e8d`, `../tessera@bdb67fe`). Scope held: the retracted fact and its
+>    justification, **not** guard (b)'s verdict, which does not change. The load-bearing outcome:
+>    **arbiter's answer moved.** Its docs closed the cheap-finder question on the dead number
+>    ("conclave measured it and it is dead"); at 0.309 with half claude's false positives, for $0,
+>    into a triage stage it already runs, that is re-opened. **Not a recommendation to swap — a
+>    withdrawal of the claim that the option was closed.** D3 re-opens in Tessera on the same basis.
 > 4. ~~**`docs/conclave-overview.html` is corrected but NOT re-uploaded.**~~ **✅ DONE — corrected
 >    AND re-uploaded by the owner the same day.** Repo and live copy match. This is the first time
 >    the page has been fixed and deployed inside the same session as the retraction that caused it;

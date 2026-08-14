@@ -121,7 +121,24 @@ third peer pair appears, or if the same fact is found missing a second time.
 
 ## F-003 — a retracted number stays live in every peer that copied it
 
-**Status:** open
+**Status:** transferred:`../tessera/docs/observatory.md` → F-002 revisit-trigger block (2026-08-14)
+
+> **All six peer citations CORRECTED 2026-08-14** — `../arbiter@c533e8d` (INTEGRATION.md ×2,
+> NEXT_SESSION.md, STATE.md ×2) and `../tessera@bdb67fe` (three-project-cohesion.md ×2,
+> design-principles.md ×2, observatory.md ×2). Scope held deliberately: the **retracted fact** and
+> the justification resting on it were corrected; **guard (b)'s verdict was not touched**, because
+> it does not change — it gets stronger. No ADR proposed.
+>
+> **Two things the propagation itself taught, both worth more than the corrections:**
+> 1. **The retraction changed a peer's ANSWER, not just its number.** arbiter's docs used 0.073 to
+>    close the cheap-finder question — *"conclave measured it and it is dead."* At 0.309 recall with
+>    **half** claude's false positives, for $0, feeding a triage stage arbiter already runs, that
+>    question is re-opened. Had this not been pushed, arbiter would have kept declining an option on
+>    evidence that no longer existed. That is the concrete cost of the F-002 gap, finally priced.
+> 2. **Tessera's own doccheck caught an error in the correction.** The first commit was BLOCKED —
+>    `referenced-paths-exist` flagged that a conclave-relative path (`docs/S2-scoping.md`) had been
+>    written into a Tessera-hosted doc where it does not resolve. A cross-repo write is exactly
+>    where that class of mistake happens, and the receiving repo's gate is what caught it.
 
 **Where:** `../arbiter/docs/{INTEGRATION.md,NEXT_SESSION.md,STATE.md}`,
 `../tessera/docs/{design-principles.md,observatory.md,contracts/three-project-cohesion.md}`.
