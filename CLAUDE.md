@@ -98,6 +98,12 @@ How the project owner works. The most important section.
 - **Name the decision that flips before proposing a measurement.** If nothing changes with the
   result, don't propose it. Conclave is a toolset, not a case study — record the caveat, cite the
   command that would answer it, and move on. The instrument is the deliverable, not its output.
+- **After applying review findings, re-review before committing.** `/code-review` covers the draft;
+  the edits made in response to it are the only part of a change nothing has looked at, and they are
+  the riskiest — written under pressure, in the spots already known to be delicate, by whoever got
+  them wrong once. Don't apply findings in the same turn that commits them. This rule exists because
+  the gap fired three times in one session (2026-08-15) and put a wrong claim on a deployed page;
+  see `docs/FINDINGS.md` F-004, which stays open pending a recurrence in a *different* session.
 
 ## Hook lifecycle (Mnemos)
 
