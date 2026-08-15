@@ -136,6 +136,31 @@ the within-fleet null, since within-fleet routing died with the specialist-fleet
 1. What *is* the signal, concretely — a per-task-shape competence table, or a failure taxonomy?
 2. Does it need to be machine-readable at n<10, or is a doc the honest format until then?
 
+> **2026-08-15 — Option 2 now has a candidate consumer, and it wants a different signal.**
+> [NVIDIA-NeMo/Switchyard](https://github.com/NVIDIA-NeMo/Switchyard) is a shipped routing proxy
+> whose escalation router *is* this cascade: weak tier answers, a judge reads the completed turn,
+> N consecutive escalate verdicts latch the session to the strong tier. The "the consumer lives in
+> another repo, so the value only lands if Tessera builds the policy half" objection is weaker than
+> it was — the policy half exists off the shelf.
+>
+> **But the shape doesn't match, and the mismatch is where the design run has something to argue
+> about.** Its three *deciding* routers consume **runtime signals** — in-conversation errors,
+> spinning, tool-result density, or an LLM classifier call. None reads an **offline per-task-shape
+> competence prior**, which is what open question 1 assumes conclave would emit.
+>
+> The fourth router is the interesting one: **`random` takes static weights**, and there is also
+> session affinity. That *is* an injection point — a competence table compiles into per-route
+> weights — but a coarse one, because weights are fixed per route and carry no notion of task shape.
+> Getting shape-awareness would mean one route per shape and a caller that already knows which shape
+> it is in, which pushes the classification back to the caller and may defeat the point. **Open
+> question 3 for the design run: is a per-route weight table a real consumer for the signal, or is
+> the signal only ever readable by a policy conclave doesn't own?**
+>
+> **Two warnings attached.** Switchyard publishes **no** quality or cost numbers for any router, so
+> this is convergence on shape only — do not let it graduate to evidence. And it is self-labelled
+> "not for production use". Full evaluation: `../tessera/docs/adr/0023-switchyard-evaluation.md`;
+> summary in `docs/INTEGRATION.md` § External prior art on the routing seam.
+
 ## Option 4 — no new build; use what exists and log the failures
 
 Use `harness/run-local-cc.sh` on real work, record what breaks.

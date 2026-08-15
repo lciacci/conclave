@@ -212,7 +212,7 @@ Tailscale · Python (stdlib only in the orchestrator)
 docs/
   design.md                    decision log — every locked call with its reasoning
   HANDOFF.md                   session-to-session state, experimental log, boot playbook
-  conclave-overview.html       public descriptor page
+  index.html                   public descriptor page — manually deployed by upload
 infra/                         Terraform: cost layer + gated GPU/gateway module (AWS fallback)
 runpod/                        the current fleet: boot.sh (fail-closed), watchdog.sh, fleet configs
 orchestrator/

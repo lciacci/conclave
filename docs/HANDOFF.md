@@ -1,6 +1,49 @@
 # HANDOFF — resume here
 
-> # 🔴 2026-08-14 (LATEST — RESUME HERE) — the local tier's headline weakness was RETRACTED. A new open-weight model closed two-thirds of it, and the design run has NOT happened yet.
+> # 📋 2026-08-15 (LATEST — RESUME HERE) — an external routing proxy was evaluated. $0, docs only, no runs. The finding is a correction to **Tessera's** ADR-0002, not to anything measured here.
+>
+> ## Nothing spent. No GPU, no pod, no API. Docs only, across conclave and tessera.
+>
+> ### What happened
+> `NVIDIA-NeMo/Switchyard` (Apache 2.0, Rust, public 2026-06-30, v0.2.0, **self-labelled "not for
+> production use"**) is a routing proxy whose **escalation router is the lab↔frontier cascade,
+> shipped**: weak tier answers, a judge reads the completed turn, N consecutive escalate verdicts
+> latch the session to the strong tier.
+>
+> **It carries no numbers.** No quality or cost evaluation for any of its four routers. Treat it as
+> convergence on *shape* only — reading it as support for the cascade paying is failure mode #1.
+> **It does not dent the ensemble null**: conclave disproved a fan-out-and-vote judge over N parallel
+> answers; theirs is sequential and session-level. Different object.
+>
+> ### Where it landed, and why not here
+> The evaluation is a **Tessera ADR** — `../tessera/docs/adr/0023-switchyard-evaluation.md`
+> (Status *Watching*, next check **2026-10-14**) — because routing policy is Tessera's lane by
+> guard 3, and conclave has no ADR practice. Conclave carries pointers only:
+> `docs/INTEGRATION.md` § "External prior art on the routing seam" and `docs/TOOL-DIRECTION.md`
+> Option 2. Verdict: adopt two ideas (transcript-derived tier signals; the escalation latch),
+> **reject the dependency** — wrong layer for Tessera, pre-alpha, and a known issue where a
+> cancelled request still bills you.
+>
+> ### The two things a resuming session actually needs
+> 1. **Option 2 has a candidate consumer now, and the shape doesn't fit.** Switchyard's three
+>    deciding routers read *runtime* signals; none reads an offline per-task-shape competence prior.
+>    Its `random` router takes static weights, which *is* an injection point but a coarse one. A new
+>    open question 3 is recorded in `TOOL-DIRECTION.md`. **The design run is still not done — it is
+>    now deferred a 4th time.**
+> 2. **Tessera's ADR-0002 said "main-thread application stays impossible (harness limitation)" and
+>    wrote its trigger around a *hook*.** `harness/run-local-cc.sh` shows a second application point
+>    exists — an interposed proxy at `ANTHROPIC_BASE_URL`, no hook needed. **Bound this carefully:**
+>    the harness binds `ANTHROPIC_MODEL` once at launch against a static two-entry map, so it is
+>    *interposition, not routing*, and does **not** refute "can't apply mid-flight". Per-request
+>    policy at that point is Switchyard's claim, untested here. The first draft of that paragraph
+>    merged the two claims and `/code-review` caught it as a HIGH.
+>
+> ### Also this session
+> `docs/conclave-overview.html` → **`docs/index.html`** (still manually deployed by upload; the
+> rename removes a step). Four references swept. Three stale "(LATEST — RESUME HERE)" markers below
+> demoted to their dates — only this block carries the marker now.
+
+> # 🔴 2026-08-14 — the local tier's headline weakness was RETRACTED. A new open-weight model closed two-thirds of it, and the design run has NOT happened yet.
 >
 > ## Nothing spent. $0, laptop only, ~40 min of local generation. No GPU, no pod, no API.
 >
@@ -77,7 +120,8 @@
 >    ("conclave measured it and it is dead"); at 0.309 with half claude's false positives, for $0,
 >    into a triage stage it already runs, that is re-opened. **Not a recommendation to swap — a
 >    withdrawal of the claim that the option was closed.** D3 re-opens in Tessera on the same basis.
-> 4. ~~**`docs/conclave-overview.html` is corrected but NOT re-uploaded.**~~ **✅ DONE — corrected
+> 4. ~~**`docs/conclave-overview.html` is corrected but NOT re-uploaded.**~~ *(that file is now
+>    `docs/index.html`)* **✅ DONE — corrected
 >    AND re-uploaded by the owner the same day.** Repo and live copy match. This is the first time
 >    the page has been fixed and deployed inside the same session as the retraction that caused it;
 >    the two prior instances drifted for ~3 weeks.
@@ -92,7 +136,7 @@
 > - `s2_model_axis.py` takes `$LOCAL_CODER` + `$S2_PASSES_FILE`, one passes file per model. A shared
 >   file would have let the second model **resume into the first's rows** and score a silent blend.
 
-> # ✅ 2026-08-10 (LATEST — RESUME HERE) — the free signal arrived and the paid experiment stays UNSPENT. Conclave's queue is now empty of everything except passive accumulation.
+> # ✅ 2026-08-10 (superseded — see the 2026-08-15 block at the top) — the free signal arrived and the paid experiment stays UNSPENT. Conclave's queue is now empty of everything except passive accumulation.
 >
 > `../arbiter/docs/STATE.md` § "Round 3" is the head-to-head the 2026-08-07 block was waiting on.
 > **Trigger not met — do not spend.** Three arms on one diff, but *all three are the same model*, so
@@ -124,7 +168,9 @@
 > - **CLAUDE.md rewritten** the same day to cut accumulated drift (changelog-in-instructions, the
 >   superseded pre-closure positioning, the done-but-listed harness step).
 >
-> ### 📌 STANDING ITEM — `docs/conclave-overview.html` is MANUALLY DEPLOYED
+> ### 📌 STANDING ITEM — `docs/index.html` is MANUALLY DEPLOYED
+> *(Renamed from `conclave-overview.html` on 2026-08-15 — it deploys to the root of its own
+> directory, so `index.html` is served without a rename step at upload time.)*
 > The overview page goes live **by upload**, so a commit here does not update it. The repo and the
 > public page can disagree silently, and have: it spent ~3 weeks asserting the retracted
 > "slow / low-fidelity" claim and naming pr-arbiter after that project closed. **Keep it current** —
@@ -175,7 +221,7 @@
 > (`docs/observatory.md` lines ~1041–1095 are badly stale — old L40S fleet, "conclave carries both a
 > judge and a router" as the converging design, pr-arbiter Phase 1/2 numbers as live).
 
-> # ✅ 2026-07-28 (LATEST — RESUME HERE) — THE CLEAN T1–T3 COMPARISON RAN. Result is a NULL: no fidelity separation. The 2026-07-22 "80B's edits never landed" verdict is now settled — it was the HARNESS, and the 80B is FASTER, not slower.
+> # ✅ 2026-07-28 (superseded — see the 2026-08-15 block at the top) — THE CLEAN T1–T3 COMPARISON RAN. Result is a NULL: no fidelity separation. The 2026-07-22 "80B's edits never landed" verdict is now settled — it was the HARNESS, and the 80B is FASTER, not slower.
 >
 > ## Nothing is billing. Pod terminated after 21 min. Session ≈ **$3.30 RunPod, $0 AWS**. Grant revoked.
 > ## Both legs at pinned BASE `a740565`, same aider build on the same laptop, only the endpoint differs.
@@ -408,7 +454,7 @@
 > lottery, no 75GB download — the three things that ate this session. Revisit AFTER the current
 > measurement, gated on the instrument, not on the launch.
 
-> # 🖥️ 2026-07-22 (LATEST — RESUME HERE) — HOSTED-80B T1–T3 RAN on a RunPod H200. Result: 80B GENERATIONS are correct; the aider-on-raw-vLLM HARNESS is the confound. Fidelity head-to-head NOT cleanly settled — it needs a matched, edit-applying harness.
+> # 🖥️ 2026-07-22 (superseded — see the 2026-08-15 block at the top) — HOSTED-80B T1–T3 RAN on a RunPod H200. Result: 80B GENERATIONS are correct; the aider-on-raw-vLLM HARNESS is the confound. Fidelity head-to-head NOT cleanly settled — it needs a matched, edit-applying harness.
 >
 > ## The run happened. Not a fleet — ONE `Qwen3-Coder-Next-FP8` on ONE H200, driven by aider POD-SIDE
 > ## headless, same T1–T3 as the local qwen3-coder:30b leg. Everything below replays; pod is TERMINATED,

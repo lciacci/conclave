@@ -171,4 +171,50 @@ Recorded here 2026-08-07 because it had not crossed. arbiter has reviewed concla
 - **Cohesion note:** conclave's "route, don't judge" IS Tessera principle #5 ("ensembling is a tool,
   not a default"), measured — conclave is the empirical arm of a stance Tessera holds as philosophy.
 
+## External prior art on the routing seam — Switchyard (2026-08-15)
+
+**[NVIDIA-NeMo/Switchyard](https://github.com/NVIDIA-NeMo/Switchyard)** (Apache 2.0, Rust, public
+2026-06-30, v0.2.0) is a routing proxy that translates OpenAI-Chat ↔ OpenAI-Responses ↔
+Anthropic-Messages and picks a backend by policy — including an **escalation router** (weak tier
+answers, a judge reads the completed turn, N consecutive escalate verdicts latch the session to the
+strong tier). That is the lab↔frontier cascade, shipped.
+
+**Read it as convergence on shape, not as evidence.** It publishes **no** quality or cost evaluation
+for any of its four routers. The figures the routing docs do carry are knobs, not outcomes — the
+stage router's `confidence_threshold = 0.5` default and the `~0.46` single-signal score it is set
+against, both calibrated on SWE-Bench Pro Python-75. Its own guidance is to measure in your
+environment via `/v1/stats`. Citing NVIDIA's design choice as support for the cascade paying is this
+repo's failure mode #1 with a new costume.
+
+**It does not touch the ensemble null.** Conclave disproved a *fan-out-and-vote* judge over N
+parallel answers to one prompt. Switchyard's judge is sequential and session-level — one weak
+answer, "is this going badly?", latch. Different object; the null neither covers it nor is dented
+by it.
+
+**The evaluation lives in Tessera, by guard 3** — routing policy is Tessera's lane, and the ADR
+practice, template and numbering are Tessera's too (conclave has no ADRs):
+**`../tessera/docs/adr/0023-switchyard-evaluation.md`** (Status: *Watching*, next check 2026-10-14).
+Verdict: adopt two ideas, reject the dependency — wrong layer for Tessera, pre-alpha, and a known
+issue where a cancelled request still bills you.
+
+**The part conclave should know about itself — stated carefully, because the first draft of this
+paragraph over-claimed and `/code-review` caught it.** Tessera's ADR-0002 recorded that "main-thread
+application stays impossible (harness limitation)" and wrote its re-evaluate trigger around a *hook*.
+`harness/run-local-cc.sh` shows there is a second application point ADR-0002 never examined: an
+interposed proxy at `ANTHROPIC_BASE_URL` needs no hook and no harness cooperation, and conclave has
+been using one for months while neither repo noticed.
+
+**That is the whole of the claim.** The harness binds `ANTHROPIC_MODEL` once at launch
+(`run-local-cc.sh:39-42`) against a static two-entry map (`harness/litellm_config.yaml`) — it is
+**interposition, not routing**, with no policy and no runtime decision, so it does *not* refute
+ADR-0002's "can't apply mid-flight". Whether a policy can be applied at that point per-request is
+**Switchyard's claim, untested by anyone here.** Conclave has demonstrated that the point exists;
+that is a correction to ADR-0002's reasoning and not a licence to build on it.
+
+ADR-0023 records the correction; ADR-0002 is not edited, per Tessera's convention.
+
+---
+
 Full context in this repo: `docs/design.md` § "External validation + scope", `docs/HANDOFF.md`.
+*(That footer predates the Switchyard section above and points at 2026-07-17 material; for
+Switchyard the pointers are ADR-0023 and `docs/TOOL-DIRECTION.md` Option 2.)*
