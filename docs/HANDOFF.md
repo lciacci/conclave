@@ -45,7 +45,8 @@
 > interposition with routing. Round 2 (MEDIUM), on the *corrected* paragraph: "conclave has been
 > using one for months" was wrong on duration (29 days), on order (the proxy postdates ADR-0002),
 > and on usage (this repo's own notes say the harness has produced almost no data). Failure mode #1
-> is not defeated by naming it in the same paragraph.
+> is not defeated by naming it in the same paragraph. **Raised as `docs/FINDINGS.md` F-004** — the
+> gate reviews the draft and never the fix, and the instrument didn't notice; the owner asked.
 >
 > ### Also this session
 > `docs/conclave-overview.html` → **`docs/index.html`** (still manually deployed by upload; the

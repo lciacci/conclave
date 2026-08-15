@@ -186,3 +186,57 @@ automation.
 
 **When to fix:** the corrections are the urgent part and they are manual either way. Build nothing
 until a third instance appears — but record the count, because this is now two.
+
+---
+
+## F-004 — the review gate covers the draft and never the fix
+
+**Status:** open (raised 2026-08-15)
+
+The pre-commit discipline is "run `/code-review` before committing". As actually practised the
+sequence is **review → apply the findings → commit**, which means **the edits made in response to
+the review are the only part of the change that no review ever sees.** They are also the
+highest-risk part: they were written under time pressure, in the areas already known to be
+delicate, by the same author who got them wrong the first time.
+
+**Concretely, this session.** Round 1 flagged a HIGH in `docs/INTEGRATION.md` (a claim that conclave's
+proxy harness does per-request routing when it does launch-time interposition). I rewrote the
+paragraph, committed, and pushed. The rewrite contained **a second over-claim** — wrong on duration,
+wrong on chronological order, and contradicted by this repo's own notes — which a *later* review
+caught only because the owner asked whether anything had gone unreviewed. **The instrument did not
+notice the gap; a human did.** By then the claim had reached two repos and a page that had already
+been uploaded, so the fix cost a re-deploy rather than a commit.
+
+**Why it's framework-level.** Nothing here is specific to conclave's subject matter. Any project
+running the gate has the same shape, and the failure is silent by construction: after a review, the
+tree looks *more* reviewed than before, so the natural next action is to commit. The gate produces
+a false sense of coverage exactly proportional to how many findings it produced.
+
+**It compounds with manually-deployed artifacts.** Tessera's `doccheck` caught a *missing* ADR row on
+`docs/promo/index.html` and blocked on it — good. Nothing catches a row that is *present and wrong*,
+and the page is uploaded by hand, so a bad claim in it outlives the commit that fixed it. Conclave
+has the same class of artifact (`docs/index.html`) and the same hole. This is F-003's shape one step
+downstream: not "a retraction fails to reach peers", but "a correction reaches the repo and not the
+deployed copy".
+
+**Suggested fix (lands in `../tessera`), cheapest first:**
+1. **A Stop-hook check, in the shape `gate/scan.py` already has:** if the transcript shows a
+   `/code-review` invocation followed by file edits followed by a commit, with no second review
+   between, make it adjudicable — the same "you did a gate-shaped thing and did not log it" pattern
+   that already backstops the suggestion-gate. This is the 80% fix and needs no new instrument.
+2. `/code-review --fix` already applies findings itself; if it re-reviewed its own applied diff, the
+   most common path would close without any hook.
+3. For the deploy hole: a `deployed:` marker in the page plus a doccheck rule that the marker's date
+   is not older than the file's last content commit. That turns "needs re-upload" from a thing a
+   session has to remember into a thing that fails loud.
+
+**When to fix:** n=1, so by F-003's own standard, build nothing yet. But record it, because unlike
+F-001–F-003 this one has a **known cost already paid** (a wrong claim on a live page) rather than a
+hypothetical one, and fix (1) is a variation on a hook that exists rather than a new mechanism.
+
+**Honest counter-argument:** the discipline "re-run the review after applying fixes" requires no
+tooling at all, and n=1 is a thin basis for a hook. The case against that is the same as F-003's —
+this repo's memory already carried "run the adversarial pass before propagating" and the pass *ran*;
+the fix still shipped unreviewed. A rule that is documented, followed, and still leaves the hole is a
+better automation candidate than one that was merely skipped. See [[overclaim-reflex]] (4th instance,
+2026-08-15) and [[code-review-before-commit]].
