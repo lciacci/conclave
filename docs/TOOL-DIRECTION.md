@@ -135,6 +135,10 @@ the within-fleet null, since within-fleet routing died with the specialist-fleet
 **Open questions:**
 1. What *is* the signal, concretely — a per-task-shape competence table, or a failure taxonomy?
 2. Does it need to be machine-readable at n<10, or is a doc the honest format until then?
+3. *(added 2026-08-15, from the Switchyard evaluation below)* Is a per-route **static weight table**
+   a real consumer for the signal, or is the signal only ever readable by a policy conclave does not
+   own? Switchyard's deciding routers read runtime signals; only its `random` router takes weights,
+   and weights carry no notion of task shape.
 
 > **2026-08-15 — Option 2 now has a candidate consumer, and it wants a different signal.**
 > [NVIDIA-NeMo/Switchyard](https://github.com/NVIDIA-NeMo/Switchyard) is a shipped routing proxy

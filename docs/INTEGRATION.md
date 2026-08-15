@@ -181,8 +181,9 @@ strong tier). That is the lab↔frontier cascade, shipped.
 
 **Read it as convergence on shape, not as evidence.** It publishes **no** quality or cost evaluation
 for any of its four routers. The figures the routing docs do carry are knobs, not outcomes — the
-stage router's `confidence_threshold = 0.5` default and the `~0.46` single-signal score it is set
-against, both calibrated on SWE-Bench Pro Python-75. Its own guidance is to measure in your
+stage router's `confidence_threshold = 0.5` default, which upstream attributes to a SWE-Bench Pro
+Python-75 calibration, and the `~0.46` single-signal score it is set against, which upstream
+presents as scoring arithmetic and attributes to nothing. Its own guidance is to measure in your
 environment via `/v1/stats`. Citing NVIDIA's design choice as support for the cascade paying is this
 repo's failure mode #1 with a new costume.
 
@@ -201,8 +202,16 @@ issue where a cancelled request still bills you.
 paragraph over-claimed and `/code-review` caught it.** Tessera's ADR-0002 recorded that "main-thread
 application stays impossible (harness limitation)" and wrote its re-evaluate trigger around a *hook*.
 `harness/run-local-cc.sh` shows there is a second application point ADR-0002 never examined: an
-interposed proxy at `ANTHROPIC_BASE_URL` needs no hook and no harness cooperation, and conclave has
-been using one for months while neither repo noticed.
+interposed proxy at `ANTHROPIC_BASE_URL` needs no hook and no harness cooperation.
+
+**The chronology matters and the first draft got it backwards.** ADR-0002 was written 2026-06-26 and
+executed 06-27. The proxy harness landed **three weeks later** (`60f2ea6`, 2026-07-17), so it was not
+a standing refutation that Tessera overlooked — it did not exist yet. What happened is that conclave
+then built something sitting in exactly the position ADR-0002 had ruled out, and **for the four weeks
+since, neither repo revisited the claim.** That is still the finding; it is a missed reconciliation,
+not a pre-existing contradiction. And "built and exercised" is the honest verb, not "in use" —
+`docs/TOOL-DIRECTION.md` records that this harness "has been the plan since 2026-07-28 and has
+produced almost no data."
 
 **That is the whole of the claim.** The harness binds `ANTHROPIC_MODEL` once at launch
 (`run-local-cc.sh:39-42`) against a static two-entry map (`harness/litellm_config.yaml`) — it is

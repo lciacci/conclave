@@ -35,13 +35,23 @@
 >    exists — an interposed proxy at `ANTHROPIC_BASE_URL`, no hook needed. **Bound this carefully:**
 >    the harness binds `ANTHROPIC_MODEL` once at launch against a static two-entry map, so it is
 >    *interposition, not routing*, and does **not** refute "can't apply mid-flight". Per-request
->    policy at that point is Switchyard's claim, untested here. The first draft of that paragraph
->    merged the two claims and `/code-review` caught it as a HIGH.
+>    policy at that point is Switchyard's claim, untested here. Also: the harness landed **2026-07-17
+>    (`60f2ea6`), three weeks AFTER ADR-0002** — so this is a *missed reconciliation*, not a
+>    refutation Tessera overlooked. Do not date it earlier.
+>
+> ### Process note, because it is the point of the session
+> **`/code-review` caught two over-claims in the paragraph that announced it was guarding against
+> over-claiming.** Round 1 (HIGH): the claim that the harness "re-targets per request" merged
+> interposition with routing. Round 2 (MEDIUM), on the *corrected* paragraph: "conclave has been
+> using one for months" was wrong on duration (29 days), on order (the proxy postdates ADR-0002),
+> and on usage (this repo's own notes say the harness has produced almost no data). Failure mode #1
+> is not defeated by naming it in the same paragraph.
 >
 > ### Also this session
 > `docs/conclave-overview.html` → **`docs/index.html`** (still manually deployed by upload; the
 > rename removes a step). Four references swept. Three stale "(LATEST — RESUME HERE)" markers below
-> demoted to their dates — only this block carries the marker now.
+> demoted, and pointed at the **2026-08-14 retraction** — that is what actually supersedes their
+> measured content, not this block.
 
 > # 🔴 2026-08-14 — the local tier's headline weakness was RETRACTED. A new open-weight model closed two-thirds of it, and the design run has NOT happened yet.
 >
@@ -136,7 +146,7 @@
 > - `s2_model_axis.py` takes `$LOCAL_CODER` + `$S2_PASSES_FILE`, one passes file per model. A shared
 >   file would have let the second model **resume into the first's rows** and score a silent blend.
 
-> # ✅ 2026-08-10 (superseded — see the 2026-08-15 block at the top) — the free signal arrived and the paid experiment stays UNSPENT. Conclave's queue is now empty of everything except passive accumulation.
+> # ✅ 2026-08-10 (superseded — see the 2026-08-14 retraction block above) — the free signal arrived and the paid experiment stays UNSPENT. Conclave's queue is now empty of everything except passive accumulation.
 >
 > `../arbiter/docs/STATE.md` § "Round 3" is the head-to-head the 2026-08-07 block was waiting on.
 > **Trigger not met — do not spend.** Three arms on one diff, but *all three are the same model*, so
@@ -221,7 +231,7 @@
 > (`docs/observatory.md` lines ~1041–1095 are badly stale — old L40S fleet, "conclave carries both a
 > judge and a router" as the converging design, pr-arbiter Phase 1/2 numbers as live).
 
-> # ✅ 2026-07-28 (superseded — see the 2026-08-15 block at the top) — THE CLEAN T1–T3 COMPARISON RAN. Result is a NULL: no fidelity separation. The 2026-07-22 "80B's edits never landed" verdict is now settled — it was the HARNESS, and the 80B is FASTER, not slower.
+> # ✅ 2026-07-28 (superseded — see the 2026-08-14 retraction block above) — THE CLEAN T1–T3 COMPARISON RAN. Result is a NULL: no fidelity separation. The 2026-07-22 "80B's edits never landed" verdict is now settled — it was the HARNESS, and the 80B is FASTER, not slower.
 >
 > ## Nothing is billing. Pod terminated after 21 min. Session ≈ **$3.30 RunPod, $0 AWS**. Grant revoked.
 > ## Both legs at pinned BASE `a740565`, same aider build on the same laptop, only the endpoint differs.
@@ -454,7 +464,7 @@
 > lottery, no 75GB download — the three things that ate this session. Revisit AFTER the current
 > measurement, gated on the instrument, not on the launch.
 
-> # 🖥️ 2026-07-22 (superseded — see the 2026-08-15 block at the top) — HOSTED-80B T1–T3 RAN on a RunPod H200. Result: 80B GENERATIONS are correct; the aider-on-raw-vLLM HARNESS is the confound. Fidelity head-to-head NOT cleanly settled — it needs a matched, edit-applying harness.
+> # 🖥️ 2026-07-22 (superseded — see the 2026-08-14 retraction block above) — HOSTED-80B T1–T3 RAN on a RunPod H200. Result: 80B GENERATIONS are correct; the aider-on-raw-vLLM HARNESS is the confound. Fidelity head-to-head NOT cleanly settled — it needs a matched, edit-applying harness.
 >
 > ## The run happened. Not a fleet — ONE `Qwen3-Coder-Next-FP8` on ONE H200, driven by aider POD-SIDE
 > ## headless, same T1–T3 as the local qwen3-coder:30b leg. Everything below replays; pod is TERMINATED,
