@@ -191,7 +191,8 @@ until a third instance appears — but record the count, because this is now two
 
 ## F-004 — the review gate covers the draft and never the fix
 
-**Status:** open (raised 2026-08-15)
+**Status:** open
+**Surfaced:** 2026-08-15
 
 The pre-commit discipline is "run `/code-review` before committing". As actually practised the
 sequence is **review → apply the findings → commit**, which means **the edits made in response to
@@ -204,8 +205,16 @@ proxy harness does per-request routing when it does launch-time interposition). 
 paragraph, committed, and pushed. The rewrite contained **a second over-claim** — wrong on duration,
 wrong on chronological order, and contradicted by this repo's own notes — which a *later* review
 caught only because the owner asked whether anything had gone unreviewed. **The instrument did not
-notice the gap; a human did.** By then the claim had reached two repos and a page that had already
-been uploaded, so the fix cost a re-deploy rather than a commit.
+notice the gap; a human did.** By then the claim had reached two repos and a deployed page, so the
+fix cost a re-deploy rather than a commit.
+
+> **Sourcing that last clause, because a review flagged it as unsupported and it is load-bearing.**
+> The wrong chronology was live on `../tessera/docs/promo/index.html` only between `bc69aeb` and
+> `7bfb108` — about ten minutes. It reached the deployed copy because the owner uploaded both HTML
+> pages inside that window and said so in-session. **That evidence is a conversation, not an
+> artifact**, so nothing in either repo records it and the claim is unciteable by anyone reading
+> later. Which is its own small instance of the problem: the deploy state of a hand-uploaded page
+> lives only in whoever remembers doing it.
 
 **Why it's framework-level.** Nothing here is specific to conclave's subject matter. Any project
 running the gate has the same shape, and the failure is silent by construction: after a review, the
@@ -219,8 +228,13 @@ has the same class of artifact (`docs/index.html`) and the same hole. This is F-
 downstream: not "a retraction fails to reach peers", but "a correction reaches the repo and not the
 deployed copy".
 
-**Suggested fix (lands in `../tessera`), cheapest first:**
-1. **A Stop-hook check, in the shape `gate/scan.py` already has:** if the transcript shows a
+**Suggested fix, cheapest first.** Fix (1) is the exception to this file's usual "lands in
+`../tessera`" rule: `scripts/gate/scan.py` exists in **both** repos (conclave's own copy dates to
+`e5eb582`, 2026-07-11), so a detector could be prototyped here as dogfood before the contract moves.
+Fixes (2) and (3) are framework-side.
+1. **A Stop-hook check, in the shape `gate/scan.py` already has** — verified, not recalled: it walks
+   the transcript, content-addresses candidate turns, diffs them against the log, persists
+   dispositions (F-001's fix) and makes you adjudicate the gap. If the transcript shows a
    `/code-review` invocation followed by file edits followed by a commit, with no second review
    between, make it adjudicable — the same "you did a gate-shaped thing and did not log it" pattern
    that already backstops the suggestion-gate. This is the 80% fix and needs no new instrument.
@@ -230,9 +244,18 @@ deployed copy".
    is not older than the file's last content commit. That turns "needs re-upload" from a thing a
    session has to remember into a thing that fails loud.
 
-**When to fix:** n=1, so by F-003's own standard, build nothing yet. But record it, because unlike
-F-001–F-003 this one has a **known cost already paid** (a wrong claim on a live page) rather than a
-hypothetical one, and fix (1) is a variation on a hook that exists rather than a new mechanism.
+**When to fix:** n=1, so by F-003's own standard, build nothing yet.
+
+> **Retracted from this section, 2026-08-15, same day it was written.** It originally argued that
+> "unlike F-001–F-003 this one has a known cost already paid rather than a hypothetical one." That
+> is false and the counter-evidence is in this same file: F-003 prices its cost explicitly ("arbiter
+> would have kept declining an option on evidence that no longer existed … finally priced"), and
+> F-001 records non-gate turns re-litigated ~4× in one session. **A paid cost is not what makes this
+> one different**, so the "build despite n=1" argument that leaned on it is withdrawn. What actually
+> distinguishes F-004 is narrower and worth less: fix (1) reuses an existing hook shape rather than
+> inventing a mechanism.
+
+The honest reason to record it now is the count, not the severity.
 
 **Honest counter-argument:** the discipline "re-run the review after applying fixes" requires no
 tooling at all, and n=1 is a thin basis for a hook. The case against that is the same as F-003's —
