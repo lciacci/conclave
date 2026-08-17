@@ -1,0 +1,55 @@
+#!/bin/sh
+# Report what is about to become public that no review has seen.
+#
+# conclave F-004: the edits made in response to a review are the part no review covers. Measured
+# 2026-08-17, the hole is narrower than F-004 states — reviews targeting `origin/main..HEAD`
+# re-cover the previous round's fixes for free, so only the TERMINAL fix escapes, and the PUSH is
+# what makes that permanent. This hook sits at exactly that boundary.
+#
+# WARN-ONLY, ON PURPOSE, and against F-004's own suggested fix (1). "Your latest edits are
+# unreviewed" is true by construction whenever you stop, so a blocking gate here detects the end
+# of a session rather than a defect, and has no fixed point — every re-review leaves its own fixes
+# unreviewed. Same posture ADR-0012 set for sqlfluff: loud, never blocking. Full reasoning in
+# scripts/review/stamp.py.
+#
+# POSIX sh + stdlib python3 only: runs outside the venv.
+set -u
+ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+[ -f "$ROOT/scripts/review/stamp.py" ] || exit 0
+
+python3 - "$ROOT" <<'PY'
+import sys, pathlib
+root = pathlib.Path(sys.argv[1])
+sys.path.insert(0, str(root / "scripts" / "review"))
+try:
+    import stamp
+    st, changed = stamp.changed_since_review()
+except Exception as exc:                      # never block a push on this hook's own failure
+    print("pre-push: review-anchor check unavailable (%s)" % exc, file=sys.stderr)
+    sys.exit(0)
+
+BAR = "-" * 66
+# THE no-stamp CASE IS DELIBERATELY SILENT, and that decision reverses this hook's first version.
+# Stamping rides model recall (principle #17), so most pushes will carry no stamp: measured
+# 2026-08-17, 3 stamps ever against 47 session logs. A branch that fires on the majority of
+# pushes is P13's shape — a signal that is always true is one you learn to dismiss — and this
+# hook's own header argues against exactly that. Warning on "no review recorded" would have made
+# the hook noise within a week and taken the useful branch down with it.
+# So it speaks only when it has something specific: a review IS on record and HEAD has moved
+# past it. Absence of a stamp is absence of evidence, and this hook does not report that.
+if st is None:
+    pass
+elif changed:
+    print("\n%s\n  %d FILE(S) CHANGED SINCE THE LAST REVIEW SAW THEM:" % (BAR, len(changed)),
+          file=sys.stderr)
+    for f in changed[:12]:
+        print("    %s" % f, file=sys.stderr)
+    if len(changed) > 12:
+        print("    ... and %d more" % (len(changed) - 12), file=sys.stderr)
+    print("  reviewed at %s (%s); HEAD is ahead." % (st["data"]["head"][:12], st["ts"]),
+          file=sys.stderr)
+    print("  These are the fix-edits no review covered — F-004's hole. Not blocked.",
+          file=sys.stderr)
+    print("%s\n" % BAR, file=sys.stderr)
+PY
+exit 0

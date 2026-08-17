@@ -49,8 +49,26 @@ json_str() {
     printf '%s' "${_v%%\"*}"   # keep up to the closing quote
 }
 
-# Escape the two characters that can break a JSON string. Reasons are a controlled
-# vocabulary, but a --detail may carry a path, and a stray quote must not corrupt the log.
+# Literal control characters, held in variables because a `case` pattern cannot spell
+# them. Builtins only — `printf` is a shell builtin and is already this file's output
+# mechanism, so no external process is introduced.
+_JS_NL='
+'
+_JS_TAB=$(printf '\t')
+_JS_CR=$(printf '\r')
+
+# Escape what can break a JSON string. Reasons are a controlled vocabulary, but a
+# --detail may carry a path or an error message, and neither may corrupt the log.
+#
+# NEWLINES WERE THE HOLE (arbiter 2026-08-10). Only `\` and `"` were escaped, so a
+# multi-line --detail — the *typical* shape of a captured error — emitted a broken first
+# line plus a second line that is not JSON at all. Every consumer of that session's
+# `.jsonl` then fails on it, including `tessera-watch` P13. That is this file's own
+# failure mode: the reporter for broken infrastructure, corrupting the report.
+#
+# Residual, stated rather than discovered later: other C0 controls (BEL, ESC and the
+# rest) still pass through raw and remain invalid JSON. NUL cannot occur — a shell
+# variable cannot hold one. The three handled here are the ones real error text carries.
 json_escape() {
     _s="$1"; _out=""
     while [ -n "$_s" ]; do
@@ -59,6 +77,9 @@ json_escape() {
         case "$_c" in
             \\) _out="$_out\\\\" ;;
             \") _out="$_out\\\"" ;;
+            "$_JS_NL")  _out="$_out\\n" ;;
+            "$_JS_TAB") _out="$_out\\t" ;;
+            "$_JS_CR")  _out="$_out\\r" ;;
             *)  _out="$_out$_c" ;;
         esac
     done
@@ -80,6 +101,19 @@ emit() {
     # **A degraded reporter that a directory change can silence is not a reporter.**
     # Builtins only, per this file's contract — it reports on broken infrastructure and may
     # not assume working infrastructure. Falls back to the original on no match, never empty.
+    # ABSOLUTE FIRST, or the walk below cannot walk. `${CLAUDE_PROJECT_DIR:-.}` yields "."
+    # when the variable is unset, and "." contains no "/", so the `case` hit its `*) break`
+    # on the first pass and left `_project="."` — logging into whatever subdirectory the
+    # caller happened to be in. That is exactly the pattern #9 regression the comment above
+    # says this code eliminates, surviving inside the fix. `$PWD` is a shell variable, not a
+    # command, so the builtins-only contract holds. (arbiter 2026-08-10.)
+    case "$_project" in
+        /*)     ;;
+        .|"")   _project="${PWD:-/}" ;;
+        ./*)    _project="${PWD:-/}/${_project#./}" ;;
+        *)      _project="${PWD:-/}/$_project" ;;
+    esac
+
     _d="$_project"
     while [ -n "$_d" ] && [ "$_d" != "/" ]; do
         if [ -e "$_d/.git" ] || [ -f "$_d/.tessera/project.yml" ]; then _project="$_d"; break; fi
@@ -122,6 +156,30 @@ if [ -n "${SELFTEST:-}" ]; then
     if CLAUDE_CODE_SESSION_ID="" emit x y "" "" "$_t" "" 2>/dev/null; then
         echo "SELF-TEST FAIL: wrote without a session id"; rm -rf "$_t"; exit 1
     fi
+
+    # A MULTI-LINE detail must stay ONE JSON line. This is the shape a captured error
+    # actually has, and before 2026-08-10 it split the record and left the next line as
+    # non-JSON, breaking every consumer of that session's log — P13 included.
+    emit hook-x crashed 'first line
+second line' sess-3 "$_t" ""
+    _n=$(wc -l < "$_t/.tessera/logs/sess-3.jsonl")
+    [ "$_n" -eq 1 ] || { echo "SELF-TEST FAIL: multiline detail wrote $_n lines"; rm -rf "$_t"; exit 1; }
+    case $(cat "$_t/.tessera/logs/sess-3.jsonl") in
+        *'first line\nsecond line'*) ;;
+        *) echo "SELF-TEST FAIL: newline not escaped"; rm -rf "$_t"; exit 1 ;;
+    esac
+
+    # The root-anchoring walk, which no self-test exercised (arbiter 2026-08-10 advisory)
+    # — and which was broken for the relative-path case it exists to handle. Emit from a
+    # SUBDIRECTORY of a marked root and require the log at the ROOT, not beside the caller.
+    mkdir -p "$_t/sub/deeper" && : > "$_t/.git"
+    ( cd "$_t/sub/deeper" && emit walker no-root '' sess-4 '.' '' )
+    [ -f "$_t/.tessera/logs/sess-4.jsonl" ] || {
+        echo "SELF-TEST FAIL: relative project did not anchor to the git root"
+        rm -rf "$_t"; exit 1; }
+    [ -f "$_t/sub/deeper/.tessera/logs/sess-4.jsonl" ] && {
+        echo "SELF-TEST FAIL: wrote beside the caller, not at the root"
+        rm -rf "$_t"; exit 1; }
     rm -rf "$_t"
     echo "tessera-degraded self-test PASS"
     exit 0

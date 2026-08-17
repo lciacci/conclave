@@ -43,9 +43,33 @@ def logs_dir() -> Path:
     return root() / ".tessera" / "logs"
 
 
+def safe_session_id(session_id: str) -> str:
+    """A session id used as a FILENAME, reduced to one path component.
+
+    THE CANONICAL SANITISER. `docs/observatory.md` → "`CLAUDE_CODE_SESSION_ID` reaches a
+    filename unsanitised in 7 modules" accepted that risk on the premise that the value is
+    *only ever set by the harness*, with an explicit revisit trigger: any of these tools
+    starting to take a session id from an argument, a config file, or a hook payload.
+    **That trigger fired 2026-08-10** — `bin/tessera-degraded` takes it from a `--session`
+    flag AND from the `session_id` field of piped JSON.
+
+    The severity rejection still stands (every source is the harness or this repo's own
+    hooks, so this is robustness, not a vulnerability). What changed is that the premise
+    is no longer true, and the entry's own prescription was "one shared helper, applied to
+    all — not a patch at the call site that changed". This is that helper.
+
+    `Path(x).name` collapses `../../etc/passwd` to `passwd` and `/abs/path` to `path`;
+    empty or all-separator input raises rather than silently writing to the directory
+    itself."""
+    cleaned = Path(session_id).name
+    if not cleaned or cleaned in (".", ".."):
+        raise ValueError(f"unusable session id: {session_id!r}")
+    return cleaned
+
+
 def log_path(session_id: str) -> Path:
     """This session's gate log."""
-    return logs_dir() / f"{session_id}.jsonl"
+    return logs_dir() / f"{safe_session_id(session_id)}.jsonl"
 
 
 def signals_path() -> Path:
