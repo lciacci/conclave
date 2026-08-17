@@ -191,8 +191,52 @@ until a third instance appears — but record the count, because this is now two
 
 ## F-004 — the review gate covers the draft and never the fix
 
-**Status:** open
+**Status:** transferred:`../tessera` @ 117ebb1 + bdc70ad (2026-08-17) — the rule, and a narrower
+mechanism than this finding proposed. Fix (1) DECLINED, twice, independently. Fix (3) rebuilt after
+its proposed design proved a false green. **The recurrence trigger this finding set — "a different
+session on different work" — is what fired.**
 **Surfaced:** 2026-08-15
+
+> **Disposition, 2026-08-17, written from a Tessera session (precedent: F-002 `cf02f10`).**
+>
+> **The trigger fired.** Tessera hit this on 2026-08-17: three review rounds on one change, and the
+> terminal round's fixes were pushed unreviewed (`0440193`). Different session, different repo,
+> different work — the condition `917936c` set.
+>
+> **Fix (1) is not built, and this repo's argument is the one that held.** `917936c` declined it on
+> the ground that *F-003's standard for automating is a rule documented and SKIPPED, and you cannot
+> skip a rule nobody wrote*. Tessera reached the same verdict independently by a weaker route (a
+> Stop hook has no fixed point — "your latest edits are unreviewed" is true whenever you stop, and
+> every re-review leaves its own fixes unreviewed). Both stand; the first is stronger.
+>
+> **But the rule written here on 2026-08-15 never reached Tessera** — not its CLAUDE.md, not a
+> skill, not a contract. So Tessera hit the pattern, re-derived the verdict, and *built a mechanism
+> a day after this repo decided not to*. **That is F-002's subject scoring the framework**: the
+> peer channel this file opened for findings does not carry DECISIONS, and the two repos agreeing
+> was luck. Recorded in Tessera's rule text rather than smoothed over. It is the sharpest thing this
+> finding produced and it is not what the finding was about.
+>
+> **What Tessera measured that narrows the claim.** "The edits made in response to a review are the
+> only part nothing has looked at" is false in the general form: a review targeting
+> `origin/main..HEAD` re-covers the previous round's fixes for free. Rounds 1 and 2 were reviewed;
+> only the terminal one escaped. **The push is what makes the hole permanent, not the fixing** — so
+> the boundary is pre-push, not Stop.
+>
+> **Shipped:** the rule (`bdc70ad`, both repos' reasoning); `scripts/review/stamp.py` +
+> `.githooks/pre-push`, warn-only, reporting the set difference since the last recorded review — a
+> set difference terminates where a recursion does not. Its own first version had a second branch
+> that fired when no review was recorded; measured at 3 stamps against 47 sessions, that is P13's
+> always-true shape, and it was cut (`55cdab0`).
+>
+> **Fix (3) shipped and its proposed design was replaced.** A `deployed:` date compared against the
+> file's last content commit **was built first and was a false green** — `docs/promo/index.html`
+> took four commits on 2026-08-17 and a same-day date cannot distinguish them, so the design failed
+> on the instance that motivated it. Replaced with a content hash that excludes the marker from its
+> own input, which is what stops a marker-only edit satisfying it. Limit stated in the artifact: it
+> records a human's CLAIM of an upload, with no second party available to check it.
+>
+> **Fix (2) untouched** — `/code-review --fix` re-reviewing its own applied diff is upstream of
+> both repos.
 
 The pre-commit discipline is "run `/code-review` before committing". As actually practised the
 sequence is **review → apply the findings → commit**, which means **the edits made in response to
