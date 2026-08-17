@@ -237,6 +237,22 @@ session on different work" — is what fired.**
 >
 > **Fix (2) untouched** — `/code-review --fix` re-reviewing its own applied diff is upstream of
 > both repos.
+>
+> **CORRECTION, same day, before this disposition was an hour old.** The paragraphs above say the
+> peer channel "didn't" and that Tessera "never received it". That overstates a channel failure and
+> understates a deliberate override, so: **the finding surfaced correctly** — `tessera-findings`
+> printed F-004 at SessionStart — **and its body said `When to fix: n=1, so by F-003's own standard,
+> build nothing yet`, which was read and quoted before anything was built.** Tessera argued the
+> count had changed (the recurrence trigger), proposed building, and the owner approved. That is a
+> decision, not a miss.
+>
+> **What genuinely did not travel is narrower and still worth fixing: the RULE and the ARGUMENT.**
+> `917936c` put *"you cannot skip a rule nobody wrote"* in a commit message and the rule itself in
+> conclave's `CLAUDE.md`. Neither is in this file, so neither reached the framework, and Tessera
+> re-derived a weaker version of the same verdict. **The finding's own body was never updated when
+> this repo decided** — status stayed `open`, `When to fix` still read "build nothing yet" with no
+> mention that the rule had been written. The cheap remedy is a convention, not a mechanism: *when
+> you act on a finding, update the finding, even if its status does not change.*
 
 The pre-commit discipline is "run `/code-review` before committing". As actually practised the
 sequence is **review → apply the findings → commit**, which means **the edits made in response to
