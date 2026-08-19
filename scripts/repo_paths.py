@@ -88,6 +88,26 @@ ABSENT_TESSERA_PATHS = {
     # token.startswith(p + "/")`, so a stored slash matches neither form of the token.
     "skills/tessera-code-review": "the skill ADR-0014 cut",
     "docs/maggy-rfc.md": "written, never kept; ADR-0003 cites it as the upstream proposal",
+    # RETIRED 2026-08-18 by ADR-0029 — the in-band spend guard. These are real Tessera paths,
+    # deliberately deleted, and they stay declared for the reason this set exists: an undeclared
+    # absence is indistinguishable from a foreign path, and the docs that describe the retired
+    # mechanism (the contract, the observatory entries, three ADRs) still name them ON PURPOSE.
+    # Deleting those mentions would erase the reasoning; declaring the absence keeps both.
+    "scripts/spend": "the whole in-band spend guard; ADR-0029 retired it",
+    "scripts/spend/guard.py": "the classifier ADR-0029 retired",
+    "scripts/spend/backstop.py": "the denial backstop; retired with its guard, ADR-0029",
+    "scripts/spend/authorize.py": "the envelope verb; retired with its guard, ADR-0029",
+    "scripts/spend/event.py": "the spend audit-log writer; ADR-0029",
+    "scripts/spend/conftest.py": "the suite's audit-log containment; ADR-0029",
+    "scripts/spend/test_guard.py": "retired with its subject, ADR-0029",
+    "scripts/spend/test_backstop.py": "retired with its subject, ADR-0029",
+    "scripts/spend/test_event.py": "retired with its subject, ADR-0029",
+    "scripts/spend/test_segments_known_ceilings.py": "the pinned ceilings; ADR-0029",
+    ".claude/scripts/tessera-spend-guard.sh": "the PreToolUse shim; ADR-0029",
+    "templates/tessera-spend-guard.sh": "the shim's template twin, orphaned; ADR-0029",
+    "templates/tessera-spend-backstop.sh": "the shim's template twin, orphaned; ADR-0029",
+    ".claude/scripts/tessera-spend-backstop.sh": "the Stop shim; ADR-0029",
+    "bin/tessera-authorize": "the envelope CLI; ADR-0029",
     # scripts/tdd-loop-check.sh is deliberately NOT here: it never existed, which makes it
     # PLANNED_PATHS' question (unbuilt), not this set's (gone). Filing it here on day one was
     # the same one-set-two-questions conflation this module was written to end.

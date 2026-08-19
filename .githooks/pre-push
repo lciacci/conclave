@@ -24,6 +24,7 @@ sys.path.insert(0, str(root / "scripts" / "review"))
 try:
     import stamp
     st, changed = stamp.changed_since_review()
+    stale = stamp.staleness_note(stamp.latest(), st)
 except Exception as exc:                      # never block a push on this hook's own failure
     print("pre-push: review-anchor check unavailable (%s)" % exc, file=sys.stderr)
     sys.exit(0)
@@ -37,7 +38,24 @@ BAR = "-" * 66
 # the hook noise within a week and taken the useful branch down with it.
 # So it speaks only when it has something specific: a review IS on record and HEAD has moved
 # past it. Absence of a stamp is absence of evidence, and this hook does not report that.
-if st is None:
+# ORDER IS LOAD-BEARING, AND IT WAS WRONG FOR ONE COMMIT. `st` comes from
+# `changed_since_review`, which selects via `latest_usable()`, and `staleness_note` returns None
+# whenever a usable stamp exists — so `stale` is truthy ONLY when `st is None`, and testing
+# `st is None` first swallowed every stale case. The round-4 changes (latest_usable + the
+# early-return) individually made sense and together made this branch DEAD CODE, restoring the
+# exact "'you are clear' and 'I am blind' print identically" defect it was written to fix.
+# Found by review round 5; nothing tested the hook's branch ordering.
+if stale:
+    # AN EMPTY REPORT HAD THREE CAUSES AND ONE VOICE. `changed_since_review` returns [] when
+    # nothing changed, when the stamped commit is gone, and when HEAD has moved off its line —
+    # and this hook printed nothing for all three, so "I checked and you are clear" and "I am
+    # blind" were the same output. An --amend or a rebase after stamping produces the second
+    # PERMANENTLY, because `latest()` keeps serving that stamp and stamping rides model recall.
+    # Loud, still not blocking. (Review round 2, 2026-08-19.)
+    # ONE LINE, not a banner: it is a "this check cannot answer" note, not a finding, and it
+    # shares stderr with the report that IS one. Bounded to recent stamps in `staleness_note`.
+    print("pre-push: review anchor is blind — %s" % stale, file=sys.stderr)
+elif st is None:
     pass
 elif changed:
     print("\n%s\n  %d FILE(S) CHANGED SINCE THE LAST REVIEW SAW THEM:" % (BAR, len(changed)),
